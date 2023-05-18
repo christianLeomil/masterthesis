@@ -1,7 +1,8 @@
 from pyomo.environ import *
 import pandas as pd
 
-path_output = './masterthesis/'
+path_output = './masterthesis/output/'
+path_parameters = './masterthesis/input/'
 
 model = AbstractModel()
 
@@ -38,10 +39,10 @@ model.objective_function = Objective(rule=objective_rule, sense=minimize)
 
 # Reading data
 data = DataPortal()
-data.load(filename='HOURS.csv', set='HOURS')
-data.load(filename='demand.csv', param='demand', index='HOURS')
-data.load(filename='workCapA.csv', param='workCapA', index='HOURS')
-data.load(filename='workCapB.csv', param='workCapB', index='HOURS')
+data.load(filename=path_parameters+'HOURS.csv', set='HOURS')
+data.load(filename=path_parameters+'demand.csv', param='demand', index='HOURS')
+data.load(filename=path_parameters+'workCapA.csv', param='workCapA', index='HOURS')
+data.load(filename=path_parameters+'workCapB.csv', param='workCapB', index='HOURS')
 
 instance = model.create_instance(data)
 
