@@ -2,7 +2,7 @@ from pyomo.environ import *
 import pandas as pd
 
 path_output = './masterthesis/output/'
-path_parameters = './masterthesis/input/'
+path_parameters = './masterthesis/input/old/'
 
 model = AbstractModel()
 
