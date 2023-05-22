@@ -24,8 +24,8 @@ model.pv_eff = pyo.Param()
 
 model.starting_SOC = pyo.Param() #starting SOC of battery
 model.E_bat_max = pyo.Param() #capacity of battery
-# model.bat_ch_eff = pyo.Param() #charging efficiency of battery
-# model.bat_dis_eff = pyo.Param() #discharging efficiency of battery
+model.bat_ch_eff = pyo.Param() #charging efficiency of battery
+model.bat_dis_eff = pyo.Param() #discharging efficiency of battery
 model.c_rate_ch = pyo.Param() #maximal charging power (max charging power = c_rate * E_bat_max)
 model.c_rate_dis = pyo.Param() #maximal discharging power (max discharging power = c_rate * E_bat_max)
 
@@ -34,6 +34,8 @@ model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
 model.P_demand = pyo.Param(model.HOURS) #time series with solar energy
 model.costBuy = pyo.Param(model.HOURS) #time series with costs of buying energy
 model.costSell = pyo.Param(model.HOURS) #time series with price of energy being sold to grid
+
+model.Q_demand = pyo.Param(model.HOURS)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -69,24 +71,30 @@ def demand_rule(model,t):
     return model.P_demand[t] == model.P_pv_demand[t] + model.P_buy[t] + model.P_bat_demand[t]
 model.demandRule = pyo.Constraint(model.HOURS,rule = demand_rule)
 
+
 def pv_rule(model,t):
     return model.P_solar[t] * model.pv_eff == model.P_pv_bat[t] + model.P_pv_sell[t] + model.P_pv_demand[t]
 model.pvRule = pyo.Constraint(model.HOURS,rule = pv_rule)
+
 
 def battery_rule(model,t):
         if t ==1:
              return model.SOC[t] == model.starting_SOC
         else:
-            return model.SOC[t] == model.SOC[t-1] + (model.P_bat_ch[t-1] - model.P_bat_dis[t-1]) * model.time_step / model.E_bat_max
+            return model.SOC[t] == model.SOC[t-1] + (model.P_bat_ch[t-1] * model.bat_ch_eff -
+                                                      model.P_bat_dis[t-1]/model.bat_dis_eff) * model.time_step / model.E_bat_max
 model.batteryRule = pyo.Constraint(model.HOURS,rule = battery_rule)
+
 
 def charge_rule(model,t):
      return model.P_bat_ch[t] == model.P_pv_bat[t]
 model.chargeRule = pyo.Constraint(model.HOURS,rule = charge_rule)
 
+
 def discharge_rule(model,t):
      return model.P_bat_dis[t] == model.P_bat_sell[t] + model.P_bat_demand[t]
 model.dischargeRule = pyo.Constraint(model.HOURS,rule = discharge_rule)
+
 
 def charge_limit(model,t):
      return model.P_bat_ch[t] <= model.E_bat_max * model.c_rate_ch * model.K_ch[t]
@@ -96,34 +104,42 @@ def discharge_limit(model,t):
      return model.P_bat_dis[t] <= model.E_bat_max * model.c_rate_dis * model.K_dis[t]
 model.dischargeLimit = pyo.Constraint(model.HOURS,rule = discharge_limit)
 
+
 def keys_rule(model,t):
      return model.K_ch[t] + model.K_dis[t] <= 1
 model.keysRule = pyo.Constraint(model.HOURS, rule = keys_rule)
+
 
 def sell_rule(model,t):
      return model.P_sell[t] == model.P_pv_sell[t] + model.P_bat_sell[t]
 model.sellRule = pyo.Constraint(model.HOURS,rule = sell_rule)
 
+
 def sell_energy(model,t):
     return model.E_sell[t] == model.P_sell[t] * model.time_step
 model.sellEnergy = pyo.Constraint(model.HOURS, rule = sell_energy)
+
 
 def buy_rule(model,t):
      return model.P_buy[t] == model.P_demand[t] - model.P_pv_demand[t] - model.P_bat_demand[t]
 model.buyRule = pyo.Constraint(model.HOURS, rule = buy_rule)
 
+
 def buy_energy(model,t):
      return model.E_buy[t] == model.P_buy[t] * model.time_step
 model.buyEnergy = pyo.Constraint(model.HOURS, rule = buy_energy)
+
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region constraints
 
+
 #objective function
 def objective_rule(model,t):
      return sum(model.E_buy[t] * model.costBuy[t] - model.E_sell[t] * model.costSell[t] for t in model.HOURS)
 model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
+
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -136,6 +152,8 @@ data['P_solar'] = df_input_series.set_index('HOURS')['P_solar'].to_dict()
 data['P_demand'] = df_input_series.set_index('HOURS')['P_demand'].to_dict()
 data['costBuy'] = df_input_series.set_index('HOURS')['costBuy'].to_dict()
 data['costSell'] = df_input_series.set_index('HOURS')['costSell'].to_dict()
+
+data['Q_demand'] = df_input_series.set_index('HOURS')['Q_demand'].to_dict()
 
 data['E_bat_max'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'E_bat_max', 'Value'].values[0]}
 data['starting_SOC'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'starting_SOC', 'Value'].values[0]}
