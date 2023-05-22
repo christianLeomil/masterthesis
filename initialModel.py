@@ -35,7 +35,7 @@ model.E_pv_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 model.E_pv_bat = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 model.E_pv_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 
-model.E_bat = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
+model.E_bat = pyo.Var(model.HOURS, within = pyo.NonNegativeReals, bounds=(0, model.E_bat_max))
 model.E_bat_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 
 # endregion
@@ -87,32 +87,32 @@ data.load(filename = path_input + 'costSell.csv', param='costSell',index='HOURS'
 #generating instance
 instance = model.create_instance(data)
 
-# instance.bateryCapacityRule.deactivate()
-
 #solving the model
 optimizer = pyo.SolverFactory('cplex')
 results = optimizer.solve(instance)
 
 # # Displaying the results
-instance.pprint()
+# instance.pprint()
 instance.display()
 
 #exporting data
 df = {'HOURS':[],
+      'E_demand':[],
+      'E_solar':[],
       'E_buy':[],
-      'E_sell':[],
       'E_sell':[],
       'E_bat':[],
       'E_bat_demand':[],
       'E_pv_bat':[],
       'E_pv_demand':[],
-      'E_pv_sell':[]
+      'E_pv_sell':[],
       }
 
 for t in instance.HOURS:
     df['HOURS'].append(str(t))
+    df['E_demand'].append(instance.E_demand[t])
+    df['E_solar'].append(instance.E_solar[t])
     df['E_buy'].append(instance.E_buy[t].value)
-    df['E_sell'].append(instance.E_sell[t].value)
     df['E_sell'].append(instance.E_sell[t].value)
     df['E_bat'].append(instance.E_bat[t].value)
     df['E_bat_demand'].append(instance.E_bat_demand[t].value)
@@ -120,7 +120,16 @@ for t in instance.HOURS:
     df['E_pv_demand'].append(instance.E_pv_demand[t].value)
     df['E_pv_sell'].append(instance.E_pv_sell[t].value)
 
-print(len(df['E_buy']))
+
+
+# print(len(df['E_bat']))
+
+column_keys = df.keys()
+
+# for column_key in column_keys:
+#      columns_values = df[column_key]
+#      column_length =len(columns_values)
+#      print(f"Length of {column_key}: {column_length}")
 
 df = pd.DataFrame(df)
 df.to_excel(path_output + 'df_results.xlsx', index=False)
