@@ -1,8 +1,8 @@
 import pyomo.environ as pyo
 import pandas as pd
 
-path_output = './masterthesis/output/'
-path_input = './masterthesis/input/'
+path_output = './output/'
+path_input = './input/'
 
 df_input_series = pd.read_excel(path_input + 'df_input.xlsx',sheet_name = 'series')
 df_input_other = pd.read_excel(path_input + 'df_input.xlsx',sheet_name = 'other')
@@ -13,7 +13,6 @@ model = pyo.AbstractModel()
 #sets
 model.HOURS = pyo.Set()
 
-# endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region constraints
 
@@ -34,8 +33,6 @@ model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
 model.P_demand = pyo.Param(model.HOURS) #time series with solar energy
 model.costBuy = pyo.Param(model.HOURS) #time series with costs of buying energy
 model.costSell = pyo.Param(model.HOURS) #time series with price of energy being sold to grid
-
-model.Q_demand = pyo.Param(model.HOURS)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -161,6 +158,8 @@ data['pv_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv_eff
 data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
 data['c_rate_ch'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'c_rate_ch', 'Value'].values[0]}
 data['c_rate_dis'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'c_rate_dis', 'Value'].values[0]}
+data['bat_ch_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat_ch_eff', 'Value'].values[0]}
+data['bat_dis_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat_dis_eff', 'Value'].values[0]}
 
 #generating instance
 instance = model.create_instance(data)
@@ -216,3 +215,5 @@ column_keys = df.keys()
 
 df = pd.DataFrame(df)
 df.to_excel(path_output + 'df_results.xlsx', index=False)
+
+#endregion

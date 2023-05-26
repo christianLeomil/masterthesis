@@ -1,10 +1,18 @@
-import pandas as pd
+class DynamicClass:
+    def __init__(self, n):
+        self.n = n
 
-path_input = './masterthesis/input/'
-path_output = './masterthesis/output/'
+        for i in range(n):
+            def method(self, num):  # Define the method inside the loop
+                print(f"Method {num} called!")
+            
+            # Assign the method to the instance
+            setattr(self, f"method_{i}", method.__get__(self, DynamicClass))
 
-number = 1
+# Create an instance of DynamicClass
+dynamic_obj = DynamicClass(3)
 
-number -= 10
-
-print(number)
+# Call the dynamically created methods
+dynamic_obj.method_0(0)
+dynamic_obj.method_1(1)
+dynamic_obj.method_2(2)
