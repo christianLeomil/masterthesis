@@ -40,6 +40,11 @@ class Transformer:
           self.E_storage -= self.E_out * self.eff_out
           return self.E_storage
      
+class link:
+     
+
+     
+     
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region constraints
