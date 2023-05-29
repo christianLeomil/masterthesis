@@ -120,16 +120,40 @@ model.y = Var(domain=NonNegativeReals)
 param = 5
 
 # Define a dynamic expression
-model.dynamic_expr = Expression(expr=model.x + model.y <= param)
+# model.dynamic_expr = Expression(expr=model.x + model.y <= param)
 
 # Define a constraint using the dynamic expression
-model.constraint = Constraint(expr=model.dynamic_expr)
+model.constraint = Constraint(expr=model.x + model.y <= param)
+
+model.obj = Objective(expr=model.x + model.y, sense=minimize)
 
 # Solve the model
-solver = SolverFactory('glpk')
+solver = SolverFactory('cplex')
 results = solver.solve(model)
 
 # Print the results
 print("x =", model.x.value)
 print("y =", model.y.value)
 
+
+# from pyomo.environ import *
+
+# model = ConcreteModel()
+
+# # Define variables
+# model.x = Var(domain=NonNegativeReals)
+# model.y = Var(domain=NonNegativeReals)
+
+# # Define a parameter
+# param = 5
+
+# # Define a constraint
+# model.constraint = Constraint(expr=model.x + model.y <= param)
+
+# # Solve the model
+# solver = SolverFactory('cplex')
+# results = solver.solve(model)
+
+# # Print the results
+# print("x =", model.x.value)
+# print("y =", model.y.value)
