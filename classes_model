@@ -6,7 +6,7 @@ path_input = './input/'
 name_file = 'df_input_test.xlsx'
 
 df_input_series = pd.read_excel(path_input + name_file,sheet_name = 'series')
-# df_input_other = pd.read_excel(path_input + name_file,sheet_name = 'other')
+df_conect = pd.read_excel(path_input + 'conect.xlsx', sheet_name = 'conect')
 
 # ---------------------------------------------------------------------------------------------------------------------
 # region start
@@ -32,6 +32,27 @@ def objective_rule(model, t):
 
 model.objectiveRule = pyo.Objective(rule=objective_rule, sense=pyo.minimize)
 
+
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region creating strings of constraints
+
+
+
+
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region constriant builder
+
+
+
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region creating constriants from classes
+
+
+
+
 #constraints
 class ClassConstraints:
     def constraint_1(model, t):
@@ -43,13 +64,17 @@ model.demandRule = pyo.Constraint(model.HOURS, rule=classconstraint.constraint_1
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region variables
+# region reading data
 
 data = pyo.DataPortal()
 data['HOURS'] = df_input_series['HOURS'].tolist()
 data['cost_x'] = df_input_series.set_index('HOURS')['cost_x'].to_dict()
 data['cost_y'] = df_input_series.set_index('HOURS')['cost_y'].to_dict()
 data['demand'] = df_input_series.set_index('HOURS')['demand'].to_dict()
+
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# creating instance of model
 
 #generating instance
 instance = model.create_instance(data)

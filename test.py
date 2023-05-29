@@ -40,8 +40,7 @@
 # abstract_model = AbstractModel(example)
 # abstract_model.solve()
 
-
-
+# #-------------------------------------------------------------------------------------------
 
 # class DynamicClass:
 #     def __init__(self, n):
@@ -61,6 +60,8 @@
 # dynamic_obj.method_0(0)
 # dynamic_obj.method_1(1)
 # dynamic_obj.method_2(2)
+
+# #-------------------------------------------------------------------------------------------
 
 # import pandas as pd
 
@@ -105,36 +106,7 @@
 # method_list = [method for method in dir(teste2) if method.startswith('__') is False]
 # print(method_list)
 
-
-#-------------------------------------------------------------------------------------------
-
-from pyomo.environ import *
-
-model = ConcreteModel()
-
-# Define variables
-model.x = Var(domain=NonNegativeReals)
-model.y = Var(domain=NonNegativeReals)
-
-# Define a parameter
-param = 5
-
-# Define a dynamic expression
-# model.dynamic_expr = Expression(expr=model.x + model.y <= param)
-
-# Define a constraint using the dynamic expression
-model.constraint = Constraint(expr=model.x + model.y <= param)
-
-model.obj = Objective(expr=model.x + model.y, sense=minimize)
-
-# Solve the model
-solver = SolverFactory('cplex')
-results = solver.solve(model)
-
-# Print the results
-print("x =", model.x.value)
-print("y =", model.y.value)
-
+# #-------------------------------------------------------------------------------------------
 
 # from pyomo.environ import *
 
@@ -147,8 +119,13 @@ print("y =", model.y.value)
 # # Define a parameter
 # param = 5
 
-# # Define a constraint
-# model.constraint = Constraint(expr=model.x + model.y <= param)
+# # Define a dynamic expression
+# # model.dynamic_expr = Expression(expr=model.x + model.y <= param)
+
+# # Define a constraint using the dynamic expression
+# model.constraint = Constraint(expr = model.x + model.y <= param)
+
+# model.obj = Objective(expr=model.x + model.y, sense=minimize)
 
 # # Solve the model
 # solver = SolverFactory('cplex')
@@ -157,3 +134,63 @@ print("y =", model.y.value)
 # # Print the results
 # print("x =", model.x.value)
 # print("y =", model.y.value)
+
+
+#------------------------------------------------------------------------------------------------------------------------------------
+
+# vetor = ['pv','bat','net','demand']
+
+# def create_equation(vetor):
+#     return globals()[vetor[0]] == sum(globals()[i] for i in vetor)
+
+from pyomo.environ import AbstractModel, Constraint, Var, Objective, Param, minimize, SolverFactory,value
+
+class ConstraintBuilder:
+    def __init__(self, model):
+        self.model = model
+
+    def create_constraint(self, constraint_name, expression_str):
+        expression = eval(expression_str, globals(), locals())
+        setattr(self, constraint_name, expression)
+        constraint = Constraint(expr=expression)
+        setattr(self.model, constraint_name, constraint)
+
+# Create an abstract model
+model = AbstractModel()
+
+model.Teste = Param(initialize = 100)
+
+# Define variables
+model.x = Var()
+model.y = Var()
+
+# Create the constraint builder
+builder = ConstraintBuilder(model)
+
+# Add constraint building code to the model
+model.constraint_builder = builder
+
+# Dynamically create a constraint method with a dynamically built expression
+expression_str = "model.x + model.y >= model.Teste"
+model.constraint_builder.create_constraint("constraint1", expression_str)
+
+# Dynamically create another constraint method with a dynamically built expression
+expression_str = "model.x - model.y <= 2"
+model.constraint_builder.create_constraint("constraint2", expression_str)
+
+# Define the objective
+model.obj = Objective(expr=model.x + 2 * model.y, sense=minimize)
+
+# Create an instance of the model
+instance = model.create_instance()
+
+# Solve the instance
+solver = SolverFactory('cplex')
+solver.solve(instance)
+
+# Access and check the created constraints
+print('Constraint 1:', instance.constraint1())
+print('Constraint 2:', instance.constraint2())
+
+# Access and check the objective value
+print('Objective value:', value(instance.obj))
