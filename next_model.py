@@ -1,69 +1,12 @@
-import pyomo.environ as pyo
 import pandas as pd
+import pyomo.environ as pyo
 
 path_output = './output/'
 path_input = './input/'
 name_file = 'df_input_test.xlsx'
 
 df_input_series = pd.read_excel(path_input + name_file,sheet_name = 'series')
-df_conect = pd.read_excel(path_input + 'c_matrix.xlsx', sheet_name = 'conect')
-
-# ---------------------------------------------------------------------------------------------------------------------
-# region start
-
-#model
-model = pyo.AbstractModel()
-
-#sets
-model.HOURS = pyo.Set()
-
-#parameters series
-model.time_step = pyo.Param(initialize = 1)
-
-model.pv_eff = pyo.Param(initialize = 0.1)
-
-model.starting_SOC = pyo.Param(initialize = 0.5) #starting SOC of battery
-model.E_bat_max = pyo.Param(initialize = 200) #capacity of battery
-model.bat_ch_eff = pyo.Param(initialize = 0.98) #charging efficiency of battery
-model.bat_dis_eff = pyo.Param(initialize = 0.98) #discharging efficiency of battery
-model.c_rate_ch = pyo.Param(initialize = 1) #maximal charging power (max charging power = c_rate * E_bat_max)
-model.c_rate_dis = pyo.Param(initialize = 1) #maximal discharging power (max discharging power = c_rate * E_bat_max)
-
-#parameters series
-model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
-model.P_pv = pyo.Param(model.HOURS)
-model.P_demand = pyo.Param(model.HOURS) #time series with solar energy
-model.costBuy = pyo.Param(model.HOURS) #time series with costs of buying energy
-model.costSell = pyo.Param(model.HOURS) #time series with price of energy being sold to grid
-
-#variables
-model.P_buy = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-
-model.P_pv_net = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_pv_bat = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_pv_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-
-model.SOC = pyo.Var(model.HOURS, within = pyo.NonNegativeReals, bounds=(0, 1))
-model.P_bat_ch = pyo.Var(model.HOURS,within = pyo.NonNegativeReals)
-model.P_bat_dis = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_bat_net = pyo.Var(model.HOURS,within = pyo.NonNegativeReals)
-model.P_bat_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-
-model.K_ch = pyo.Var(model.HOURS, domain = pyo.Binary)
-model.K_dis = pyo.Var(model.HOURS, domain = pyo.Binary)
-
-model.E_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.E_buy = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-
-#objective function
-def objective_rule(model,t):
-     return sum(model.E_buy[t] * model.costBuy[t] - model.E_sell[t] * model.costSell[t] for t in model.HOURS)
-model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
-
-# endregion
-# ---------------------------------------------------------------------------------------------------------------------
-# region creating strings of constraints
+df_conect = pd.read_excel(path_input + 'c_matrix.xlsx', sheet_name = 'test')
 
 df_conect.set_index(df_conect['from'],inplace=True)
 df_conect.index.name = None
@@ -87,42 +30,101 @@ df_conect = pd.DataFrame({'energy from':list_energy_from,
 list_string_total = []
 for i in range(0,len(df_conect)):
     string_partial = ''
-    string_partial ='model.P_' + str(df_conect['energy from'].iloc[i]) + '[t]' '== model.P_' + str(df_conect['energy from'].iloc[i]) + '_' +str(df_conect['energy to'].iloc[i][0])+ '[t]'
+    string_partial ='model.' + str(df_conect['energy from'].iloc[i]) + '[t]' '== model.' +str(df_conect['energy to'].iloc[i][0]) + '[t]'
     for j in range(1,len(df_conect['energy to'].iloc[i])):
-        string_partial = string_partial + '+model.P_' + str(df_conect['energy from'].iloc[i]) + '_' + str(df_conect['energy to'].iloc[i][j])+ '[t]'
+        string_partial = string_partial + '+ model.' + str(df_conect['energy to'].iloc[i][j])+ '[t]'
     list_string_total.append(string_partial)
 print(list_string_total)
 
-# endregion
-# ---------------------------------------------------------------------------------------------------------------------
-# region constriant builder
+model = pyo.AbstractModel()
 
+model.HOURS = pyo.Set()
 
-class ConstraintBuilder:
-    def __init__(self, model):
-        self.model = model
+model.demand = pyo.Param(model.HOURS)
+model.cost_x = pyo.Param(model.HOURS)
+model.cost_y = pyo.Param(model.HOURS)
 
-    def create_constraint(self, constraint_name, expression_str):
-        expression = eval(expression_str, globals(), locals())
-        setattr(self, constraint_name, expression)
-        constraint = pyo.Constraint(expr=expression)
-        setattr(self.model, constraint_name, constraint)
+model.quant_x = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
+model.quant_y = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
+model.quant_z = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 
-builder = ConstraintBuilder(model)
-model.constraint_builder = builder
+class myClass:
+    pass
 
 constraint_number = 1
 for i in list_string_total:
-    model.constraint_builder.create_constraint('Con '+str(constraint_number), i)
 
+    def dynamic_method(model,t):
+        return eval(i, globals(), locals())
+    
+    method_name = 'Constraint_' +str(constraint_number)
 
-# endregion
-# ---------------------------------------------------------------------------------------------------------------------
-# region creating other constraints
+    def method_wrapper(self,model,t):
+        return dynamic_method(model,t)
 
+    setattr(myClass,method_name,method_wrapper)
+    
+    my_obj = myClass()
+    
+    setattr(model, 'constraint' + str(constraint_number), pyo.Constraint(model.HOURS,rule = getattr(my_obj,method_name)))
+    constraint_number = constraint_number + 1
 
-# endregion
-# ---------------------------------------------------------------------------------------------------------------------
-# region constriant builder
+# def test_function(model,t):
+#     return model.demand[t] == model.quant_x[t] + model.quant_y[t]
+# model.testFunction = pyo.Constraint(model.HOURS,rule = test_function)
 
-# endregion
+# def constraint_other(model,t):
+#     return model.quant_z[t] == model.quant_x[t]
+# model.constraintOther = pyo.Constraint(model.HOURS,rule = constraint_other)
+
+def objective_rule(model,t):
+    return sum(model.cost_x[t] * model.quant_x[t] + model.cost_y[t] * model.quant_y[t] + model.cost_x[t] * model.quant_z[t] for t in model.HOURS)
+model.objectiveRule = pyo.Objective(rule = objective_rule, sense = pyo.minimize)
+
+#reading data
+data = pyo.DataPortal()
+data['HOURS'] = df_input_series['HOURS'].tolist()
+data['cost_x'] = df_input_series.set_index('HOURS')['cost_x'].to_dict()
+data['cost_y'] = df_input_series.set_index('HOURS')['cost_y'].to_dict()
+data['demand'] = df_input_series.set_index('HOURS')['demand'].to_dict()
+
+#generating instance
+instance = model.create_instance(data)
+
+print("Constraint Expressions:")
+for constraint in instance.component_objects(pyo.Constraint):
+    for index in constraint:
+        print(f"{constraint}[{index}]: {constraint[index].body}")
+
+#solving the model
+optimizer = pyo.SolverFactory('cplex')
+results = optimizer.solve(instance)
+
+# # Displaying the results
+# instance.pprint()
+instance.display()
+
+#exporting data
+df = {'HOURS':[],
+      'demand':[],
+      'cost_x':[],
+      'cost_y':[],
+      'quant_x':[],
+      'quant_y':[],
+      'quant_z':[]
+      }
+
+for t in instance.HOURS:
+    df['HOURS'].append(str(t))
+    df['demand'].append(instance.demand[t])
+    df['cost_x'].append(instance.cost_x[t])
+    df['cost_y'].append(instance.cost_y[t])
+    df['quant_x'].append(instance.quant_x[t].value)
+    df['quant_y'].append(instance.quant_y[t].value)
+    df['quant_z'].append(instance.quant_z[t].value)
+
+df = pd.DataFrame(df)
+df.to_excel(path_output + 'df_results_test.xlsx', index=False)
+
+method_list = [method for method in dir(myClass) if method.startswith('__') is False]
+print(method_list)
