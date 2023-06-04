@@ -48,10 +48,8 @@ model.quant_x = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 model.quant_y = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 
-
 class myClass:
     pass
-
 
 constraint_number = 1
 for i in list_string_total:

@@ -219,28 +219,80 @@
 
 # print(my_obj.Constraint_1(1,10))
 
-list_constraints = ['string 1', 'string 2', 'string 3']
+#-------------------------------------------------------------------------------------------------------
 
-class myClass:
-    pass
+# list_constraints = ['string 1', 'string 2', 'string 3']
 
-constraint_number = 1
-for i in list_constraints:
-    def dynamic_function(x1, x2):
-        return x1 + x2
+# class myClass:
+#     pass
+
+# constraint_number = 1
+# for i in list_constraints:
+#     def dynamic_function(x1, x2):
+#         return x1 + x2
     
-    method_name = 'Constraint_' + str(constraint_number)
+#     method_name = 'Constraint_' + str(constraint_number)
     
-    def method_wrapper(self,x1, x2):
-        return dynamic_function(x1, x2)
+#     def method_wrapper(self,x1, x2):
+#         return dynamic_function(x1, x2)
     
-    setattr(myClass, method_name, method_wrapper)
+#     setattr(myClass, method_name, method_wrapper)
 
-    my_obj = myClass()
+#     my_obj = myClass()
 
-    constraint_number += 1
+#     constraint_number += 1
 
-print(my_obj.Constraint_3('a', 'b'))
+# print(my_obj.Constraint_3('a', 'b'))
 
-method_list = [method for method in dir(myClass) if method.startswith('__') is False]
-print(method_list)
+# method_list = [method for method in dir(myClass) if method.startswith('__') is False]
+# print(method_list)
+
+
+#-------------------------------------------------------------------------------------------------------
+
+import pandas as pd
+import pyomo.environ as pyo
+
+class MyModel:
+    def __init__(self):
+        self.model = pyo.AbstractModel()
+
+    def define_sets(self):
+        self.model.HOURS = pyo.Set()
+
+    def define_parameters(self):
+        self.model.time_step = pyo.Param()
+        self.model.starting_SOC = pyo.Param()
+        self.model.E_bat_max = pyo.Param()
+        self.model.bat_ch_eff = pyo.Param()
+        self.model.bat_dis_eff = pyo.Param()
+
+    def define_variables(self):
+        self.model.SOC = pyo.Var(self.model.HOURS, within=pyo.NonNegativeReals, bounds=(0, 1))
+        self.model.P_bat_ch = pyo.Var(self.model.HOURS, within=pyo.NonNegativeReals)
+        self.model.P_bat_dis = pyo.Var(self.model.HOURS, within=pyo.NonNegativeReals)
+
+    def define_constraints(self):
+        def battery_rule(model, t):
+            if t == 1:
+                return model.SOC[t] == model.starting_SOC
+            else:
+                return model.SOC[t] == model.SOC[t-1] + (model.P_bat_ch[t-1] * model.bat_ch_eff -
+                                                         model.P_bat_dis[t-1] / model.bat_dis_eff) * \
+                       model.time_step / model.E_bat_max
+
+        self.model.batteryRule = pyo.Constraint(self.model.HOURS, rule=battery_rule)
+
+    def solve_model(self, df_input_series, df_input_other, df_power_constraints):
+        # Generate the model and solve it
+        self.define_sets()
+        self.define_parameters()
+        self.define_variables()
+        self.define_constraints()
+
+        # ... (rest of the code to read data, create instance, and solve the model)
+        # ... (including the code to export the model results)
+
+# Example usage
+model = MyModel()
+model.solve_model(df_input_series, df_input_other, df_power_constraints)
