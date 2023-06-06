@@ -250,49 +250,147 @@
 
 #-------------------------------------------------------------------------------------------------------
 
+# import pandas as pd
+# import pyomo.environ as pyo
+
+# class MyModel:
+#     def __init__(self):
+#         self.model = pyo.AbstractModel()
+
+#     def define_sets(self):
+#         self.model.HOURS = pyo.Set()
+
+#     def define_parameters(self):
+#         self.model.time_step = pyo.Param()
+#         self.model.starting_SOC = pyo.Param()
+#         self.model.E_bat_max = pyo.Param()
+#         self.model.bat_ch_eff = pyo.Param()
+#         self.model.bat_dis_eff = pyo.Param()
+
+#     def define_variables(self):
+#         self.model.SOC = pyo.Var(self.model.HOURS, within=pyo.NonNegativeReals, bounds=(0, 1))
+#         self.model.P_bat_ch = pyo.Var(self.model.HOURS, within=pyo.NonNegativeReals)
+#         self.model.P_bat_dis = pyo.Var(self.model.HOURS, within=pyo.NonNegativeReals)
+
+#     def define_constraints(self):
+#         def battery_rule(model, t):
+#             if t == 1:
+#                 return model.SOC[t] == model.starting_SOC
+#             else:
+#                 return model.SOC[t] == model.SOC[t-1] + (model.P_bat_ch[t-1] * model.bat_ch_eff -
+#                                                          model.P_bat_dis[t-1] / model.bat_dis_eff) * \
+#                        model.time_step / model.E_bat_max
+
+#         self.model.batteryRule = pyo.Constraint(self.model.HOURS, rule=battery_rule)
+
+#     def solve_model(self, df_input_series, df_input_other, df_power_constraints):
+#         # Generate the model and solve it
+#         self.define_sets()
+#         self.define_parameters()
+#         self.define_variables()
+#         self.define_constraints()
+
+#         # ... (rest of the code to read data, create instance, and solve the model)
+#         # ... (including the code to export the model results)
+
+# # Example usage
+# model = MyModel()
+# model.solve_model(df_input_series, df_input_other, df_power_constraints)
+
+
+#-------------------------------------------------------------------------------------------------------
+
 import pandas as pd
 import pyomo.environ as pyo
+from classes import Subclass
+import inspect
 
-class MyModel:
-    def __init__(self):
-        self.model = pyo.AbstractModel()
+path_output = './output/'
+path_input = './input/'
+name_file = 'df_input_test.xlsx'
 
-    def define_sets(self):
-        self.model.HOURS = pyo.Set()
+df_input_series = pd.read_excel(path_input + name_file, sheet_name='series')
 
-    def define_parameters(self):
-        self.model.time_step = pyo.Param()
-        self.model.starting_SOC = pyo.Param()
-        self.model.E_bat_max = pyo.Param()
-        self.model.bat_ch_eff = pyo.Param()
-        self.model.bat_dis_eff = pyo.Param()
+#model
+model = pyo.AbstractModel()
 
-    def define_variables(self):
-        self.model.SOC = pyo.Var(self.model.HOURS, within=pyo.NonNegativeReals, bounds=(0, 1))
-        self.model.P_bat_ch = pyo.Var(self.model.HOURS, within=pyo.NonNegativeReals)
-        self.model.P_bat_dis = pyo.Var(self.model.HOURS, within=pyo.NonNegativeReals)
+#sets
+model.HOURS = pyo.Set()
 
-    def define_constraints(self):
-        def battery_rule(model, t):
-            if t == 1:
-                return model.SOC[t] == model.starting_SOC
-            else:
-                return model.SOC[t] == model.SOC[t-1] + (model.P_bat_ch[t-1] * model.bat_ch_eff -
-                                                         model.P_bat_dis[t-1] / model.bat_dis_eff) * \
-                       model.time_step / model.E_bat_max
+#parameters
+model.demand = pyo.Param(model.HOURS)
+model.cost_x = pyo.Param(model.HOURS)
+model.cost_y = pyo.Param(model.HOURS)
 
-        self.model.batteryRule = pyo.Constraint(self.model.HOURS, rule=battery_rule)
+#variables
 
-    def solve_model(self, df_input_series, df_input_other, df_power_constraints):
-        # Generate the model and solve it
-        self.define_sets()
-        self.define_parameters()
-        self.define_variables()
-        self.define_constraints()
+list_variables = ['quant_x','quant_y','quant_z']
 
-        # ... (rest of the code to read data, create instance, and solve the model)
-        # ... (including the code to export the model results)
+for i in list_variables:
+    setattr(model,i,pyo.Var(model.HOURS,within= pyo.NonNegativeReals))
 
-# Example usage
-model = MyModel()
-model.solve_model(df_input_series, df_input_other, df_power_constraints)
+# model.quant_x = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
+# model.quant_y = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
+# model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
+
+#constraints
+
+# class constraint_class():
+#     def demand_rule(model,t):
+#         return model.demand[t] == model.quant_x[t] + model.quant_y[t]
+#     def second_rule(model,t):
+#         return model.quant_x[t] == model.quant_z[t]
+
+# class Testing:
+#     def demand_rule(model,t):
+#         return model.demand[t] == model.quant_x[t] + model.quant_y[t]
+
+# class Subclass(Testing):
+#     def __init__(self,model,t):
+#         super().__init__(model,t)
+
+#     def second_rule(model,t):
+#         return model.quant_x[t] == model.quant_z[t]
+
+subclass_testing = Subclass
+
+constraint_number = 1
+for name,method in inspect.getmembers(subclass_testing,predicate=inspect.isfunction):
+    if name != '__init__':
+        setattr(model,'constraint_'+str(constraint_number),pyo.Constraint(model.HOURS,rule = method))
+    constraint_number += 1
+
+# model.demandRule = pyo.Constraint(model.HOURS,rule = subclass_testing.demand_rule)
+# model.secondRule = pyo.Constraint(model.HOURS, rule = subclass_testing.second_rule)
+
+#objective
+def objective_rule(model, t):
+    return sum(model.cost_x[t] * model.quant_x[t] + model.cost_y[t] * model.quant_y[t] + model.cost_x[t] *
+            model.quant_z[t] for t in model.HOURS)
+
+model.objectiveRule = pyo.Objective(rule=objective_rule, sense=pyo.minimize)
+
+# reading data
+data = pyo.DataPortal()
+data['HOURS'] = df_input_series['HOURS'].tolist()
+data['cost_x'] = df_input_series.set_index('HOURS')['cost_x'].to_dict()
+data['cost_y'] = df_input_series.set_index('HOURS')['cost_y'].to_dict()
+data['demand'] = df_input_series.set_index('HOURS')['demand'].to_dict()
+
+# generating instance
+instance = model.create_instance(data)
+
+print("Constraint Expressions:")
+for constraint in instance.component_objects(pyo.Constraint):
+    for index in constraint:
+        print(f"{constraint}[{index}]: {constraint[index].body}")
+
+# solving the model
+optimizer = pyo.SolverFactory('cplex')
+results = optimizer.solve(instance)
+
+# # Displaying the results
+# instance.pprint()
+instance.display()
+
+#-------------------------------------------------------------------------------------------------------

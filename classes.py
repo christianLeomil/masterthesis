@@ -1,5 +1,7 @@
 #region superclasses
 
+
+
 class Generator:
     def __init__(self,type_, id,eff,E_in,op_cost,inv_cost,emission):
         self.type_ = type_
@@ -10,39 +12,12 @@ class Generator:
         self.op_cost = op_cost
         self.emission = emission
 
-    def generation(self):
-        E_out = self.E_in * self.eff
-        return E_out
-    
-    def operation_cost(self,E_out):
-     cost_total = E_out * self.op_cost
-     return cost_total
-    
-    def investment(self):
-        return self.inv_cost
+class Pv(Generator):
+    def __init__(self,type_,id,eff,E_in,op_cost,inv_cost,emission):
+        super().__init__('pv',id,eff,E_in,op_cost,inv_cost,emission)
 
-class Consumer:
-     def __init__(self,E_demand):
-          self.E_demand = E_demand
-
-     def consume(self):
-          return self.E_demand
-     
-class Transformer:
-     def __init__(self,eff_in,eff_out,E_in,E_out,E_storage):
-          self.eff_in = eff_in
-          self.eff_out = eff_out
-          self.E_in = E_in
-          self.E_out = E_out
-          self.E_storage = E_storage
-
-     def charge(self):
-          self.E_storage += self.E_in * self.eff_in
-          return self.E_storage
-     
-     def discharge(self):
-          self.E_storage -= self.E_out * self.eff_out
-          return self.E_storage
+    def generation_rule(model,t):
+        return model.P_pv[t] == model.P_solar[t] + model.pv_eff
      
 class Testing:
     def demand_rule(model,t):
@@ -52,11 +27,10 @@ class Subclass(Testing):
     def __init__(self,model,t):
         super().__init__(model,t)
 
-    # def second_rule(model,t):
-    #     return model.quant_x[t] == model.quant_z[t]
+    def second_rule(model,t):
+        return model.quant_x[t] == model.quant_z[t]
          
 
-     
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region subclasses
