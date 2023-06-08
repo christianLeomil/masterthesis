@@ -1,7 +1,6 @@
 #region superclasses
 
 
-
 class Generator:
     def __init__(self,type_, id,eff,E_in,op_cost,inv_cost,emission):
         self.type_ = type_
@@ -13,12 +12,20 @@ class Generator:
         self.emission = emission
 
 class Pv(Generator):
-    def __init__(self,type_,id,eff,E_in,op_cost,inv_cost,emission):
-        super().__init__('pv',id,eff,E_in,op_cost,inv_cost,emission)
+    def __init__(self,type_,id_number,eff,E_in,op_cost,inv_cost,emission):
+        super().__init__('pv',id_number,eff,E_in,op_cost,inv_cost,emission)
 
     def generation_rule(model,t):
-        return model.P_pv[t] == model.P_solar[t] + model.pv_eff
-     
+        return model.P_Pv_1[t] == model.P_solar[t] + model.pv_eff
+
+    # def generation_rule(self,model,t):
+    #     instance_name = f"P_{self.id}"
+    #     return getattr(model,instance_name)[t] == model.P_solar[t] + model.pv_eff
+
+    # def generation_rule(self, model, t):
+    #     class_name = self.__class__.__name__
+    #     return getattr(model, class_name)[t] == model.P_solar[t] + model.pv_eff
+    
 class Testing:
     def demand_rule(model,t):
         return model.demand[t] == model.quant_x[t] + model.quant_y[t]
