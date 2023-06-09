@@ -50,6 +50,7 @@ for i in dict_classes:
                 libary = [element.replace(i,class_name) for element in method()]
                 list_parameters_and_variables.append(libary)
 list_parameters_and_variables = [item for sublist in list_parameters_and_variables for item in sublist]
+print(list_parameters_and_variables)
 
 # print(list_constraints)
 # print('\n')
@@ -92,14 +93,31 @@ list_string_total = []
 for i in range(0, len(df_conect)):
     string_partial = ''
     string_partial = 'model.P_' + str(df_conect['power from'].iloc[i]) + '[t]' '== model.P_' + str(
-        df_conect['power to'].iloc[i][0]) + '_'+ str(df_conect['power from'].iloc[i]) + '[t]'
+        df_conect['power from'].iloc[i]) + '_'+ str(df_conect['power to'].iloc[i][0]) + '[t]'
+    
+    list_parameters_and_variables.append('P_' + str(df_conect['power from'].iloc[i]))
+    list_parameters_and_variables.append('P_' + str(df_conect['power from'].iloc[i]) + '_' + str(df_conect['power to'].iloc[i][0]))
+
     for j in range(1, len(df_conect['power to'].iloc[i])):
-        string_partial = string_partial + '+ model.P_' + str(df_conect['power to'].iloc[i][j]) + '_' + str(df_conect['power from'].iloc[i]) + '[t]'
+        string_partial = string_partial + '+ model.P_' + str(df_conect['power from'].iloc[i]) + '_' + str(df_conect['power to'].iloc[i][j]) + '[t]'
+        list_parameters_and_variables.append('P_' + str(df_conect['power from'].iloc[i]) + '_' + str(df_conect['power to'].iloc[i][j]))
     list_string_total.append(string_partial)
 
-print('\n')
+print('------------list_string_total------------')
 print(list_string_total)
 
+print('------------list_elements------------')
+print(list_elements)
+
+list_parameters_and_variables = list(set(list_parameters_and_variables))
+print('------------list_variables_parameters------------')
+print(list_parameters_and_variables)
+list_parameters = [item for item in list_parameters_and_variables if not any(substring in item for substring in list_elements)]
+list_variables = [item for item in list_parameters_and_variables if item not in list_parameters]
+print('------------list_parameters------------')
+print(list_parameters)
+print('------------list_variables------------')
+print(list_variables)
 # #criar restricoes de P_buy e P_sell, se tiver bateria P_ch e P_dis
 
 # # endregion

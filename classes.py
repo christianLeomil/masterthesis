@@ -3,6 +3,7 @@
 
 class Generator:
     def __init__(self,type_, id,eff,E_in,op_cost,inv_cost,emission):
+        self.class_type = 'generator'
         self.type_ = type_
         self.id = id
         self.eff = eff

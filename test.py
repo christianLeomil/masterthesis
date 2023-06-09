@@ -427,21 +427,10 @@
 # my_instance.dynamic_method_4_15()
 
 #-------------------------------------------------------------------------------------------------------
-import pandas as pd
+original_list = ['apple', 'banana', 'orange', 'kiwi']
+substring_list = ['an', 'ra']
 
-lista1 = [1,2,3,4]
-lista2 = [i*2 for i in lista1]
-lista3 = [i*3 for i in lista1]
-lista4 = [i*4 for i in lista1]
+filtered_list = [item for item in original_list if not any(substring in item for substring in substring_list)]
 
-listas = [lista1,lista2,lista3,lista4]
+print(filtered_list)
 
-lista_indice = ['Christian', 'Nati','Tamires','Vicente']
-
-df = pd.DataFrame(0,index = lista_indice, columns = lista_indice)
-# df = pd.DataFrame(data = [lista1,lista2], columns = lista_indice)
-print(df)
-for i,n in enumerate(df.columns):
-    df[n]=listas[i]
-print(df)
-print(df.loc['Tamires','Vicente'])
