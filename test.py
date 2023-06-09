@@ -394,35 +394,54 @@
 # instance.display()
 
 #-------------------------------------------------------------------------------------------------------
-class MyClass:
-    def __init__(self, value):
-        self.value = value
+# class MyClass:
+#     def __init__(self, value):
+#         self.value = value
 
-# Define a template expression with custom variables
-template_expression = "self.value * {factor} + {constant}"
+# # Define a template expression with custom variables
+# template_expression = "self.value * {factor} + {constant}"
 
-# Define a function to create a new method based on the template expression
-def create_dynamic_method(factor, constant):
-    def dynamic_method(self):
-        expression = template_expression.format(factor=factor, constant=constant)
-        result = eval(expression)
-        print("Dynamic method:", result)
-    return dynamic_method
+# # Define a function to create a new method based on the template expression
+# def create_dynamic_method(factor, constant):
+#     def dynamic_method(self):
+#         expression = template_expression.format(factor=factor, constant=constant)
+#         result = eval(expression)
+#         print("Dynamic method:", result)
+#     return dynamic_method
 
-# Create new methods dynamically based on the template expression
-factors = [2, 3, 4]
-constants = [5, 10, 15]
+# # Create new methods dynamically based on the template expression
+# factors = [2, 3, 4]
+# constants = [5, 10, 15]
 
-for factor, constant in zip(factors, constants):
-    method_name = f"dynamic_method_{factor}_{constant}"
-    new_method = create_dynamic_method(factor, constant)
-    setattr(MyClass, method_name, new_method)
+# for factor, constant in zip(factors, constants):
+#     method_name = f"dynamic_method_{factor}_{constant}"
+#     new_method = create_dynamic_method(factor, constant)
+#     setattr(MyClass, method_name, new_method)
 
-# Create an instance of the class
-my_instance = MyClass(7)
+# # Create an instance of the class
+# my_instance = MyClass(7)
 
-# Call the dynamically created methods
-my_instance.dynamic_method_2_5()
-my_instance.dynamic_method_3_10()
-my_instance.dynamic_method_4_15()
+# # Call the dynamically created methods
+# my_instance.dynamic_method_2_5()
+# my_instance.dynamic_method_3_10()
+# my_instance.dynamic_method_4_15()
 
+#-------------------------------------------------------------------------------------------------------
+import pandas as pd
+
+lista1 = [1,2,3,4]
+lista2 = [i*2 for i in lista1]
+lista3 = [i*3 for i in lista1]
+lista4 = [i*4 for i in lista1]
+
+listas = [lista1,lista2,lista3,lista4]
+
+lista_indice = ['Christian', 'Nati','Tamires','Vicente']
+
+df = pd.DataFrame(0,index = lista_indice, columns = lista_indice)
+# df = pd.DataFrame(data = [lista1,lista2], columns = lista_indice)
+print(df)
+for i,n in enumerate(df.columns):
+    df[n]=listas[i]
+print(df)
+print(df.loc['Tamires','Vicente'])

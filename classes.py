@@ -11,21 +11,31 @@ class Generator:
         self.op_cost = op_cost
         self.emission = emission
 
-class Pv(Generator):
+class pv(Generator):
     def __init__(self,type_,id_number,eff,E_in,op_cost,inv_cost,emission):
         super().__init__('pv',id_number,eff,E_in,op_cost,inv_cost,emission)
 
-    def generation_rule(model,t):
-        return model.P_Pv_1[t] == model.P_solar[t] + model.pv_eff
-
-    # def generation_rule(self,model,t):
-    #     instance_name = f"P_{self.id}"
-    #     return getattr(model,instance_name)[t] == model.P_solar[t] + model.pv_eff
-
-    # def generation_rule(self, model, t):
-    #     class_name = self.__class__.__name__
-    #     return getattr(model, class_name)[t] == model.P_solar[t] + model.pv_eff
+    def libary():
+        return ['P_pv','P_solar','pv_eff']
+    # def generation_rule(model,t):
+    #     return model.P_Pv_1[t] == model.P_solar[t] + model.pv_eff
     
+    def generation_rule():
+        return 'model.P_pv[t] == model.P_solar[t] * model.pv_eff'
+    
+class bat:
+    def libary():
+        return ['bat_SOC','bat_starting_SOC','P_bat_ch','P_bat_dis','bat_ch_eff','bat_dis_eff','E_bat_max']
+
+    def battery_rule():
+        string = """if t ==1: 
+             return model.bat_SOC[t] == model.bat_starting_SOC
+        else:
+            return model.bat_SOC[t] == model.bat_SOC[t-1] + (model.P_bat_ch[t-1] * model.bat_ch_eff -
+                                                      model.P_bat_dis[t-1]/model.bat_dis_eff) * model.time_step / model.E_bat_max"""
+        return string
+    
+
 class Testing:
     def demand_rule(model,t):
         return model.demand[t] == model.quant_x[t] + model.quant_y[t]
@@ -37,20 +47,5 @@ class Subclass(Testing):
     def second_rule(model,t):
         return model.quant_x[t] == model.quant_z[t]
          
-
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region subclasses
-
-# class PV(Generator):
-#      def __init__(self,eff,E_in,op_cost,inv_cost,emission):
-#           super().__init__(eff,E_in,op_cost,inv_cost,emission)
-          
-# pv = PV(0.1, 1000, 20, 1000, 100)
-
-# E_out = pv.generation()
-# print(E_out)
-# print(pv.operation_cost(E_out))
-# print(pv.investment())
-
-# endregion
