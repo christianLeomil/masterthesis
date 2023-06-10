@@ -1,376 +1,239 @@
 import pandas as pd
 import pyomo.environ as pyo
-import classes 
+import classes
 import inspect
-import hyperclass
-import importlib
 
 path_output = './output/'
 path_input = './input/'
 name_file = 'df_input.xlsx'
 
 df_input_series = pd.read_excel(path_input + name_file, sheet_name='series')
+df_input_other = pd.read_excel(path_input + name_file,sheet_name = 'other')
+df_input_pv = pd.read_excel(path_input + name_file, sheet_name='pv')
+df_elements = pd.read_excel(path_input + name_file, sheet_name = 'elements')
+
+
+#end region
+# ---------------------------------------------------------------------------------------------------------------------
+# region elements
+
+list_elements = []
+for i in df_elements.columns:
+     if df_elements[i].iloc[0] != 0:
+          list_elements.append(i)
+
+#endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region model, sets and parameters
+
 
 #model
 model = pyo.AbstractModel()
 
 #sets
 model.HOURS = pyo.Set()
+model.PV = pyo.Set()
 
+#parameter scalar
+model.time_step = pyo.Param()
+model.pv_eff = pyo.Param(model.PV)
+model.starting_SOC = pyo.Param() #starting SOC of battery
+model.E_bat_max = pyo.Param() #capacity of battery
+model.bat_ch_eff = pyo.Param() #charging efficiency of battery
+model.bat_dis_eff = pyo.Param() #discharging efficiency of battery
+model.c_rate_ch = pyo.Param() #maximal charging power (max charging power = c_rate * E_bat_max)
+model.c_rate_dis = pyo.Param() #maximal discharging power (max discharging power = c_rate * E_bat_max)
+
+#parameters series
+model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
+model.P_demand = pyo.Param(model.HOURS) #time series with solar energy
+model.costBuy = pyo.Param(model.HOURS) #time series with costs of buying energy
+model.costSell = pyo.Param(model.HOURS) #time series with price of energy being sold to grid
+
+#endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region parameters for simulation
+# region variables
 
-#hyperclass
-df_hyper = hyperclass.define_hyper_class(path_input,path_output)
+model.P_net_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
+model.P_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 
-#import classes that can be used
-dict_classes = pd.read_excel(path_input + name_file,sheet_name='elements')
+model.P_pv = pyo.Var(model.HOURS, model.PV, within = pyo.NonNegativeReals)
+model.P_pv_net = pyo.Var(model.HOURS, model.PV, within = pyo.NonNegativeReals)
+model.P_pv_bat = pyo.Var(model.HOURS,model.PV, within = pyo.NonNegativeReals)
+model.P_pv_demand = pyo.Var(model.HOURS, model.PV,within = pyo.NonNegativeReals)
 
-# create instances that are going to be used (pv1, pv2 ,etc)
-module_name = 'classes'
-module = importlib.import_module(module_name)
-list_constraints = []
-list_created_classes = []
-list_parameters_and_variables = []
-for i in dict_classes:
-    for j in range(0,dict_classes[i][0]):
-        class_name = i + str(j + 1)
-        globals()[class_name] = getattr(module,i)
-        list_created_classes.append(class_name)
+model.SOC = pyo.Var(model.HOURS, within = pyo.NonNegativeReals, bounds=(0, 1))
+model.P_bat_ch = pyo.Var(model.HOURS,within = pyo.NonNegativeReals)
+model.P_bat_dis = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
+model.P_bat_net = pyo.Var(model.HOURS,within = pyo.NonNegativeReals)
+model.P_bat_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 
-        for k in dir(globals()[class_name]):
-            if k.startswith('__') or k == 'libary':
-                pass
-            else:
-                method = getattr(globals()[class_name],k)
-                list_constraints.append(method())
-                list_constraints[-1] = list_constraints[-1].replace(i,class_name)
-                
-                method = getattr(globals()[class_name],'libary')
-                libary = [element.replace(i,class_name) for element in method()]
-                list_parameters_and_variables.append(libary)
-list_parameters_and_variables = [item for sublist in list_parameters_and_variables for item in sublist]
-print(list_parameters_and_variables)
+model.K_ch = pyo.Var(model.HOURS, domain = pyo.Binary)
+model.K_dis = pyo.Var(model.HOURS, domain = pyo.Binary)
 
-# print(list_constraints)
-# print('\n')
-# print(list_libary)
+model.E_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
+model.E_buy = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 
-#create table with possible connections and eliminate those that do not make sense
-list_elements = ['demand','net']
-list_elements = list_elements + list_created_classes
 
-# print('\n')
-# print(list_elements)
+#endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region creating constraints from classes
 
-#writing connections
-# df_conect = pd.DataFrame(0 , index = list_elements, columns = list_elements)
-# df_conect.to_excel(path_output + 'df_conect.xlsx')
 
-#reading connections 
-df_conect = pd.read_excel(path_output+'df_conect.xlsx',index_col=0)
-print(df_conect)
+for i in list_elements:
+     constraint_class = getattr(classes,i)
+     constraint_methods = [method_name for method_name in dir(constraint_class) if callable(getattr(constraint_class, method_name))]
+     print('--------------Constraint Methods-----------')
+     print(constraint_methods)
+     for name in constraint_methods:
+          if name.startswith('__'):
+               pass
+          else:
+            method = getattr(constraint_class, name)
+            model.add_component(name, pyo.Constraint(model.HOURS, model.PV, rule = method))
 
-#Aqui entraria uma tela pra inserir a relacao entre os componentes.
 
-list_power_from = []
-list_power_to_total = []
-for i in df_conect.index:
-    list_power_to = []
-    for j in df_conect.columns:
-        if df_conect.loc[i,j] == 1:
-            list_power_to.append(j)
-    if list_power_to != []:
-        list_power_from.append(i)
-        list_power_to_total.append(list_power_to)
+#endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region continuing other constraints
 
-print(list_power_from)
-print(list_power_to_total)
-df_conect = pd.DataFrame({'power from': list_power_from, 'power to': list_power_to_total})
-df_conect.to_excel(path_output+'df_conect_constraints.xlsx')
 
-list_string_total = []
-for i in range(0, len(df_conect)):
-    string_partial = ''
-    string_partial = 'model.P_' + str(df_conect['power from'].iloc[i]) + '[t]' '== model.P_' + str(
-        df_conect['power from'].iloc[i]) + '_'+ str(df_conect['power to'].iloc[i][0]) + '[t]'
-    
-    list_parameters_and_variables.append('P_' + str(df_conect['power from'].iloc[i]))
-    list_parameters_and_variables.append('P_' + str(df_conect['power from'].iloc[i]) + '_' + str(df_conect['power to'].iloc[i][0]))
+def pv_rule(model,t,n):
+    return model.P_pv[t,n] == model.P_pv_bat[t,n] + model.P_pv_net[t,n] + model.P_pv_demand[t,n]
+model.pvRule = pyo.Constraint(model.HOURS, model.PV,rule = pv_rule)
 
-    for j in range(1, len(df_conect['power to'].iloc[i])):
-        string_partial = string_partial + '+ model.P_' + str(df_conect['power from'].iloc[i]) + '_' + str(df_conect['power to'].iloc[i][j]) + '[t]'
-        list_parameters_and_variables.append('P_' + str(df_conect['power from'].iloc[i]) + '_' + str(df_conect['power to'].iloc[i][j]))
-    list_string_total.append(string_partial)
 
-print('------------list_string_total------------')
-print(list_string_total)
+def demand_rule(model,t):
+    return model.P_demand[t] == sum(model.P_pv_demand[t,n] for n in model.PV) + model.P_net_demand[t] + model.P_bat_demand[t]
+model.demandRule = pyo.Constraint(model.HOURS,rule = demand_rule)
 
-print('------------list_elements------------')
-print(list_elements)
+#
+def battery_rule(model,t):
+        if t ==1:
+             return model.SOC[t] == model.starting_SOC
+        else:
+            return model.SOC[t] == model.SOC[t-1] + (model.P_bat_ch[t-1] * model.bat_ch_eff -
+                                                      model.P_bat_dis[t-1]/model.bat_dis_eff) * model.time_step / model.E_bat_max
+model.batteryRule = pyo.Constraint(model.HOURS,rule = battery_rule)
 
-list_parameters_and_variables = list(set(list_parameters_and_variables))
-print('------------list_variables_parameters------------')
-print(list_parameters_and_variables)
-list_parameters = [item for item in list_parameters_and_variables if not any(substring in item for substring in list_elements)]
-list_variables = [item for item in list_parameters_and_variables if item not in list_parameters]
-print('------------list_parameters------------')
-print(list_parameters)
-print('------------list_variables------------')
-print(list_variables)
-# #criar restricoes de P_buy e P_sell, se tiver bateria P_ch e P_dis
 
-# # endregion
-# # ---------------------------------------------------------------------------------------------------------------------
-# # region create parameters and variables
+def charge_rule(model,t):
+     return model.P_bat_ch[t] == sum(model.P_pv_bat[t,n] for n in model.PV)
+model.chargeRule = pyo.Constraint(model.HOURS,rule = charge_rule)
 
-# #variables
-# model.P_Pv1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-# model.P_Pv1_net = pyo.Var(model.HOURS,within = pyo.NonNegativeReals)
-# model.P_Pv1_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-# model.P_buy = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-# model.P_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-# model.E_buy = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-# model.E_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 
-# model.SOC = pyo.Var(model.HOURS, within = pyo.NonNegativeReals, bounds=(0, 1))
-# model.P_bat_ch = pyo.Var(model.HOURS,within = pyo.NonNegativeReals)
-# model.P_bat_dis = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-# model.P_bat_net = pyo.Var(model.HOURS,within = pyo.NonNegativeReals)
-# model.P_bat_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
+def discharge_rule(model,t):
+     return model.P_bat_dis[t] == model.P_bat_net[t] + model.P_bat_demand[t]
+model.dischargeRule = pyo.Constraint(model.HOURS,rule = discharge_rule)
 
-# model.K_ch = pyo.Var(model.HOURS, domain = pyo.Binary)
-# model.K_dis = pyo.Var(model.HOURS, domain = pyo.Binary)
+#
+def charge_limit(model,t):
+     return model.P_bat_ch[t] <= model.E_bat_max * model.c_rate_ch * model.K_ch[t]
+model.chargeLimit = pyo.Constraint(model.HOURS,rule = charge_limit)
 
-# #parameters
-# model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
-# model.P_demand = pyo.Param(model.HOURS) #time series with solar energy
-# model.costBuy = pyo.Param(model.HOURS) #time series with costs of buying energy
-# model.costSell = pyo.Param(model.HOURS) #time series with price of energy being sold to grid
-# model.pv_eff = pyo.Param(initialize = 0.5) #efficiency of Pv cell
-# model.timestep = pyo.Param(initialize = 1) #efficiency of Pv cell
+#
+def discharge_limit(model,t):
+     return model.P_bat_dis[t] <= model.E_bat_max * model.c_rate_dis * model.K_dis[t]
+model.dischargeLimit = pyo.Constraint(model.HOURS,rule = discharge_limit)
 
-# model.starting_SOC = pyo.Param(initialize = 0.5) #starting SOC of battery
-# model.E_bat_max = pyo.Param(initialize = 100) #capacity of battery
-# model.bat_ch_eff = pyo.Param(initialize = 0.98) #charging efficiency of battery
-# model.bat_dis_eff = pyo.Param(initialize = 0.98) #discharging efficiency of battery
-# model.c_rate_ch = pyo.Param(initialize = 1) #maximal charging power (max charging power = c_rate * E_bat_max)
-# model.c_rate_dis = pyo.Param(initialize = 1) #maximal discharging power (max discharging power = c_rate * E_bat_max)
- 
-# # endregion
-# # ---------------------------------------------------------------------------------------------------------------------
-# # region constaints
+#
+def keys_rule(model,t):
+     return model.K_ch[t] + model.K_dis[t] <= 1
+model.keysRule = pyo.Constraint(model.HOURS, rule = keys_rule)
 
-# #model.add_component acho que da pra usar esse metodo pra criar dinamicamente assim (alguma hora vou ter que fazer assim)
 
-# # endregion 
-# # ---------------------------------------------------------------------------------------------------------------------
-# # region constaints generator 
+def sell_rule(model,t):
+     return model.P_sell[t] == sum(model.P_pv_net[t,n] for n in model.PV) + model.P_bat_net[t]
+model.sellRule = pyo.Constraint(model.HOURS,rule = sell_rule)
 
-# class myClass:
-#     pass
+#
+def sell_energy(model,t):
+    return model.E_sell[t] == model.P_sell[t] * model.time_step
+model.sellEnergy = pyo.Constraint(model.HOURS, rule = sell_energy)
 
-# constraint_number = 1
-# for i in list_constraints:
-#     def dynamic_method(model, t, expr):
-#         return eval(expr, globals(), locals())
-#     method_name = 'Constraint_' + str(constraint_number)
-#     def method_wrapper(self, model, t, expr=i):
-#         return dynamic_method(model, t, expr)
-#     setattr(myClass, method_name, method_wrapper)
-#     my_obj = myClass()
-#     setattr(model, 'constraint' + str(constraint_number), 
-#             pyo.Constraint(model.HOURS,rule=getattr(my_obj, method_name)))
-#     constraint_number = constraint_number + 1
+#
+def buy_energy(model,t):
+     return model.E_buy[t] == model.P_net_demand[t] * model.time_step
+model.buyEnergy = pyo.Constraint(model.HOURS, rule = buy_energy)
 
-# # endregion 
-# # ---------------------------------------------------------------------------------------------------------------------
-# # region other constraints
-
-# def demand_rule(model,t):
-#     return model.P_demand[t] == model.P_buy[t] + model.P_Pv1_demand[t]
-# model.demandRule = pyo.Constraint(model.HOURS, rule = demand_rule)
-
-# def sell_rule(model,t):
-#     return model.P_sell[t] == model.P_Pv1_net[t]
-# model.sellRule = pyo.Constraint(model.HOURS, rule = sell_rule)
-
-# def con_rule(model,t):
-#     return model.P_Pv1[t] == model.P_Pv1_net[t] + model.P_Pv1_demand[t]
-# model.conRule = pyo.Constraint(model.HOURS, rule = con_rule)
-
-# def buy_energy_rule(model,t):
-#     return model.E_buy[t] == model.P_buy[t] * model.timestep
-# model.buyEnergyRule = pyo.Constraint(model.HOURS, rule = buy_energy_rule)
-
-# def sell_energy_rule(model,t):
-#     return model.E_sell[t] == model.P_sell[t] * model.timestep
-# model.sellEnergyRule = pyo.Constraint(model.HOURS, rule = sell_energy_rule)
-
-# # endregion
-# # ---------------------------------------------------------------------------------------------------------------------
-# # region objective
-
-# def objective_rule(model,t):
-#     return sum(model.costBuy[t] * model.E_buy[t] - model.costSell[t] * model.E_sell[t] for t in model.HOURS)
-# model.objectiveRule = pyo.Objective(sense = pyo.minimize,rule = objective_rule)
-
-# # endregion
-# # ---------------------------------------------------------------------------------------------------------------------
-# # region configuring data reading for model
-
-# data = pyo.DataPortal()
-# data['HOURS'] = df_input_series['HOURS'].tolist()
-# data['P_solar'] = df_input_series.set_index('HOURS')['P_solar'].to_dict()
-# data['P_demand'] = df_input_series.set_index('HOURS')['P_demand'].to_dict()
-# data['costBuy'] = df_input_series.set_index('HOURS')['costBuy'].to_dict()
-# data['costSell'] = df_input_series.set_index('HOURS')['costSell'].to_dict()
-
-# # endregion
-# # ---------------------------------------------------------------------------------------------------------------------
-# # region creating instance of model
-
-# #generating instance
-# instance = model.create_instance(data)
-
-# #solving the model
-# optimizer = pyo.SolverFactory('cplex')
-# results = optimizer.solve(instance)
-
-# # # Displaying the results
-# # instance.pprint()
-# instance.display()
-
-# # endregion
-# # ---------------------------------------------------------------------------------------------------------------------
-# # region rexporting data
-
-# df = {'HOURS':[],
-#       'costBuy':[],
-#       'costSell':[],
-#       'P_demand':[],
-#       'P_buy':[],
-#       'P_solar':[],
-#       'P_sell':[],
-#       'P_Pv1':[],
-#       'P_Pv1_demand':[],
-#       'P_Pv1_net':[],
-#       'E_sell':[],
-#       'E_buy':[],
-#       }
-
-# for t in instance.HOURS:
-#     df['HOURS'].append(str(t))
-#     df['costBuy'].append(instance.costBuy[t])
-#     df['costSell'].append(instance.costSell[t])
-#     df['P_demand'].append(instance.P_demand[t])
-#     df['P_buy'].append(instance.P_buy[t].value)
-#     df['P_solar'].append(instance.P_solar[t])
-#     df['P_sell'].append(instance.P_sell[t].value)
-#     df['P_Pv1'].append(instance.P_Pv1[t].value)
-#     df['P_Pv1_demand'].append(instance.P_Pv11_demand[t].value)
-#     df['P_Pv1_net'].append(instance.P_Pv1_net[t].value)
-#     df['E_sell'].append(instance.E_sell[t].value)
-#     df['E_buy'].append(instance.E_buy[t].value)
-
-# column_keys = df.keys()
-
-# df = pd.DataFrame(df)
-# df.to_excel(path_output + 'df_results_net.xlsx', index=False)
 
 # endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region objective
 
-#----------------------------------------------------------------------------------------------
+#objective function
+def objective_rule(model,t):
+     return sum(model.E_buy[t] * model.costBuy[t] - model.E_sell[t] * model.costSell[t] for t in model.HOURS)
+model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
 
-# import pandas as pd
-# import pyomo.environ as pyo
-# import classes 
-# import inspect
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region reading data
 
-# path_output = './output/'
-# path_input = './input/'
-# name_file = 'df_input_test.xlsx'
+#reading data
+data = pyo.DataPortal()
+data['HOURS'] = df_input_series['HOURS'].tolist()
+data['PV'] = df_input_pv['pv'].tolist()
+data['pv_eff'] = df_input_pv.set_index('pv')['pv_eff'].to_dict()
+data['P_solar'] = df_input_series.set_index('HOURS')['P_solar'].to_dict()
+data['P_demand'] = df_input_series.set_index('HOURS')['P_demand'].to_dict()
+data['costBuy'] = df_input_series.set_index('HOURS')['costBuy'].to_dict()
+data['costSell'] = df_input_series.set_index('HOURS')['costSell'].to_dict()
 
-# df_input_series = pd.read_excel(path_input + name_file, sheet_name='series')
+data['E_bat_max'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'E_bat_max', 'Value'].values[0]}
+data['starting_SOC'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'starting_SOC', 'Value'].values[0]}
+data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
+data['c_rate_ch'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'c_rate_ch', 'Value'].values[0]}
+data['c_rate_dis'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'c_rate_dis', 'Value'].values[0]}
+data['bat_ch_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat_ch_eff', 'Value'].values[0]}
+data['bat_dis_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat_dis_eff', 'Value'].values[0]}
 
-# #model
-# model = pyo.AbstractModel()
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region starting model
 
-# #sets
-# model.HOURS = pyo.Set()
+#generating instance
+instance = model.create_instance(data)
 
-# #parameters
-# model.demand = pyo.Param(model.HOURS)
-# model.cost_x = pyo.Param(model.HOURS)
-# model.cost_y = pyo.Param(model.HOURS)
+#solving the model
+optimizer = pyo.SolverFactory('cplex')
+results = optimizer.solve(instance)
 
-# #variables
+# # Displaying the results
+# instance.pprint()
+instance.display()
 
-# list_variables = ['quant_x','quant_y','quant_z']
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region export data
 
-# for i in list_variables:
-#     setattr(model,i,pyo.Var(model.HOURS,within= pyo.NonNegativeReals))
+# Extracting variable data from the Pyomo model
+variable_data = {
+    'P_net_demand': [instance.P_net_demand[t].value for t in instance.HOURS],
+    'P_sell': [instance.P_sell[t].value for t in instance.HOURS],
+    'P_pv': {n: [instance.P_pv[t, n].value for t in instance.HOURS] for n in instance.PV},
+    'P_pv_net': {n: [instance.P_pv_net[t, n].value for t in instance.HOURS] for n in instance.PV},
+    'P_pv_bat': {n: [instance.P_pv_bat[t, n].value for t in instance.HOURS] for n in instance.PV},
+    'P_pv_demand': {n: [instance.P_pv_demand[t, n].value for t in instance.HOURS] for n in instance.PV},
+    'SOC': [instance.SOC[t].value for t in instance.HOURS],
+    'P_bat_ch': [instance.P_bat_ch[t].value for t in instance.HOURS],
+    'P_bat_dis': [instance.P_bat_dis[t].value for t in instance.HOURS],
+    'P_bat_net': [instance.P_bat_net[t].value for t in instance.HOURS],
+    'P_bat_demand': [instance.P_bat_demand[t].value for t in instance.HOURS],
+    'K_ch': [instance.K_ch[t].value for t in instance.HOURS],
+    'K_dis': [instance.K_dis[t].value for t in instance.HOURS],
+    'E_sell': [instance.E_sell[t].value for t in instance.HOURS],
+    'E_buy': [instance.E_buy[t].value for t in instance.HOURS]
+}
 
-# # model.quant_x = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
-# # model.quant_y = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
-# # model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
+# Create a DataFrame from the variable data
+df_variable_data = pd.DataFrame(variable_data, index=instance.HOURS)
 
-# #constraints
+# Define the path and filename for the output Excel file
+output_file_name = 'variable_data.xlsx'
 
-# # class constraint_class():
-# #     def demand_rule(model,t):
-# #         return model.demand[t] == model.quant_x[t] + model.quant_y[t]
-# #     def second_rule(model,t):
-# #         return model.quant_x[t] == model.quant_z[t]
+# Export the DataFrame to Excel
+df_variable_data.to_excel(path_output + output_file_name, index_label='Hours')
 
-# # class Testing:
-# #     def demand_rule(model,t):
-# #         return model.demand[t] == model.quant_x[t] + model.quant_y[t]
 
-# # class Subclass(Testing):
-# #     def __init__(self,model,t):
-# #         super().__init__(model,t)
-
-# #     def second_rule(model,t):
-# #         return model.quant_x[t] == model.quant_z[t]
-
-# subclass_testing = classes.Subclass
-
-# constraint_number = 1
-# for name,method in inspect.getmembers(subclass_testing,predicate = inspect.isfunction):
-#     if name != '__init__':
-#         setattr(model,'constraint_'+str(constraint_number),pyo.Constraint(model.HOURS,rule = method))
-#         constraint_number += 1
-
-# # model.demandRule = pyo.Constraint(model.HOURS,rule = subclass_testing.demand_rule)
-# # model.secondRule = pyo.Constraint(model.HOURS, rule = subclass_testing.second_rule)
-
-# #objective
-# def objective_rule(model, t):
-#     return sum(model.cost_x[t] * model.quant_x[t] + model.cost_y[t] * model.quant_y[t] + model.cost_x[t] *
-#             model.quant_z[t] for t in model.HOURS)
-
-# model.objectiveRule = pyo.Objective(rule=objective_rule, sense=pyo.minimize)
-
-# # reading data
-# data = pyo.DataPortal()
-# data['HOURS'] = df_input_series['HOURS'].tolist()
-# data['cost_x'] = df_input_series.set_index('HOURS')['cost_x'].to_dict()
-# data['cost_y'] = df_input_series.set_index('HOURS')['cost_y'].to_dict()
-# data['demand'] = df_input_series.set_index('HOURS')['demand'].to_dict()
-
-# # generating instance
-# instance = model.create_instance(data)
-
-# print("Constraint Expressions:")
-# for constraint in instance.component_objects(pyo.Constraint):
-#     for index in constraint:
-#         print(f"{constraint}[{index}]: {constraint[index].body}")
-
-# # solving the model
-# optimizer = pyo.SolverFactory('cplex')
-# results = optimizer.solve(instance)
-
-# # # Displaying the results
-# # instance.pprint()
-# instance.display()
+#endregion
