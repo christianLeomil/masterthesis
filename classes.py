@@ -16,24 +16,24 @@ class Pv(Generator):
     def __init__(self,type_,id_number,eff,E_in,op_cost,inv_cost,emission):
         super().__init__('pv',id_number,eff,E_in,op_cost,inv_cost,emission)
 
-    def pv_rule(model,t,n):
+    def solar_rule(model,t,n):
         return model.P_solar[t] * model.pv_eff[n] == model.P_pv[t,n]
     
 class Bat:
-    def battery_rule(model,t):
+    def battery_rule(model,t,m):
         if t ==1:
-             return model.SOC[t] == model.starting_SOC
+             return model.SOC[t,m] == model.starting_SOC[m]
         else:
-            return model.SOC[t] == model.SOC[t-1] + (model.P_bat_ch[t-1] * model.bat_ch_eff -
-                                                      model.P_bat_dis[t-1]/model.bat_dis_eff) * model.time_step / model.E_bat_max
-    def charge_limit(model,t):
-        return model.P_bat_ch[t] <= model.E_bat_max * model.c_rate_ch * model.K_ch[t]
+            return model.SOC[t,m] == model.SOC[t-1,m] + (model.P_bat_ch[t-1] * model.bat_ch_eff[m] -
+                                                      model.P_bat_dis[t-1]/model.bat_dis_eff[m]) * model.time_step / model.E_bat_max[m]
+    def charge_limit(model,t,m):
+        return model.P_bat_ch[t,m] <= model.E_bat_max[m] * model.c_rate_ch[m] * model.K_ch[t,m]
     
-    def discharge_limit(model,t):
-        return model.P_bat_dis[t] <= model.E_bat_max * model.c_rate_dis * model.K_dis[t]
+    def discharge_limit(model,t,m):
+        return model.P_bat_dis[t,m] <= model.E_bat_max[m] * model.c_rate_dis[m] * model.K_dis[t,m]
     
-    def keys_rule(model,t):
-        return model.K_ch[t] + model.K_dis[t] <= 1
+    def keys_rule(model,t,m):
+        return model.K_ch[t,m] + model.K_dis[t,m] <= 1
     
 class General:
     def sell_energy(model,t):

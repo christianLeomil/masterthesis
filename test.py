@@ -426,11 +426,90 @@
 # my_instance.dynamic_method_3_10()
 # my_instance.dynamic_method_4_15()
 
-#-------------------------------------------------------------------------------------------------------
-original_list = ['apple', 'banana', 'orange', 'kiwi']
-substring_list = ['an', 'ra']
+#------------------------------------------------------------------------------------------------------
+import pandas as pd
+import pyomo.environ as pyo
 
-filtered_list = [item for item in original_list if not any(substring in item for substring in substring_list)]
 
-print(filtered_list)
+#model
+model = pyo.AbstractModel()
 
+#sets
+model.HOURS = pyo.Set()
+model.PV = pyo.Set()
+model.BAT = pyo.Set()
+
+#varables
+model.P_pv_demand = pyo.Var(model.HOURS, model.PV,within = pyo.NonNegativeReals)
+model.P_bat_demand = pyo.Var(model.HOURS, model.BAT,within = pyo.NonNegativeReals)
+model.P_net_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
+
+name_file = 'df_input.xlsx'
+path_output = './output/'
+path_input = './input/'
+
+df_conect_to  = pd.read_excel(path_input + name_file, sheet_name = 'connect_to',index_col=0)
+df_conect_to.index.name = None
+
+list_energy_from = []
+list_energy_to_total = []
+for i in range(0, len(df_conect_to)):
+    list_energy_to = []
+    for j in df_conect_to.columns:
+        if df_conect_to[j].iloc[i] == 1:
+            list_energy_to.append(j)
+    if list_energy_to != []:
+        list_energy_to_total.append(list_energy_to)
+        list_energy_from.append(df_conect_to.index[i])
+
+df_conect_to = pd.DataFrame({'from': list_energy_from, 'to': list_energy_to_total})
+print(df_conect_to)
+print('\n')
+
+df_sets = pd.DataFrame({'name':['pv','bat'],
+                          'var':['n','m'],
+                          'set':['model.PV','model.BAT']})
+
+list_expressions = []
+list_sets = []
+for i in df_conect_to.index:
+    list_expression_conect =[]
+    if df_conect_to['from'].iloc[i] in ['demand','net']:
+        list_expression_conect.append('model.P_to_' + df_conect_to['from'].iloc[i] + '[t] == ')
+        list_sets.append('')
+    else:
+        list_expression_conect.append('model.P_to_' + df_conect_to['from'].iloc[i] + '[t][' + df_sets['var'][df_sets['name'] == df_conect_to['from'].iloc[i]].iloc[0] + '] == ')
+        list_sets.append(df_sets['set'][df_sets['name'] == df_conect_to['from'].iloc[i]].iloc[0])
+    for index,j in enumerate(df_conect_to['to'].iloc[i]):
+        if index != 0:
+            list_expression_conect[-1] = list_expression_conect[-1] + ' +'
+        if j not in ['demand','net']:
+            list_expression_conect[-1] = list_expression_conect[-1] + ' sum(model.P_' + j + '_' + df_conect_to['from'].iloc[i] +'[t][' + str(df_sets['var'][df_sets['name']==j].iloc[0]) +'] for ' + str(df_sets['var'][df_sets['name']==j].iloc[0]) + ' in ' + str(df_sets['set'][df_sets['name']==j].iloc[0]) + ')'
+        else:
+            list_expression_conect[-1] = list_expression_conect[-1] + ' model.P_' + j + '_' + df_conect_to['from'].iloc[i] +'[t]'
+    list_expressions.append(list_expression_conect)
+
+print(list_expressions)
+print('\n')
+print(list_sets)
+
+class myClass:
+    pass
+
+constraint_number = 1
+for i in list_expressions:
+    def dynamic_method(model,t,n,m,expr):
+        return eval(expr, globals(), locals())
+
+    method_name = 'Constraint_' + str(constraint_number)
+
+    def method_wrapper(self, model, t, n,m,expr=i):
+        return dynamic_method(model,t,n,m,expr)
+
+    setattr(myClass, method_name, method_wrapper)
+
+    my_obj = myClass()
+
+    setattr(model, 'constraint_conect' + str(constraint_number), pyo.Constraint(model.HOURS,model.PV,
+                                                                                model.BAT,rule=getattr(my_obj, method_name)))
+    constraint_number = constraint_number + 1
