@@ -3,7 +3,7 @@ import pyomo.environ as pyo
 
 path_output = './output/'
 path_input = './input/'
-name_file = 'df_input_test.xlsx'
+name_file = 'df_input.xlsx'
 
 df_input_series = pd.read_excel(path_input + name_file,sheet_name = 'series')
 df_input_other = pd.read_excel(path_input + name_file,sheet_name = 'other')
