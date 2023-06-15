@@ -98,3 +98,4 @@ results = optimizer.solve(instance)
 # # Displaying the results
 # instance.pprint()
 instance.display()
+

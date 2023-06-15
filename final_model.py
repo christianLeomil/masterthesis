@@ -140,7 +140,7 @@ model.batteryRule = pyo.Constraint(model.HOURS,rule = battery_rule)
 
 
 def charge_rule(model,t):
-     return model.P_bat_ch[t] == model.P_pv_bat[t]
+     return model.P_bat_ch[t] == model.P_pv_bat[t] 
 model.chargeRule = pyo.Constraint(model.HOURS,rule = charge_rule)
 
 
@@ -180,7 +180,7 @@ model.sellEnergy = pyo.Constraint(model.HOURS, rule = sell_energy)
 
 
 def buy_energy(model,t):
-     return model.E_buy[t] == model.P_net_demand[t] * model.time_step
+     return model.E_buy[t] == model.P_net_demand[t] * model.time_step  
 model.buyEnergy = pyo.Constraint(model.HOURS, rule = buy_energy)
 
 

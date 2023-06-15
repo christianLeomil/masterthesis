@@ -1,58 +1,107 @@
 import pandas as pd
-import pyomo.environ as pyo
 
-def connection_to(df_conect_to):
+def connection_creator(df_conect,df_aux,path_output):
 
-    list_energy_from = []
-    list_energy_to_total = []
-    for i in range(0, len(df_conect_to)):
-        list_energy_to = []
-        for j in df_conect_to.columns:
-            if df_conect_to[j].iloc[i] == 1:
-                list_energy_to.append(j)
-        if list_energy_to != []:
-            list_energy_to_total.append(list_energy_to)
-            list_energy_from.append(df_conect_to.index[i])
+    list_variables = []
+    list_variables_aux = []
 
-    df_conect_to = pd.DataFrame({'from': list_energy_from, 'to': list_energy_to_total})
-    print(df_conect_to)
-    print('\n')
+    for i in df_conect.index:
+        for j in df_conect.columns:
+            if df_conect.loc[i,j] != 0:
+                list_variables.append('P_to_' + i)
+                if i not in ['demand','net']:
+                    list_variables_aux.append('t,' + df_aux[i].iloc[0])
+                else:
+                    list_variables_aux.append('t')
+                break
 
-    df_sets = pd.DataFrame({'name':['pv','bat'],
-                            'var':['n','m'],
-                            'set':['model.PV','model.BAT']})
+    for i in df_conect.columns:
+        for j in df_conect.index:
+            if df_conect.loc[j,i] != 0:
+                list_variables.append('P_from_' + i)
+                if i not in ['demand','net']:
+                    list_variables_aux.append('t,' + df_aux[i].iloc[0])
+                else:
+                    list_variables_aux.append('t')   
+                break
+
+    for i in df_conect.index:
+        for j in df_conect.columns:
+            if df_conect.loc[i,j] != 0:
+                list_variables.append('P_' + j +  '_' + i)
+                if (i not in ['demand','net']) and (j not in ['demand','net']):
+                    list_variables_aux.append('t,'+df_aux[i].iloc[0]+','+df_aux[j].iloc[0])
+                elif (i in ['demand','net']) and (j in ['demand','net']):
+                    list_variables_aux.append('t')
+                else:
+                    if  i in ['demand','net']:
+                        list_variables_aux.append('t,'+ df_aux[j].iloc[0])
+                    else:
+                        list_variables_aux.append('t,'+ df_aux[i].iloc[0])
+
+    df_variables = pd.DataFrame({'variables': list_variables,
+                                'aux':list_variables_aux})
+
+    for i in df_conect.index:
+        for j in df_conect.columns:
+            if df_conect.loc[i,j] == 1:
+                df_conect.loc[i,j] = 'P_' + j + '_' + i
+
+    df_conect.columns  = ['P_from_' + i for i in df_conect.columns]
+    df_conect.index = ['P_to_' + i for i in df_conect.index]
+
+    df_variables.to_excel(path_output + 'df_variables.xlsx')
+    df_conect.to_excel(path_output + 'df_conect.xlsx')
+    
+    return df_conect, df_variables
+
+def exp_creator(df_conect,df_variables):
 
     list_expressions = []
-    list_sets = []
-    for i in df_conect_to.index:
-        list_expression_conect =[]
-        if df_conect_to['from'].iloc[i] in ['demand','net']:
-            list_expression_conect.append('model.P_to_' + df_conect_to['from'].iloc[i] + '[t] == ')
-            list_sets.append('')
-        else:
-            list_expression_conect.append('model.P_to_' + df_conect_to['from'].iloc[i] + '[t][' + df_sets['var'][df_sets['name'] == df_conect_to['from'].iloc[i]].iloc[0] + '] == ')
-            list_sets.append(df_sets['set'][df_sets['name'] == df_conect_to['from'].iloc[i]].iloc[0])
-        for index,j in enumerate(df_conect_to['to'].iloc[i]):
-            if index != 0:
-                list_expression_conect[-1] = list_expression_conect[-1] + ' +'
-            if j not in ['demand','net']:
-                list_expression_conect[-1] = list_expression_conect[-1] + ' sum(model.P_' + j + '_' + df_conect_to['from'].iloc[i] +'[t][' + str(df_sets['var'][df_sets['name']==j].iloc[0]) +'] for ' + str(df_sets['var'][df_sets['name']==j].iloc[0]) + ' in ' + str(df_sets['set'][df_sets['name']==j].iloc[0]) + ')'
-            else:
-                list_expression_conect[-1] = list_expression_conect[-1] + ' model.P_' + j + '_' + df_conect_to['from'].iloc[i] +'[t]'
-        list_expressions.append(list_expression_conect)
+    
+    #looping through columns, building "energy to" expressions
+    for i in df_conect.index:
+        list_exp_partial = []
+        for j,m in enumerate(df_conect.columns):
+            if df_conect.loc[i,m] != 0:
+                if list_exp_partial == []:
+                    suffix = df_variables[df_variables['variables'] == i]['aux'].iloc[0]
+                    list_exp_partial.append(i + '['+ suffix + ']' + ' == ')
+                    suffix = df_variables[df_variables['variables'] == df_conect.loc[i,m]]['aux'].iloc[0]
+                    list_exp_partial[-1] = list_exp_partial[-1] +  df_conect.loc[i,m] + '['+ suffix + ']'
+                else:
+                    suffix = df_variables[df_variables['variables'] == df_conect.loc[i,m]]['aux'].iloc[0]
+                    list_exp_partial[-1] = list_exp_partial[-1] + ' + ' + df_conect.loc[i,m] + '['+ suffix + ']'
+        if list_exp_partial != []:
+            list_exp_partial = list_exp_partial[-1] 
+            list_expressions.append(list_exp_partial)
 
-    return list_expressions, list_sets
+    #looping through columns, building "energy from" expressions
+    for i in df_conect.columns:
+        list_exp_partial = []
+        for j,m in enumerate(df_conect.index):
+            if df_conect.loc[m,i] != 0:
+                if list_exp_partial == []:
+                    suffix = df_variables[df_variables['variables'] == i]['aux'].iloc[0]
+                    list_exp_partial.append(i + '['+ suffix + ']' + ' == ')
+                    suffix = df_variables[df_variables['variables'] == df_conect.loc[m,i]]['aux'].iloc[0]
+                    list_exp_partial[-1] = list_exp_partial[-1] +  df_conect.loc[m,i] + '['+ suffix + ']'
+                else:
+                    suffix = df_variables[df_variables['variables'] == df_conect.loc[m,i]]['aux'].iloc[0]
+                    list_exp_partial[-1] = list_exp_partial[-1] + ' + ' + df_conect.loc[m,i] + '['+ suffix + ']'
+        if list_exp_partial != []:
+            list_exp_partial = list_exp_partial[-1] 
+            list_expressions.append(list_exp_partial)
 
+    return list_expressions
 
-def connect_from():
-
-    return None
-
+path_output = './output/'
 path_input = './input/'
 name_file = 'df_input.xlsx'
-df_connect_to = pd.read_excel(path_input + name_file , sheet_name = 'connect_to',index_col = 0)
-df_connect_to.index.name = None
+df_conect = pd.read_excel(path_input + name_file,sheet_name='conect',index_col=0)
+df_conect.index.name = None
+df_aux = pd.read_excel(path_input + name_file,sheet_name='aux')
 
-[list_expressions,list_sets] = connection_to(df_connect_to)
+[df_conect, df_variables] = connection_creator(df_conect,df_aux,path_output)
+list_expressions = exp_creator(df_conect,df_variables)
 print(list_expressions)
-print(list_sets)
