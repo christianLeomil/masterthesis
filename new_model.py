@@ -60,7 +60,7 @@ model.P_from_net = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 model.P_net_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 model.P_net_bat = pyo.Var(model.HOURS, model.BAT, within = pyo.NonNegativeReals)
 
-model.P_pv = pyo.Var(model.HOURS, model.PV, within = pyo.NonNegativeReals)
+model.P_from_pv = pyo.Var(model.HOURS, model.PV, within = pyo.NonNegativeReals)
 model.P_pv_net = pyo.Var(model.HOURS, model.PV, within = pyo.NonNegativeReals)
 model.P_pv_bat = pyo.Var(model.HOURS,model.PV, model.BAT, within = pyo.NonNegativeReals)
 model.P_pv_demand = pyo.Var(model.HOURS, model.PV,within = pyo.NonNegativeReals)
@@ -103,10 +103,10 @@ for i in list_elements:
 # ---------------------------------------------------------------------------------------------------------------------
 # region connection constraints
 
-list_expressions = ['model.P_to_demand[t] == (sum(model.P_pv_demand[t,n] for n in model.PV) + model.P_net_demand[t] + sum(model.P_bat_demand[t,m] for m in model.BAT))']
+# list_expressions = ['model.P_to_demand[t] == (sum(model.P_pv_demand[t,n] for n in model.PV) + model.P_net_demand[t] + sum(model.P_bat_demand[t,m] for m in model.BAT))']
 
-class myClass:
-    pass
+# class myClass:
+#     pass
 
 #endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -125,11 +125,11 @@ model.netRule = pyo.Constraint(model.HOURS, model.BAT, rule = net_rule)
 
 # pv rules
 def solar_rule(model,t,n):
-    return model.P_solar[t] * model.pv_eff[n] == model.P_pv[t,n]
+    return model.P_solar[t] * model.pv_eff[n] == model.P_from_pv[t,n]
 model.solarRule = pyo.Constraint(model.HOURS,model.PV,rule = solar_rule)
 
 def pv_rule(model,t,n,m):
-    return model.P_pv[t,n] == model.P_pv_bat[t,n,m] + model.P_pv_net[t,n] + model.P_pv_demand[t,n]
+    return model.P_from_pv[t,n] == model.P_pv_bat[t,n,m] + model.P_pv_net[t,n] + model.P_pv_demand[t,n]
 model.pvRule = pyo.Constraint(model.HOURS , model.PV, model.BAT, rule = pv_rule)
 
 # battery rule

@@ -17,7 +17,7 @@ class pv(Generator):
         super().__init__('pv',id_number,eff,E_in,op_cost,inv_cost,emission)
 
     def solar_rule(model,t,n):
-        return model.P_solar[t] * model.pv_eff[n] == model.P_pv[t,n]
+        return model.P_solar[t] * model.pv_eff[n] == model.P_from_pv[t,n]
     
 class bat:
     def battery_rule(model,t,m):
