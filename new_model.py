@@ -86,8 +86,8 @@ list_elements = ['pv','bat','general']
 for i in list_elements:
      constraint_class = getattr(classes,i)
      constraint_methods = [method_name for method_name in dir(constraint_class) if callable(getattr(constraint_class, method_name))]
-     print('--------------Constraint Methods-----------')
-     print(constraint_methods)
+     # print('--------------Constraint Methods-----------')
+     # print(constraint_methods)
      for name in constraint_methods:
           if name.startswith('__'):
                pass
@@ -103,34 +103,46 @@ for i in list_elements:
 # ---------------------------------------------------------------------------------------------------------------------
 # region connection constraints
 
-# list_expressions = ['model.P_to_demand[t] == (sum(model.P_pv_demand[t,n] for n in model.PV) + model.P_net_demand[t] + sum(model.P_bat_demand[t,m] for m in model.BAT))']
+class myClass:
+    pass
 
-# class myClass:
-#     pass
+constraint_number = 1
+for i in list_expressions:
+    def dynamic_method(model,t,n,m,expr):
+        return eval(expr, globals(), locals())
+    method_name = 'Constraint_' + str(constraint_number)
+
+    def method_wrapper(self, model,t,n,m,expr=i):
+        return dynamic_method(model,t,n,m,expr)
+    setattr(myClass, method_name, method_wrapper)
+    my_obj = myClass()
+    setattr(model, 'Constraint_' + str(constraint_number), pyo.Constraint(model.HOURS,model.PV, model.BAT,
+                                                                             rule=getattr(my_obj, method_name)))
+    constraint_number = constraint_number + 1
 
 #endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region other constraints
 
-#demand rule
-def demand_rule(model,t,n,m):
-    return model.P_to_demand[t] == (sum(model.P_pv_demand[t,n] for n in model.PV) + model.P_net_demand[t] + 
-                                    sum(model.P_bat_demand[t,m] for m in model.BAT))
-model.demandRule = pyo.Constraint(model.HOURS,model.PV,model.BAT,rule = demand_rule)
+# #demand rule
+# def demand_rule(model,t,n,m):
+#     return model.P_to_demand[t] == (sum(model.P_pv_demand[t,n] for n in model.PV) + model.P_net_demand[t] + 
+#                                     sum(model.P_bat_demand[t,m] for m in model.BAT))
+# model.demandRule = pyo.Constraint(model.HOURS,model.PV,model.BAT,rule = demand_rule)
 
-#net_rule
-def net_rule(model,t,m):
-     return model.P_from_net[t] == model.P_to_demand[t] + sum(model.P_net_bat[t,m] for m in model.BAT)
-model.netRule = pyo.Constraint(model.HOURS, model.BAT, rule = net_rule)
+# #net_rule
+# def net_rule(model,t,m):
+#      return model.P_from_net[t] == model.P_to_demand[t] + sum(model.P_net_bat[t,m] for m in model.BAT)
+# model.netRule = pyo.Constraint(model.HOURS, model.BAT, rule = net_rule)
 
-# pv rules
-def solar_rule(model,t,n):
-    return model.P_solar[t] * model.pv_eff[n] == model.P_from_pv[t,n]
-model.solarRule = pyo.Constraint(model.HOURS,model.PV,rule = solar_rule)
+# # pv rules
+# def solar_rule(model,t,n):
+#     return model.P_from_pv[t,n] == model.P_solar[t] * model.pv_eff[n]
+# model.solarRule = pyo.Constraint(model.HOURS,model.PV,rule = solar_rule)
 
-def pv_rule(model,t,n,m):
-    return model.P_from_pv[t,n] == model.P_pv_bat[t,n,m] + model.P_pv_net[t,n] + model.P_pv_demand[t,n]
-model.pvRule = pyo.Constraint(model.HOURS , model.PV, model.BAT, rule = pv_rule)
+# def pv_rule(model,t,n,m):
+#     return model.P_from_pv[t,n] == model.P_pv_bat[t,n,m] + model.P_pv_net[t,n] + model.P_pv_demand[t,n]
+# model.pvRule = pyo.Constraint(model.HOURS , model.PV, model.BAT, rule = pv_rule)
 
 # battery rule
 # def battery_rule(model,t,m):
@@ -140,13 +152,13 @@ model.pvRule = pyo.Constraint(model.HOURS , model.PV, model.BAT, rule = pv_rule)
 #             return model.SOC[t,m] == model.SOC[t-1,m] + (model.P_to_bat[t-1,m] - model.P_from_bat[t-1,m]) * model.time_step / model.E_bat_max[m]
 # model.batteryRule = pyo.Constraint(model.HOURS,model.BAT,rule = battery_rule)
 
-def charge_rule(model,t,n,m):
-     return model.P_to_bat[t,m] == model.P_pv_bat[t,n,m] + model.P_net_bat[t,m]
-model.chargeRule = pyo.Constraint(model.HOURS,model.PV,model.BAT,rule = charge_rule)
+# def charge_rule(model,t,n,m):
+#      return model.P_to_bat[t,m] == model.P_pv_bat[t,n,m] + model.P_net_bat[t,m]
+# model.chargeRule = pyo.Constraint(model.HOURS,model.PV,model.BAT,rule = charge_rule)
 
-def discharge_rule(model,t,m):
-     return model.P_from_bat[t,m] == model.P_bat_net[t,m] + model.P_bat_demand[t,m]
-model.dischargeRule = pyo.Constraint(model.HOURS,model.BAT,rule = discharge_rule)
+# def discharge_rule(model,t,m):
+#      return model.P_from_bat[t,m] == model.P_bat_net[t,m] + model.P_bat_demand[t,m]
+# model.dischargeRule = pyo.Constraint(model.HOURS,model.BAT,rule = discharge_rule)
 
 # def charge_limit(model,t,m):
 #      return model.P_to_bat[t,m] <= model.E_bat_max[m] * 1 * model.K_ch[t,m]
@@ -160,10 +172,10 @@ model.dischargeRule = pyo.Constraint(model.HOURS,model.BAT,rule = discharge_rule
 #      return model.K_ch[t,m] + model.K_dis[t,m] <= 1
 # model.keysRule = pyo.Constraint(model.HOURS,model.BAT, rule = keys_rule)
 
-#realted to objective rule
-def sell_rule(model,t,n,m):
-     return model.P_to_net[t] == sum(model.P_pv_net[t,n] for n in model.PV) + sum(model.P_bat_net[t,m] for m in model.BAT)
-model.sellRule = pyo.Constraint(model.HOURS,model.PV,model.BAT,rule = sell_rule)
+# #related to objective rule
+# def sell_rule(model,t,n,m):
+#      return model.P_to_net[t] == sum(model.P_pv_net[t,n] for n in model.PV) + sum(model.P_bat_net[t,m] for m in model.BAT)
+# model.sellRule = pyo.Constraint(model.HOURS,model.PV,model.BAT,rule = sell_rule)
 
 # def sell_energy(model,t):
 #     return model.E_sell[t] == model.P_to_net[t] * model.time_step
@@ -176,7 +188,6 @@ model.sellRule = pyo.Constraint(model.HOURS,model.PV,model.BAT,rule = sell_rule)
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region objective
-
 
 #objective function
 def objective_rule(model,t):
