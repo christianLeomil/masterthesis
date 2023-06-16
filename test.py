@@ -7,7 +7,7 @@ import pandas as pd
 
 class MyClass:
     def method_1(self, model, t):
-        return model.P_pv[t] == model.P_pv_bat[t] + model.P_pv_bat[t]
+        return model.demand[t] == model.quant_x[t] + model.quant_z[t]
 
 myObj = MyClass()
 
@@ -22,24 +22,22 @@ source_code = inspect.getsource(original_method)
 print(source_code)
 
 # Replace the parameter name
-modified_source_code = source_code.replace("P_pv", "P_pv1")
+modified_source_code = source_code.replace("quant_z", "quant_y")
 
 print(modified_source_code)
 
-modified_source_code = 'def method_1(self, model, t): \n return model.demand[t] == model.quant_x[t] + model.quant_y[t]'
+# modified_source_code = 'def method_1(self, model, t): \n return model.demand[t] == model.quant_x[t] + model.quant_y[t]'
 
-# Define the new class with the modified method
-class NewClass:
-    exec(modified_source_code)
+return_index = modified_source_code.find("return")
+modified_source_code = modified_source_code[return_index + len("return"):].strip()
 
-# Create an instance of the new class
-newObj = NewClass()
+print(modified_source_code)
 
-print(inspect.getsource(NewClass))
+list_expressions =[modified_source_code]
 
-#endregion
-#-------------------------------------------------------------------------------------------------------------
-#region creating model
+# endregion
+# -------------------------------------------------------------------------------------------------------------
+# region creating model
 
 model = pyo.AbstractModel()
 
@@ -57,13 +55,30 @@ model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 #-------------------------------------------------------------------------------------------------------------
 #region creating constriant
 
-method = getattr(NewClass,'method_1')
-name = 'constraint_test'
-model.add_component(name, pyo.Constraint(model.HOURS, rule = method))
+class myClass:
+    pass
+
+constraint_number = 1
+for i in list_expressions:
+    def dynamic_method(model,t,expr):
+        return eval(expr, globals(), locals())
+    method_name = 'Constraint_' + str(constraint_number)
+
+    def method_wrapper(self, model,t,expr=i):
+        return dynamic_method(model,t,expr)
+    setattr(myClass, method_name, method_wrapper)
+    my_obj = myClass()
+    setattr(model, 'Constraint_' + str(constraint_number), pyo.Constraint(model.HOURS,
+                                                                             rule=getattr(my_obj, method_name)))
+    constraint_number = constraint_number + 1
+
+#endregion
+#-------------------------------------------------------------------------------------------------------------
+#region objetive function
 
 def objective_rule(model,t):
-    return sum(model.quant_x[t] * model.cost_x + model.quant_y[t] * model.cost_y[t] for t in model.HOURS)
-model.objectiveRule =  pyo.Objective(rule=objective_rule,sense = pyo.minimize)
+    return sum(model.quant_x[t] * model.cost_x[t] + model.quant_y[t] * model.cost_y[t] for t in model.HOURS)
+model.objectiveRule =pyo.Objective(rule = objective_rule, sense = pyo.minimize)
 
 #endregion
 #-------------------------------------------------------------------------------------------------------------
