@@ -9,7 +9,7 @@ def matrix_creator(df_elements):
             list_elements.append(i + str(j+1))
             list_type.append(i)
     df_matrix = pd.DataFrame(0, index=list_elements, columns=list_elements)
-    df_aux = pd.DataFrame({'elements':list_elements,
+    df_aux = pd.DataFrame({'element':list_elements,
                            'type':list_type})
 
     return df_matrix , df_aux

@@ -9,19 +9,13 @@ import inspect
 
 class MyClass:
       def extra_rule(model,t):
-            return model.quant_z[t] <= 100
+            if t <= 10:
+                  return model.quant_z[t] <= 200
+            else:
+                  return model.quant_z[t] <= 100
       
       def first_rule(model,t):
             return model.demand[t] == model.quant_x[t] + model.quant_z[t]
-
-# Define the lambda function
-# method_1 = lambda model, t: model.demand[t] == model.quant_x[t] + model.quant_z[t]/2 if t < 10 else model.demand[t] == model.quant_x[t] + model.quant_z[t]
-# first_rule = lambda model, t: model.demand[t] == model.quant_x[t] + model.quant_z[t]
-# extra_rule = lambda model,t: model.quant_z[t] <=100
-
-# Assign the lambda function to method_1 in MyClass
-# setattr(MyClass, 'first_rule', first_rule)
-# setattr(MyClass, 'extra_rule', extra_rule)
 
 myObj = MyClass()
 
@@ -69,6 +63,7 @@ model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 #endregion
 #-------------------------------------------------------------------------------------------------------------
 #region creating constriant
+
 constraint_num = 1
 for i in dir(MyClass):
       if i.startswith('__'):
