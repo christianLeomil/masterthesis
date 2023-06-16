@@ -1,49 +1,54 @@
 import inspect
 import pyomo.environ as pyo
 import pandas as pd
-
+import textwrap
 #-------------------------------------------------------------------------------------------------------------
 #region creating string for constraints
     
 import inspect
 
 class MyClass:
-    pass
+      def extra_rule(model,t):
+            return model.quant_z[t] <= 100
+      
+      def first_rule(model,t):
+            return model.demand[t] == model.quant_x[t] + model.quant_z[t]
 
 # Define the lambda function
 # method_1 = lambda model, t: model.demand[t] == model.quant_x[t] + model.quant_z[t]/2 if t < 10 else model.demand[t] == model.quant_x[t] + model.quant_z[t]
-method_1 = lambda model, t: model.demand[t] == model.quant_x[t] + model.quant_z[t]
+# first_rule = lambda model, t: model.demand[t] == model.quant_x[t] + model.quant_z[t]
+# extra_rule = lambda model,t: model.quant_z[t] <=100
 
 # Assign the lambda function to method_1 in MyClass
-setattr(MyClass, "method_1", method_1)
+# setattr(MyClass, 'first_rule', first_rule)
+# setattr(MyClass, 'extra_rule', extra_rule)
 
 myObj = MyClass()
 
-# Get the original method
-original_method = myObj.method_1
-
-# Get the source code of the method
-source_code = inspect.getsource(original_method)
-
-# Replace the parameter name
-modified_source_code = source_code.replace("model.quant_z[t]", "model.quant_y[t] + model.quant_z[t]")
-
-print(modified_source_code)
-
-# Compile the modified source code
-compiled_code = compile(modified_source_code, "<string>", "exec")
-
-# Create a namespace dictionary for execution
-namespace = {}
-
-# Execute the compiled code in the namespace
-exec(compiled_code, namespace)
-
-# Get the modified method from the namespace
-modified_method = namespace["method_1"]
-
-# Set the modified method as the new method_1
-setattr(MyClass, "method_1", modified_method)
+for i in dir(myObj):
+        print(i)
+        if i.startswith('__'):
+             pass
+        else:
+                # Get the original method
+                original_method = getattr(myObj,i)
+                print(original_method)
+                # Get the source code of the method
+                source_code = inspect.getsource(original_method)
+                source_code = textwrap.dedent(source_code)
+                # Replace the parameter name
+                modified_source_code = source_code.replace("model.quant_z[t]", "model.quant_y[t] + model.quant_z[t]")
+                print(modified_source_code)
+                # Compile the modified source code
+                compiled_code = compile(modified_source_code, "<string>", "exec")
+                # Create a namespace dictionary for execution
+                namespace = {}
+                # Execute the compiled code in the namespace
+                exec(compiled_code, namespace)
+                # Get the modified method from the namespace
+                modified_method = namespace[i]
+                # Set the modified method as the new method_1
+                setattr(MyClass, i, modified_method)
 
 # endregion
 # -------------------------------------------------------------------------------------------------------------
@@ -64,8 +69,14 @@ model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 #endregion
 #-------------------------------------------------------------------------------------------------------------
 #region creating constriant
-
-model.add_component('Constraint1', pyo.Constraint(model.HOURS, rule = MyClass.method_1))
+constraint_num = 1
+for i in dir(MyClass):
+      if i.startswith('__'):
+            pass
+      else:
+           method = getattr(MyClass,i)
+           model.add_component('Constraint'+ str(constraint_num), pyo.Constraint(model.HOURS, rule = method))
+           constraint_num += 1
 
 #endregion
 #-------------------------------------------------------------------------------------------------------------

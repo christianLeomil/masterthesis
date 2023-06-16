@@ -79,7 +79,7 @@ model.E_buy = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 
 #endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region creating constraints from class
+# region creating constraints from classes
 
 list_elements = ['pv','bat','general']
 
@@ -238,4 +238,6 @@ instance.display()
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region exporting data
+
+# endregion
 
