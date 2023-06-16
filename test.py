@@ -4,36 +4,46 @@ import pandas as pd
 
 #-------------------------------------------------------------------------------------------------------------
 #region creating string for constraints
+    
+import inspect
 
 class MyClass:
-    def method_1(self, model, t):
-        return model.demand[t] == model.quant_x[t] + model.quant_z[t]
+    pass
+
+# Define the lambda function
+# method_1 = lambda model, t: model.demand[t] == model.quant_x[t] + model.quant_z[t]/2 if t < 10 else model.demand[t] == model.quant_x[t] + model.quant_z[t]
+method_1 = lambda model, t: model.demand[t] == model.quant_x[t] + model.quant_z[t]
+
+# Assign the lambda function to method_1 in MyClass
+setattr(MyClass, "method_1", method_1)
 
 myObj = MyClass()
 
 # Get the original method
 original_method = myObj.method_1
 
-# print(original_method)
-
 # Get the source code of the method
 source_code = inspect.getsource(original_method)
 
-print(source_code)
-
 # Replace the parameter name
-modified_source_code = source_code.replace("quant_z", "quant_y")
+modified_source_code = source_code.replace("model.quant_z[t]", "model.quant_y[t] + model.quant_z[t]")
 
 print(modified_source_code)
 
-# modified_source_code = 'def method_1(self, model, t): \n return model.demand[t] == model.quant_x[t] + model.quant_y[t]'
+# Compile the modified source code
+compiled_code = compile(modified_source_code, "<string>", "exec")
 
-return_index = modified_source_code.find("return")
-modified_source_code = modified_source_code[return_index + len("return"):].strip()
+# Create a namespace dictionary for execution
+namespace = {}
 
-print(modified_source_code)
+# Execute the compiled code in the namespace
+exec(compiled_code, namespace)
 
-list_expressions =[modified_source_code]
+# Get the modified method from the namespace
+modified_method = namespace["method_1"]
+
+# Set the modified method as the new method_1
+setattr(MyClass, "method_1", modified_method)
 
 # endregion
 # -------------------------------------------------------------------------------------------------------------
@@ -55,29 +65,14 @@ model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 #-------------------------------------------------------------------------------------------------------------
 #region creating constriant
 
-class myClass:
-    pass
-
-constraint_number = 1
-for i in list_expressions:
-    def dynamic_method(model,t,expr):
-        return eval(expr, globals(), locals())
-    method_name = 'Constraint_' + str(constraint_number)
-
-    def method_wrapper(self, model,t,expr=i):
-        return dynamic_method(model,t,expr)
-    setattr(myClass, method_name, method_wrapper)
-    my_obj = myClass()
-    setattr(model, 'Constraint_' + str(constraint_number), pyo.Constraint(model.HOURS,
-                                                                             rule=getattr(my_obj, method_name)))
-    constraint_number = constraint_number + 1
+model.add_component('Constraint1', pyo.Constraint(model.HOURS, rule = MyClass.method_1))
 
 #endregion
 #-------------------------------------------------------------------------------------------------------------
 #region objetive function
 
 def objective_rule(model,t):
-    return sum(model.quant_x[t] * model.cost_x[t] + model.quant_y[t] * model.cost_y[t] for t in model.HOURS)
+    return sum(model.quant_x[t] * model.cost_x[t] + model.quant_y[t] * model.cost_y[t] + model.quant_z[t] * model.cost_x[t] for t in model.HOURS)
 model.objectiveRule =pyo.Objective(rule = objective_rule, sense = pyo.minimize)
 
 #endregion
