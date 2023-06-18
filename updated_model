@@ -19,11 +19,22 @@ df_input_series = pd.read_excel(path_input +name_file, sheet_name= 'series')
 df_input_other = pd.read_excel(path_input +name_file, sheet_name= 'other')
 df_elements = pd.read_excel(path_input + name_file, sheet_name = 'elements')
 [df_matrix, df_aux] = functions.matrix_creator(df_elements)
+df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
+df_matrix.to_excel(path_output + 'df_matrix.xlsx') 
+
+input("Press Enter to continue...")
 
 df_conect = pd.read_excel(path_input + name_file, sheet_name = 'conect',index_col = 0)
 df_conect.index.name = None
-[df_conect,list_expressions] = functions.connection_creator(df_conect)
-print(list_expressions)
+df_conect.to_excel(path_output + 'df_conect.xlsx')
+[df_conect, list_expressions, list_con_variables] = functions.connection_creator(df_conect)
+
+# print('---------------------------list of conection expressions------------------------------')
+# print(list_expressions)
+# print('\n')
+# print('----------------------------list of conection variables-------------------------------')
+# print(list_con_variables)
+# print('\n')
 
 #endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -37,26 +48,9 @@ model.HOURS = pyo.Set()
 
 #endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region dynamically creating parameters
+# region parameters related to sets
 
-
-#endregion
-# ---------------------------------------------------------------------------------------------------------------------
-# region dynamically creating variables
-
-
-#endregion
-# ---------------------------------------------------------------------------------------------------------------------
-# region abstract creating model
-
-#parameter scalar
 model.time_step = pyo.Param()
-model.pv1_eff = pyo.Param()
-
-model.starting_SOC = pyo.Param()
-model.E_bat1_max = pyo.Param()
-
-#parameters series
 model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
 model.P_to_demand1 = pyo.Param(model.HOURS) #time series with solar energy
 model.costBuy = pyo.Param(model.HOURS) #time series with costs of buying energy
@@ -64,26 +58,55 @@ model.costSell = pyo.Param(model.HOURS) #time series with price of energy being 
 
 #endregion
 # ---------------------------------------------------------------------------------------------------------------------
+# region dynamically creating parameters and variables from classes
+
+# creating variables from classes
+for i in df_aux.index:
+    element = df_aux['element'].iloc[i]
+    class_type = df_aux['type'].iloc[i]
+    if df_aux['type'].iloc[i] in ['pv','bat']: 
+        myObj = getattr(classes,class_type)
+        myObj = myObj()
+        list_classes_variables = [s.replace(class_type, element) for s in myObj.list_var]
+        for j,m in enumerate(list_classes_variables):
+            specifications = myObj.list_text_var[j]
+            text = 'model.HOURS,' + specifications
+          #   print(m)
+          #   print(specifications)
+            exec(f"model.add_component('{m}',pyo.Var({text}))")
+
+# print('----------------------------------------------------------')
+
+# creating parameters from classes
+for i in df_aux.index:
+    element = df_aux['element'].iloc[i]
+    class_type = df_aux['type'].iloc[i]
+    if df_aux['type'].iloc[i] in ['pv','bat']:
+        myObj = getattr(classes,class_type)
+        myObj = myObj()
+        list_classes_parameters = [s.replace(class_type, element) for s in myObj.list_param]
+        for j,m in enumerate(list_classes_parameters):
+            specifications = myObj.list_text_param[j]
+            text = specifications
+          #   print(m)
+          #   print(specifications)
+            exec(f"model.add_component('{m}',pyo.Param({text}))")
+
+#endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region dynamically creating variables from connections
+
+for i in list_con_variables:
+    if i in ['P_to_demand1']:
+        pass
+    else:
+        print(i)
+        text = 'model.HOURS, within = pyo.NonNegativeReals'
+        exec(f"model.add_component('{i}',pyo.Var({text}))")
+
+#endregion
+# ---------------------------------------------------------------------------------------------------------------------
 # region creating variables
-
-model.P_to_net1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_from_net1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_net1_demand1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_net1_bat1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-
-model.P_from_pv1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_pv1_net1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_pv1_bat1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_pv1_demand1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-
-model.SOC = pyo.Var(model.HOURS, within = pyo.NonNegativeReals, bounds=(0, 1))
-model.P_to_bat1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_from_bat1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_bat1_net1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-model.P_bat1_demand1 = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-
-model.K_ch = pyo.Var(model.HOURS, domain = pyo.Binary)
-model.K_dis = pyo.Var(model.HOURS, domain = pyo.Binary)
 
 model.E_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 model.E_buy = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
@@ -95,18 +118,19 @@ model.E_buy = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 class MyClass:
      pass
 
-print(df_aux) 
-
+method_num = 0
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
-    if class_type in ['bat','pv']: #PRECISO CORRIGIR ISSO AINDA.
+    if class_type in ['bat','pv']:
         myObj = getattr(classes, class_type)
 
         for j in dir(myObj):
             if j.startswith('__'):
                 pass
             else:
+                method_num += 1
+                print('method'+str(method_num))
                 # Get the original method
                 original_method = getattr(myObj,j)
                 print(original_method)
@@ -126,7 +150,7 @@ for i in df_aux.index:
                 # Get the modified method from the namespace
                 modified_method = namespace[j] 
                 # Set the modified method as the new method_1
-                setattr(MyClass, j, modified_method)
+                setattr(MyClass, 'method'+str(method_num), modified_method)
 
 constraint_num = 1
 for i in dir(MyClass):
@@ -161,33 +185,6 @@ for i in list_expressions:
 # ---------------------------------------------------------------------------------------------------------------------
 # region other constraints
 
-# #demand rule
-# def demand_rule(model,t):
-#     return model.P_to_demand1[t] == model.P_pv1_demand1[t] + model.P_net1_demand1[t] + model.P_bat1_demand1[t]
-# model.demandRule = pyo.Constraint(model.HOURS,rule = demand_rule)
-
-# #net_rule
-# def net_rule(model,t):
-#      return model.P_from_net1[t] == model.P_to_demand1[t] + model.P_net1_bat1[t]
-# model.netRule = pyo.Constraint(model.HOURS, rule = net_rule)
-
-# def pv_rule(model,t):
-#     return model.P_from_pv1[t] == model.P_pv1_bat1[t] + model.P_pv1_net1[t] + model.P_pv1_demand1[t]
-# model.pvRule = pyo.Constraint(model.HOURS, rule = pv_rule)
-
-# def charge_rule(model,t):
-#      return model.P_to_bat1[t] == model.P_pv1_bat1[t] + model.P_net1_bat1[t]
-# model.chargeRule = pyo.Constraint(model.HOURS,rule = charge_rule)
-
-# def discharge_rule(model,t):
-#      return model.P_from_bat1[t] == model.P_bat1_net1[t] + model.P_bat1_demand1[t]
-# model.dischargeRule = pyo.Constraint(model.HOURS,rule = discharge_rule)
-
-# #related to objective rule
-# def sell_rule(model,t):
-#      return model.P_to_net1[t] == model.P_pv1_net1[t] + model.P_bat1_net1[t]
-# model.sellRule = pyo.Constraint(model.HOURS,rule = sell_rule)
-
 def sell_energy(model,t):
     return model.E_sell[t] == model.P_to_net1[t] * model.time_step
 model.sellEnergy = pyo.Constraint(model.HOURS, rule = sell_energy)
@@ -209,7 +206,6 @@ model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
 # ---------------------------------------------------------------------------------------------------------------------
 # region reading data
 
-
 #reading data
 data = pyo.DataPortal()
 data['HOURS'] = df_input_series['HOURS'].tolist()
@@ -219,10 +215,26 @@ data['costBuy'] = df_input_series.set_index('HOURS')['costBuy'].to_dict()
 data['costSell'] = df_input_series.set_index('HOURS')['costSell'].to_dict()
 
 data['pv1_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv1_eff', 'Value'].values[0]}
-data['E_bat1_max'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'E_bat1_max', 'Value'].values[0]}
-data['starting_SOC'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'starting_SOC', 'Value'].values[0]}
-data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
+data['pv1_area'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv1_area', 'Value'].values[0]}
 
+data['pv2_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv2_eff', 'Value'].values[0]}
+data['pv2_area'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv2_area', 'Value'].values[0]}
+
+data['bat1_E_max'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_E_max', 'Value'].values[0]}
+data['bat1_starting_SOC'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_starting_SOC', 'Value'].values[0]}
+data['bat1_c_rate_ch'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_c_rate_ch', 'Value'].values[0]}
+data['bat1_c_rate_dis'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_c_rate_dis', 'Value'].values[0]}
+data['bat1_ch_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_ch_eff', 'Value'].values[0]}
+data['bat1_dis_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_dis_eff', 'Value'].values[0]}
+
+data['bat2_E_max'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_E_max', 'Value'].values[0]}
+data['bat2_starting_SOC'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_starting_SOC', 'Value'].values[0]}
+data['bat2_c_rate_ch'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_c_rate_ch', 'Value'].values[0]}
+data['bat2_c_rate_dis'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_c_rate_dis', 'Value'].values[0]}
+data['bat2_ch_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_ch_eff', 'Value'].values[0]}
+data['bat2_dis_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_dis_eff', 'Value'].values[0]}
+
+data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -231,11 +243,11 @@ data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'tim
 #generating instance
 instance = model.create_instance(data)
 
-#printing constriants to check
-print("Constraint Expressions:")
-for constraint in instance.component_objects(pyo.Constraint):
-    for index in constraint:
-        print(f"{constraint}[{index}]: {constraint[index].body}")
+#printing constriants to check (uncomment to see all contraints)
+# print("Constraint Expressions:")
+# for constraint in instance.component_objects(pyo.Constraint):
+#     for index in constraint:
+#         print(f"{constraint}[{index}]: {constraint[index].body}")
 
 #solving the model
 optimizer = pyo.SolverFactory('cplex')
@@ -243,15 +255,11 @@ results = optimizer.solve(instance)
 
 # # Displaying the results
 # instance.pprint()
-# instance.display()
+instance.display()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region exporting results
-
-# variable_names = ['P_to_net1', 'P_from_net1', 'P_net1_demand1']  # Add more variable names as needed
-
-#ACHO QUE ROLA MANDAR A INSTANCIA PARA UMA FUNCAO DEPOIS DE SIMULAR E AI FAZER O MESMO LOOP PELOS PARAMETROS QUE OS VAR E JOGAR NO EXCEL
 
 variable_names =[]
 for var_component in instance.component_objects(pyo.Var):
@@ -279,6 +287,5 @@ for t in instance.HOURS:
 
 # Display the DataFrame with the variable values
 df_variable_values.to_excel(path_output + 'variable_values.xlsx',index = False)
-
 
 #endregion

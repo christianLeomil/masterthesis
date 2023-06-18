@@ -56,7 +56,13 @@ model.demand = pyo.Param(model.HOURS)
 model.cost_x = pyo.Param(model.HOURS)
 model.cost_y = pyo.Param(model.HOURS)
 
-model.quant_x = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
+# text = 'model.HOURS, within=pyo.NonNegativeReals,bounds = (0,1000)'
+# model.add_component('quant_x', pyo.Var(eval (text)))
+
+text = 'model.HOURS, within=pyo.NonNegativeReals,bounds=(0, 1000)'
+exec(f"model.quant_x = pyo.Var({text})")
+
+# model.quant_x = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 model.quant_y = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 

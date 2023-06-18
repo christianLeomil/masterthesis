@@ -1,40 +1,52 @@
-import pandas as pd
+import inspect
 import pyomo.environ as pyo
+import pandas as pd
+import textwrap
+#-------------------------------------------------------------------------------------------------------------
+#region creating string for constraints
+    
+import inspect
 
-path_output = './output/'
-path_input = './input/'
-name_file = 'df_input_test.xlsx'
+class MyClass:
+      def extra_rule(model,t):
+            if t <= 10:
+                  return model.quant_z[t] <= 200
+            else:
+                  return model.quant_z[t] <= 100
+      
+      def first_rule(model,t):
+            return model.demand[t] == model.quant_x[t] + model.quant_z[t]
 
-df_input_series = pd.read_excel(path_input + name_file, sheet_name='series')
-df_conect = pd.read_excel(path_input + 'c_matrix.xlsx', sheet_name='test')
+myObj = MyClass()
 
-df_conect.set_index(df_conect['from'], inplace=True)
-df_conect.index.name = None
-df_conect.drop(['from'], axis=1, inplace=True)
+for i in dir(myObj):
+        print(i)
+        if i.startswith('__'):
+             pass
+        else:
+                # Get the original method
+                original_method = getattr(myObj,i)
+                print(original_method)
+                # Get the source code of the method
+                source_code = inspect.getsource(original_method)
+                source_code = textwrap.dedent(source_code)
+                # Replace the parameter name
+                modified_source_code = source_code.replace("model.quant_z[t]", "model.quant_y[t] + model.quant_z[t]")
+                print(modified_source_code)
+                # Compile the modified source code
+                compiled_code = compile(modified_source_code, "<string>", "exec")
+                # Create a namespace dictionary for execution
+                namespace = {}
+                # Execute the compiled code in the namespace
+                exec(compiled_code, namespace)
+                # Get the modified method from the namespace
+                modified_method = namespace[i]
+                # Set the modified method as the new method_1
+                setattr(MyClass, i, modified_method)
 
-list_variables_conect = []
-list_energy_from = []
-list_energy_to_total = []
-for i in range(0, len(df_conect)):
-    list_energy_to = []
-    for j in df_conect.columns:
-        if df_conect[j].iloc[i] == 1:
-            list_energy_to.append(j)
-    if list_energy_to != []:
-        list_energy_to_total.append(list_energy_to)
-        list_energy_from.append(df_conect.index[i])
-
-df_conect = pd.DataFrame({'energy from': list_energy_from, 'energy to': list_energy_to_total})
-
-list_string_total = []
-for i in range(0, len(df_conect)):
-    string_partial = ''
-    string_partial = 'model.' + str(df_conect['energy from'].iloc[i]) + '[t]' '== model.' + str(
-        df_conect['energy to'].iloc[i][0]) + '[t]'
-    for j in range(1, len(df_conect['energy to'].iloc[i])):
-        string_partial = string_partial + '+ model.' + str(df_conect['energy to'].iloc[i][j]) + '[t]'
-    list_string_total.append(string_partial)
-print(list_string_total)
+# endregion
+# -------------------------------------------------------------------------------------------------------------
+# region creating model
 
 model = pyo.AbstractModel()
 
@@ -48,33 +60,36 @@ model.quant_x = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 model.quant_y = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 
-class myClass:
-    pass
+#endregion
+#-------------------------------------------------------------------------------------------------------------
+#region creating constriant
 
-constraint_number = 1
-for i in list_string_total:
-    def dynamic_method(model, t, expr):
-        return eval(expr, globals(), locals())
+constraint_num = 1
+for i in dir(MyClass):
+      if i.startswith('__'):
+            pass
+      else:
+           method = getattr(MyClass,i)
+           model.add_component('Constraint'+ str(constraint_num), pyo.Constraint(model.HOURS, rule = method))
+           constraint_num += 1
 
-    method_name = 'Constraint_' + str(constraint_number)
+#endregion
+#-------------------------------------------------------------------------------------------------------------
+#region objetive function
 
-    def method_wrapper(self, model, t, expr=i):
-        return dynamic_method(model, t, expr)
+def objective_rule(model,t):
+    return sum(model.quant_x[t] * model.cost_x[t] + model.quant_y[t] * model.cost_y[t] + model.quant_z[t] * model.cost_x[t] for t in model.HOURS)
+model.objectiveRule =pyo.Objective(rule = objective_rule, sense = pyo.minimize)
 
-    setattr(myClass, method_name, method_wrapper)
+#endregion
+#-------------------------------------------------------------------------------------------------------------
+#region executing the model
 
-    my_obj = myClass()
+path_input = './input/'
+path_output = './output/'
+name_file = 'df_input_test.xlsx'
 
-    setattr(model, 'constraint' + str(constraint_number), pyo.Constraint(model.HOURS,
-                                                                       rule=getattr(my_obj, method_name)))
-    constraint_number = constraint_number + 1
-
-def objective_rule(model, t):
-    return sum(model.cost_x[t] * model.quant_x[t] + model.cost_y[t] * model.quant_y[t] + model.cost_x[t] *
-               model.quant_z[t] for t in model.HOURS)
-
-
-model.objectiveRule = pyo.Objective(rule=objective_rule, sense=pyo.minimize)
+df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'series')
 
 # reading data
 data = pyo.DataPortal()
@@ -99,3 +114,4 @@ results = optimizer.solve(instance)
 # instance.pprint()
 instance.display()
 
+#endregion

@@ -8,8 +8,8 @@ def matrix_creator(df_elements):
         for j in range(0, df_elements[i].iloc[0]):
             list_elements.append(i + str(j+1))
             list_type.append(i)
-    df_matrix = pd.DataFrame(0, index=list_elements, columns=list_elements)
-    df_aux = pd.DataFrame({'element':list_elements,
+    df_matrix = pd.DataFrame(0, index = list_elements, columns = list_elements)
+    df_aux = pd.DataFrame({'element': list_elements,
                            'type':list_type})
 
     return df_matrix , df_aux
@@ -54,7 +54,25 @@ def connection_creator(df_conect):
             list_exp_partial = list_exp_partial[-1]
             list_expressions.append(list_exp_partial)
 
-    return df_conect,list_expressions
+    # list_con_variables = []
+    # list_con_variables.extend(df_conect.columns.tolist())
+    # list_con_variables.extend(df_conect.index.tolist())
+
+    # for i in df_conect.index:
+    #     for j in df_conect.columns:
+    #         if df_conect.loc[i,j] != 0:
+    #             list_con_variables.append(df_conect.loc[i,j])
+
+    list_con_variables = []
+    for i in df_conect.index:
+        for j in df_conect.columns:
+            if df_conect.loc[i,j] != 0:
+                list_con_variables.append(df_conect.loc[i,j])
+                list_con_variables.append(i)
+                list_con_variables.append(j)
+    list_con_variables = list(set(list_con_variables))
+
+    return df_conect, list_expressions, list_con_variables
 
 # path_input = './input/'
 # path_output = './output/' 
