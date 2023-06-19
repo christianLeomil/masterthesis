@@ -54,15 +54,6 @@ def connection_creator(df_conect):
             list_exp_partial = list_exp_partial[-1]
             list_expressions.append(list_exp_partial)
 
-    # list_con_variables = []
-    # list_con_variables.extend(df_conect.columns.tolist())
-    # list_con_variables.extend(df_conect.index.tolist())
-
-    # for i in df_conect.index:
-    #     for j in df_conect.columns:
-    #         if df_conect.loc[i,j] != 0:
-    #             list_con_variables.append(df_conect.loc[i,j])
-
     list_con_variables = []
     for i in df_conect.index:
         for j in df_conect.columns:
@@ -74,14 +65,7 @@ def connection_creator(df_conect):
 
     return df_conect, list_expressions, list_con_variables
 
-# path_input = './input/'
-# path_output = './output/' 
-# name_file = 'df_input.xlsx'
 
-# df_conect = pd.read_excel(path_input + name_file, sheet_name = 'conect',index_col = 0)
-# df_conect.index.name = None
-
-# [df_conect,list_expressions] = connection_creator(df_conect)
-
-# print(df_conect)
-# print(list_expressions)
+def write_excel(df_matrix, path_input):
+    with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a',engine = 'openpyxl', if_sheet_exists='replace') as writer:
+        df_matrix.to_excel(writer,sheet_name = 'conect')
