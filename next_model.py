@@ -20,7 +20,6 @@ class MyClass:
 myObj = MyClass()
 
 for i in dir(myObj):
-        print(i)
         if i.startswith('__'):
              pass
         else:
@@ -87,7 +86,7 @@ model.objectiveRule =pyo.Objective(rule = objective_rule, sense = pyo.minimize)
 
 path_input = './input/'
 path_output = './output/'
-name_file = 'df_input_test.xlsx'
+name_file = 'df_input_new_model.xlsx'
 
 df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'series')
 

@@ -16,14 +16,29 @@ def matrix_creator(df_elements):
 
 def connection_creator(df_conect):
 
+    #getting seuquence of classes that will receive methods with expressions later on
+    # first through rows
+    list_attr_classes = []
+    for i in df_conect.index:
+        if any(expr !=0 for expr in df_conect.loc[i]):
+            list_attr_classes.append(i)
+    # now through columns
+    for i in df_conect.columns:
+        if any(expr !=0 for expr in df_conect[i]):
+            list_attr_classes.append(i)
+
+
+    #building variable names inside connection matrix
     for i in df_conect.index: 
         for j in df_conect.columns:
             if df_conect.loc[i,j] != 0:
                 df_conect.loc[i,j] = 'P_' + j + '_' + i
     
+    #creating variable names derived from columns of conection matrix
     list_sub = ['P_from_' + i for i in df_conect.columns]
     df_conect.columns = list_sub
 
+    #creating variable names derived from index of conection matrix
     list_sub = ['P_to_' + i for i in df_conect.index]
     df_conect.index = list_sub
 
@@ -63,7 +78,7 @@ def connection_creator(df_conect):
                 list_con_variables.append(j)
     list_con_variables = list(set(list_con_variables))
 
-    return df_conect, list_expressions, list_con_variables
+    return df_conect, list_expressions, list_con_variables, list_attr_classes
 
 
 def write_excel(df_matrix, path_input):

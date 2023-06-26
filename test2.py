@@ -5,7 +5,6 @@ import functions
 import inspect
 import textwrap
 import warnings
-import copy
 
 warnings.filterwarnings("ignore", '.*')
 
@@ -22,7 +21,7 @@ df_elements = pd.read_excel(path_input + name_file, sheet_name = 'elements')
 [df_matrix, df_aux] = functions.matrix_creator(df_elements)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-# functions.write_excel(df_matrix,path_input)
+functions.write_excel(df_matrix,path_input)
 
 df_matrix.to_excel(path_output + 'df_matrix.xlsx') 
 
@@ -49,39 +48,41 @@ model.HOURS = pyo.Set()
 
 #create one class of each element chosen
 for i in df_aux.index:
-    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])
+    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])()
+
+#comented code below is for checking what the global variables in this program are.  
+# def print_global_variables():
+#     global_vars = globals()
+#     for var_name, var_value in global_vars.items():
+#         print(var_name, "=", var_value)
+#         print('\n')
+
+# print_global_variables()
+# print('\n')
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region renaming variables from methods from created classes
 
-#looping through created classes and renaming variables in equations
-for i in df_aux.index:
-    print('---------------------------------' + df_aux['element'].iloc[i])
-    for j in dir(globals()[df_aux['element'].iloc[i]]):
-        if j.startswith('__'):
-            pass
-        else:
-            print(j)
-            # getting original method from class
-            original_method = getattr(globals()[df_aux['element'].iloc[i]],j)
-            # getting equation from method
+list_elements = df_aux['element']
+list_types = df_aux['type']
+
+for i,n in enumerate(list_elements):
+    element = n
+    element_type = list_types[i]
+    methods = inspect.getmembers(globals()[element],inspect.ismethod)
+    for method_name,method in methods:
+        if not method_name.startswith('__'):
+            original_method = getattr(globals()[element],method_name)
             source_code = inspect.getsource(original_method)
-            # removing indentation from equation text
             source_code = textwrap.dedent(source_code)
-            # Replace the parameter name
-            modified_source_code = source_code.replace(df_aux['type'].iloc[i],df_aux['element'].iloc[i])
-            print(modified_source_code)
-            # Compile the modified source code
+            modified_source_code = source_code.replace(element_type,element)
+            # print(modified_source_code)
             compiled_code = compile(modified_source_code, "<string>", "exec")
-            # Create a namespace dictionary for execution
             namespace = {}
-            # Execute the compiled code in the namespace
             exec(compiled_code, namespace)
-            # Get the modified method from the namespace
-            modified_method = namespace[j]
-            # Set the modified method as the new method_1
-            setattr(globals()[df_aux['element'].iloc[i]], j , modified_method)
+            modified_method = namespace[method_name]
+            setattr(globals()[element], method_name , modified_method)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -91,12 +92,10 @@ for i in df_aux.index:
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
-    myObj = globals()[element]
-    myObj = myObj()
-    if hasattr(myObj,'list_param'):
-        list_classes_parameters = [s.replace(class_type, element) for s in myObj.list_param]
+    if hasattr(globals()[element],'list_param'):
+        list_classes_parameters = [s.replace(class_type, element) for s in globals()[element].list_param]
         for j,m in enumerate(list_classes_parameters):
-            specifications = myObj.list_text_param[j]
+            specifications = globals()[element].list_text_param[j]
             text = specifications
             # print(m)
             # print(specifications)
@@ -106,12 +105,10 @@ for i in df_aux.index:
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
-    myObj = globals()[element]
-    myObj = myObj()
-    if hasattr(myObj,'list_var'):
-        list_classes_variables = [s.replace(class_type, element) for s in myObj.list_var]
+    if hasattr(globals()[element],'list_var'):
+        list_classes_variables = [s.replace(class_type, element) for s in globals()[element].list_var]
         for j,m in enumerate(list_classes_variables):
-            specifications = myObj.list_text_var[j]
+            specifications = globals()[element].list_text_var[j]
             text = 'model.HOURS,' + specifications
             # print(m)
             # print(specifications)
@@ -119,10 +116,8 @@ for i in df_aux.index:
 
 # dynamically creating variables from connections
 for i in list_con_variables:
-    if i in ['P_to_demand1']:
-        pass
-    else:
-        print(i)
+    if not i.startswith('P_to_demand'):
+        # print(i)
         text = 'model.HOURS, within = pyo.NonNegativeReals'
         exec(f"model.add_component('{i}',pyo.Var({text}))")
 
@@ -157,26 +152,25 @@ for i in df_aux.index:
     print('------------------'+df_aux['element'].iloc[i])
     for j in dir(globals()[df_aux['element'].iloc[i]]):
         if not j.startswith('__'):
-            print(j) 
+            print(j)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region create constraints from created classes:
 
-
 constraint_num = 1
 for i in df_aux.index:
-    for j in dir(globals()[df_aux['element'].iloc[i]]):
-        if not j.startswith('__'):
-            method = getattr(globals()[df_aux['element'].iloc[i]],j)
+    element = df_aux['element'].iloc[i]
+    methods = inspect.getmembers(globals()[element],inspect.isfunction)
+    for method_name,method in methods:
+        if not method_name.startswith('__'):
+            method = getattr(globals()[element],method_name)
             model.add_component('Constraint_class_'+ str(constraint_num), pyo.Constraint(model.HOURS, rule = method))
             constraint_num += 1
-
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region objective
-
 
 #objective function
 def objective_rule(model,t):
@@ -187,6 +181,7 @@ model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region reading data
+
 
 #reading data
 data = pyo.DataPortal()
@@ -209,12 +204,12 @@ data['bat1_c_rate_dis'] = {None:df_input_other.loc[df_input_other['Parameter'] =
 data['bat1_ch_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_ch_eff', 'Value'].values[0]}
 data['bat1_dis_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_dis_eff', 'Value'].values[0]}
 
-# data['bat2_E_max'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_E_max', 'Value'].values[0]}
-# data['bat2_starting_SOC'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_starting_SOC', 'Value'].values[0]}
-# data['bat2_c_rate_ch'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_c_rate_ch', 'Value'].values[0]}
-# data['bat2_c_rate_dis'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_c_rate_dis', 'Value'].values[0]}
-# data['bat2_ch_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_ch_eff', 'Value'].values[0]}
-# data['bat2_dis_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_dis_eff', 'Value'].values[0]}
+data['bat2_E_max'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_E_max', 'Value'].values[0]}
+data['bat2_starting_SOC'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_starting_SOC', 'Value'].values[0]}
+data['bat2_c_rate_ch'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_c_rate_ch', 'Value'].values[0]}
+data['bat2_c_rate_dis'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_c_rate_dis', 'Value'].values[0]}
+data['bat2_ch_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_ch_eff', 'Value'].values[0]}
+data['bat2_dis_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_dis_eff', 'Value'].values[0]}
 
 data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
 
@@ -226,10 +221,10 @@ data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'tim
 instance = model.create_instance(data)
 
 #printing constriants to check (uncomment to see all contraints)
-print("Constraint Expressions:")
-for constraint in instance.component_objects(pyo.Constraint):
-    for index in constraint:
-        print(f"{constraint}[{index}]: {constraint[index].body}")
+# print("Constraint Expressions:")
+# for constraint in instance.component_objects(pyo.Constraint):
+#     for index in constraint:
+#         print(f"{constraint}[{index}]: {constraint[index].body}")
 
 #solving the model
 optimizer = pyo.SolverFactory('cplex')
@@ -271,3 +266,7 @@ for t in instance.HOURS:
 df_variable_values.to_excel(path_output + 'variable_values.xlsx',index = False)
 
 #endregion
+
+
+
+

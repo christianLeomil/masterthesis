@@ -48,12 +48,19 @@ class bat:
     def keys_rule(model,t):
         return model.bat_K_ch[t] + model.bat_K_dis[t] <= 1
     
-# class general: # tenho que criar uma regra de conexao pra gerar isso dinamicamente -----------------------
-#     def sell_energy(model,t):
-#         return model.E_sell[t] == model.P_to_net1[t] * model.time_step
+class demand:
+    pass
 
-#     def buy_energy(model,t):
-#         return model.E_buy[t] == model.P_from_net1[t] * model.time_step
+class net:
+    def __init__(self):
+        self.list_var = ['E_buy','E_sell']
+        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+        self.list_param = []
+        self.list_text_param = []
+    def sell_energy(model,t):
+        return model.E_sell[t] == model.P_to_net[t] * model.time_step
+    
+    def buy_energy(model,t):
+        return model.E_buy[t] == model.P_from_net[t] * model.time_step
 
-# endregion
-# ---------------------------------------------------------------------------------------------------------------------
+    

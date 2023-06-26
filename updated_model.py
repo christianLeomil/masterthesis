@@ -21,7 +21,7 @@ df_elements = pd.read_excel(path_input + name_file, sheet_name = 'elements')
 [df_matrix, df_aux] = functions.matrix_creator(df_elements)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-functions.write_excel(df_matrix,path_input)
+# functions.write_excel(df_matrix,path_input)
 
 df_matrix.to_excel(path_output + 'df_matrix.xlsx') 
 
@@ -30,7 +30,7 @@ input("Press Enter to continue...")
 df_conect = pd.read_excel(path_input + name_file, sheet_name = 'conect',index_col = 0)
 df_conect.index.name = None
 df_conect.to_excel(path_output + 'df_conect.xlsx')
-[df_conect, list_expressions, list_con_variables] = functions.connection_creator(df_conect)
+[df_conect, list_expressions, list_con_variables, list_attr_classes] = functions.connection_creator(df_conect)
 
 # print('---------------------------list of conection expressions------------------------------')
 # print(list_expressions)
