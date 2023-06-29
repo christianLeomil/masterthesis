@@ -1,6 +1,3 @@
-#region superclasses
-import pyomo.environ as pyo
-
 class Generator:
     def __init__(self,type_, id,eff,E_in,op_cost,inv_cost,emission):
         self.class_type = 'generator'
@@ -12,9 +9,7 @@ class Generator:
         self.op_cost = op_cost
         self.emission = emission
 
-class pv(Generator):
-    # def __init__(self,type_,id_number,eff,E_in,op_cost,inv_cost,emission):
-    #     super().__init__('pv',id_number,eff,E_in,op_cost,inv_cost,emission)
+class pv():
     def __init__(self):
         self.list_var = [] #no powers
         self.list_text_var = []
@@ -22,6 +17,10 @@ class pv(Generator):
         self.list_text_param = ['','']
         self.list_series = []
         self.list_text_series =[]
+
+        self.pv_eff = 0.2
+        self.pv_area = 1
+
     def solar_rule(model,t):
         return model.P_from_pv[t] == model.P_solar[t] * model.pv_eff * model.pv_area
     
@@ -34,7 +33,7 @@ class bat:
                            'bat_c_rate_ch','bat_c_rate_dis']
         self.list_text_param = ['','','','','','']
         self.list_series = []
-        self.list_text_series =[]
+        self.list_text_series = []
 
     def function_rule(model,t):
             if t ==1:
@@ -86,4 +85,3 @@ class objective:
         self.list_series = []
         self.list_text_series =[]
 
-    

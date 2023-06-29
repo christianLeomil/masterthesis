@@ -1,15 +1,21 @@
 import pandas as pd
 
-# Create a sample DataFrame
-data = {'Name': ['Alice', 'Bob', 'Charlie', 'Dave', 'Eve'],
-        'Age': [25, 30, 35, 40, 45]}
-df = pd.DataFrame(data)
+name_file = 'test.xlsx'
+path_input = './input/'
+path_output = './output/'
 
-# Filter rows based on a value in a column
-filtered_df = df[df['Name'] == 'Alice']
+def my_function(parameter1=None, parameter2=None):
+    if parameter1 is not None:
+        parameter2 = parameter1
+    else:
+        parameter2 = 6
+    return parameter2
 
-# Reset the index
-filtered_df = filtered_df.reset_index(drop=True)
+try:
+    df = pd.read_excel(path_input + name_file)
+    parameter1 = df['parameter1'].iloc[0] 
+    parameter2 = my_function(parameter1)
+except Exception:
+    parameter2 = my_function()
 
-# Print the filtered DataFrame with reset index
-print(filtered_df)
+print(parameter2)

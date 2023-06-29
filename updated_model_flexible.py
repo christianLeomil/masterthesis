@@ -5,6 +5,7 @@ import functions
 import inspect
 import textwrap
 import warnings
+import re
 
 warnings.filterwarnings("ignore", '.*')
 
@@ -21,11 +22,11 @@ df_elements = pd.read_excel(path_input + name_file, sheet_name = 'elements')
 [df_matrix, df_aux] = functions.matrix_creator(df_elements)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-functions.write_excel(df_matrix,path_input)
+# functions.write_excel(df_matrix,path_input)
 
 df_matrix.to_excel(path_output + 'df_matrix.xlsx') 
 
-input("Press Enter to continue...")
+# input("Press Enter to continue...")
 
 df_conect = pd.read_excel(path_input + name_file, sheet_name = 'conect',index_col = 0)
 df_conect.index.name = None
@@ -202,7 +203,7 @@ for i in list_objective_constraints:
     setattr(objective_class , method_name, method_wrapper)
     constraint_num += 1
 
-#checking content of class content:
+#checking content of class objective:
 print('------------------objective')
 for i in dir(objective_class):
     if not i.startswith('__'):
@@ -228,9 +229,9 @@ model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
 
 #reading data
 data = pyo.DataPortal()
-
 data['HOURS'] = df_input_series['HOURS'].tolist()
 data['P_solar'] = df_input_series.set_index('HOURS')['P_solar'].to_dict()
+
 data['P_to_demand1'] = df_input_series.set_index('HOURS')['P_to_demand1'].to_dict()
 data['P_to_demand2'] = df_input_series.set_index('HOURS')['P_to_demand2'].to_dict()
 
@@ -239,11 +240,20 @@ data['net1_cost_sell'] = df_input_series.set_index('HOURS')['net1_cost_sell'].to
 data['net2_cost_buy'] = df_input_series.set_index('HOURS')['net1_cost_buy'].to_dict()
 data['net2_cost_sell'] = df_input_series.set_index('HOURS')['net1_cost_sell'].to_dict()
 
-data['pv1_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv1_eff', 'Value'].values[0]}
-data['pv1_area'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv1_area', 'Value'].values[0]}
+list_source = ['pv1', 'pv1']
+for i,n in enumerate(['pv1_eff', 'pv1_area']):
+    try:
+        data[n] = {None:df_input_other.loc[df_input_other['Parameter'] == n, 'Value'].values[0]}
+    except Exception:
+        result = re.sub(r'\d+', '', n)
+        value = getattr(globals()[list_source[i]],result)
+        data[n] = {None: value}
 
-data['pv2_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv2_eff', 'Value'].values[0]}
-data['pv2_area'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv2_area', 'Value'].values[0]}
+# data['pv1_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv1_eff', 'Value'].values[0]}
+# data['pv1_area'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv1_area', 'Value'].values[0]}
+
+# data['pv2_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv2_eff', 'Value'].values[0]}
+# data['pv2_area'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv2_area', 'Value'].values[0]}
 
 data['bat1_E_max'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_E_max', 'Value'].values[0]}
 data['bat1_starting_SOC'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_starting_SOC', 'Value'].values[0]}
