@@ -1,4 +1,5 @@
 #region superclasses
+import pyomo.environ as pyo
 
 class Generator:
     def __init__(self,type_, id,eff,E_in,op_cost,inv_cost,emission):
@@ -19,7 +20,8 @@ class pv(Generator):
         self.list_text_var = []
         self.list_param = ['pv_eff','pv_area']
         self.list_text_param = ['','']
-
+        self.list_series = []
+        self.list_text_series =[]
     def solar_rule(model,t):
         return model.P_from_pv[t] == model.P_solar[t] * model.pv_eff * model.pv_area
     
@@ -31,6 +33,8 @@ class bat:
         self.list_param = ['bat_starting_SOC','bat_ch_eff','bat_dis_eff','bat_E_max',
                            'bat_c_rate_ch','bat_c_rate_dis']
         self.list_text_param = ['','','','','','']
+        self.list_series = []
+        self.list_text_series =[]
 
     def function_rule(model,t):
             if t ==1:
@@ -49,18 +53,37 @@ class bat:
         return model.bat_K_ch[t] + model.bat_K_dis[t] <= 1
     
 class demand:
+    def __init__(self):
+        self.list_var = []
+        self.list_text_var = []
+        self.list_param = []
+        self.list_text_param = []
+        self.list_series = ['P_to_demand']
+        self.list_text_series =['model.HOURS']
     pass
 
 class net:
     def __init__(self):
-        self.list_var = ['E_buy','E_sell']
+        self.list_var = ['net_sell','net_buy']
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
         self.list_param = []
         self.list_text_param = []
+        self.list_series = ['net_cost_buy','net_cost_sell']
+        self.list_text_series =['model.HOURS','model.HOURS']
+        
     def sell_energy(model,t):
-        return model.E_sell[t] == model.P_to_net[t] * model.time_step
+        return model.net_sell[t] == model.P_to_net[t] * model.time_step * model.net_cost_sell[t]
     
     def buy_energy(model,t):
-        return model.E_buy[t] == model.P_from_net[t] * model.time_step
+        return model.net_buy[t] == model.P_from_net[t] * model.time_step * model.net_cost_buy[t]
+    
+class objective:
+    def __init__(self):
+        self.list_var = []
+        self.list_text_var = []
+        self.list_param = []
+        self.list_text_param = []
+        self.list_series = []
+        self.list_text_series =[]
 
     

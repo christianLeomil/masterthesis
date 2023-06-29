@@ -84,3 +84,20 @@ def connection_creator(df_conect):
 def write_excel(df_matrix, path_input):
     with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a',engine = 'openpyxl', if_sheet_exists='replace') as writer:
         df_matrix.to_excel(writer,sheet_name = 'conect')
+
+
+def objective_constraint_creator(df_aux): # this function creates the constraints in order for the objective function to work
+    list_buy_constraint = ['model.total_buy[t] == '] 
+    list_sell_constraint = ['model.total_sell[t] == ']
+    df_aux = df_aux[df_aux['type'] == 'net' ].reset_index(drop = True)
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        if i == 0:
+            list_buy_constraint[-1] = list_buy_constraint[-1] + ' model.' + element + '_buy[t]'
+            list_sell_constraint[-1] = list_sell_constraint[-1] + ' model.' + element + '_sell[t]'
+        else:
+            list_buy_constraint[-1] = list_buy_constraint[-1] + ' + model.' + element + '_buy[t]'
+            list_sell_constraint[-1] = list_sell_constraint[-1] + ' + model.' + element + '_sell[t]'
+
+    list_objective_constraints = list_buy_constraint + list_sell_constraint
+    return list_objective_constraints

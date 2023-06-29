@@ -32,6 +32,8 @@ df_conect.index.name = None
 [df_conect, list_expressions, list_con_variables, list_attr_classes] = functions.connection_creator(df_conect)
 df_conect.to_excel(path_output + 'df_conect.xlsx')
 
+list_objective_constraints = functions.objective_constraint_creator(df_aux)
+
 #endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region abstract creating model
@@ -88,6 +90,20 @@ for i,n in enumerate(list_elements):
 # ---------------------------------------------------------------------------------------------------------------------
 # region adding parameters and variables to abstract model
 
+#create series parameters from classes: 
+for i in df_aux.index:
+    element = df_aux['element'].iloc[i]
+    class_type = df_aux['type'].iloc[i]
+    if hasattr(globals()[element],'list_series'):
+        list_classes_series = [s.replace(class_type, element) for s in globals()[element].list_series]
+        for j,m in enumerate(list_classes_series):
+            specifications = globals()[element].list_text_series[j]
+            text = specifications
+            # print(m)
+            # print(specifications)
+            exec(f"model.add_component('{m}',pyo.Param({text}))")
+
+
 #create parameters from classes:
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
@@ -123,13 +139,13 @@ for i in list_con_variables:
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region creating sets
+# region creating extra series and variables
 
 model.time_step = pyo.Param()
 model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
-model.P_to_demand1 = pyo.Param(model.HOURS) #time series with solar energy
-model.costBuy = pyo.Param(model.HOURS) #time series with costs of buying energy
-model.costSell = pyo.Param(model.HOURS) #time series with price of energy being sold to grid
+
+model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals)
+model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -141,7 +157,7 @@ for i,n in enumerate(list_attr_classes):
 
     def dynamic_method(model,t,expr):
         return eval(expr, globals(), locals())
-    method_name = 'Constraint_con_' + str(constraint_number)
+    method_name = 'constraint_con_' + str(constraint_number)
 
     def method_wrapper(model,t,expr = list_expressions[i]):
         return dynamic_method(model,t,expr)
@@ -149,10 +165,11 @@ for i,n in enumerate(list_attr_classes):
     constraint_number += 1
 
 for i in df_aux.index:
-    print('------------------'+df_aux['element'].iloc[i])
+    print('------------------' + df_aux['element'].iloc[i])
     for j in dir(globals()[df_aux['element'].iloc[i]]):
         if not j.startswith('__'):
-            print(j)
+            if callable(getattr(globals()[df_aux['element'].iloc[i]],j)):
+                print(j)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -172,24 +189,55 @@ for i in df_aux.index:
 # ---------------------------------------------------------------------------------------------------------------------
 # region objective
 
-#objective function
-def objective_rule(model,t):
-     return sum(model.E_buy[t] * model.costBuy[t] - model.E_sell[t] * model.costSell[t] for t in model.HOURS)
-model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
+#adding total cost and total buy constraint to objective class
+constraint_num = 1
+objective_class = classes.objective()
+for i in list_objective_constraints:
+    def dynamic_method(model,t,expr):
+        return eval(expr, globals(), locals())
+    method_name = 'constraint_objective_' + str(constraint_num) 
 
+    def method_wrapper(model,t,expr = i):
+        return dynamic_method(model,t,expr)
+    setattr(objective_class , method_name, method_wrapper)
+    constraint_num += 1
+
+#checking content of class content:
+print('------------------objective')
+for i in dir(objective_class):
+    if not i.startswith('__'):
+        original_method = getattr(objective_class,i)
+        if callable(original_method):
+            source_code = inspect.getsource(original_method)
+            print(i)
+
+#creating constraints from class objective
+method = getattr(objective_class,'constraint_objective_1')
+model.add_component('Constraint_objective_buy',pyo.Constraint(model.HOURS, rule = method))
+method = getattr(objective_class,'constraint_objective_2')
+model.add_component('Constraint_objective_sell',pyo.Constraint(model.HOURS, rule = method))
+
+#creating objective of abstract model
+def objective_rule(model,t):
+    return sum(model.total_buy[t] -  model.total_sell[t] for t in model.HOURS)
+model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region reading data
 
-
 #reading data
 data = pyo.DataPortal()
+
 data['HOURS'] = df_input_series['HOURS'].tolist()
 data['P_solar'] = df_input_series.set_index('HOURS')['P_solar'].to_dict()
 data['P_to_demand1'] = df_input_series.set_index('HOURS')['P_to_demand1'].to_dict()
-data['costBuy'] = df_input_series.set_index('HOURS')['costBuy'].to_dict()
-data['costSell'] = df_input_series.set_index('HOURS')['costSell'].to_dict()
+data['P_to_demand2'] = df_input_series.set_index('HOURS')['P_to_demand2'].to_dict()
+
+data['net1_cost_buy'] = df_input_series.set_index('HOURS')['net1_cost_buy'].to_dict()
+data['net1_cost_sell'] = df_input_series.set_index('HOURS')['net1_cost_sell'].to_dict()
+data['net2_cost_buy'] = df_input_series.set_index('HOURS')['net1_cost_buy'].to_dict()
+data['net2_cost_sell'] = df_input_series.set_index('HOURS')['net1_cost_sell'].to_dict()
 
 data['pv1_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv1_eff', 'Value'].values[0]}
 data['pv1_area'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv1_area', 'Value'].values[0]}
@@ -266,7 +314,3 @@ for t in instance.HOURS:
 df_variable_values.to_excel(path_output + 'variable_values.xlsx',index = False)
 
 #endregion
-
-
-
-

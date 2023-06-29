@@ -7,15 +7,29 @@ import textwrap
     
 import inspect
 
-class MyClass:
-      def extra_rule(model,t):
-            if t <= 10:
-                  return model.quant_z[t] <= 200
-            else:
-                  return model.quant_z[t] <= 100
+# class MyClass:
+#       def extra_rule(model,t):
+#             if t <= 10:
+#                   return model.quant_z[t] <= 200
+#             else:
+#                   return model.quant_z[t] <= 100
       
-      def first_rule(model,t):
-            return model.demand[t] == model.quant_x[t] + model.quant_z[t]
+#       def first_rule(model,t):
+#             return model.demand[t] == model.quant_x[t] + model.quant_z[t]
+
+class MyClass:
+      def first_constraint(model,t,var_1,var_2,var_3):
+            if t == 10:
+                  return model.globals()[var_1][t] <= 200
+            else:
+                  return model.globals()[var_1][t] <= 100
+            
+      def second_rule(model,t,var_1,var_2,var_3):
+            return model.globals()[var_1] == model.globals()[var_2] + model.globals()[var_3]
+      
+myObj = MyClass()
+
+
 
 myObj = MyClass()
 
@@ -75,10 +89,10 @@ for i in dir(MyClass):
 #endregion
 #-------------------------------------------------------------------------------------------------------------
 #region objetive function
-
-def objective_rule(model,t):
-    return sum(model.quant_x[t] * model.cost_x[t] + model.quant_y[t] * model.cost_y[t] + model.quant_z[t] * model.cost_x[t] for t in model.HOURS)
-model.objectiveRule =pyo.Objective(rule = objective_rule, sense = pyo.minimize)
+class contains_objective:
+      def objective_rule(model,t):
+            return sum(model.quant_x[t] * model.cost_x[t] + model.quant_y[t] * model.cost_y[t] + model.quant_z[t] * model.cost_x[t] for t in model.HOURS)
+model.objectiveRule =pyo.Objective(rule = contains_objective.objective_rule, sense = pyo.minimize)
 
 #endregion
 #-------------------------------------------------------------------------------------------------------------
@@ -104,6 +118,15 @@ print("Constraint Expressions:")
 for constraint in instance.component_objects(pyo.Constraint):
     for index in constraint:
         print(f"{constraint}[{index}]: {constraint[index].body}")
+
+# #parameter list
+# parameter_list = list(model.component_data_objects(pyo.Param, descend_into=True))
+
+# print('\n')
+# # Print the parameter names
+# for param in parameter_list:
+#     print(param.name)
+# print('\n')
 
 # solving the model
 optimizer = pyo.SolverFactory('cplex')
