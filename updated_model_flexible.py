@@ -5,7 +5,6 @@ import functions
 import inspect
 import textwrap
 import warnings
-import re
 
 warnings.filterwarnings("ignore", '.*')
 
@@ -22,11 +21,11 @@ df_elements = pd.read_excel(path_input + name_file, sheet_name = 'elements')
 [df_matrix, df_aux] = functions.matrix_creator(df_elements)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-# functions.write_excel(df_matrix,path_input)
+functions.write_excel(df_matrix,path_input)
 
 df_matrix.to_excel(path_output + 'df_matrix.xlsx') 
 
-# input("Press Enter to continue...")
+input("Press Enter to continue...")
 
 df_conect = pd.read_excel(path_input + name_file, sheet_name = 'conect',index_col = 0)
 df_conect.index.name = None
@@ -231,45 +230,34 @@ model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
 data = pyo.DataPortal()
 data['HOURS'] = df_input_series['HOURS'].tolist()
 data['P_solar'] = df_input_series.set_index('HOURS')['P_solar'].to_dict()
-
-data['P_to_demand1'] = df_input_series.set_index('HOURS')['P_to_demand1'].to_dict()
-data['P_to_demand2'] = df_input_series.set_index('HOURS')['P_to_demand2'].to_dict()
-
-data['net1_cost_buy'] = df_input_series.set_index('HOURS')['net1_cost_buy'].to_dict()
-data['net1_cost_sell'] = df_input_series.set_index('HOURS')['net1_cost_sell'].to_dict()
-data['net2_cost_buy'] = df_input_series.set_index('HOURS')['net1_cost_buy'].to_dict()
-data['net2_cost_sell'] = df_input_series.set_index('HOURS')['net1_cost_sell'].to_dict()
-
-list_source = ['pv1', 'pv1']
-for i,n in enumerate(['pv1_eff', 'pv1_area']):
-    try:
-        data[n] = {None:df_input_other.loc[df_input_other['Parameter'] == n, 'Value'].values[0]}
-    except Exception:
-        result = re.sub(r'\d+', '', n)
-        value = getattr(globals()[list_source[i]],result)
-        data[n] = {None: value}
-
-# data['pv1_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv1_eff', 'Value'].values[0]}
-# data['pv1_area'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv1_area', 'Value'].values[0]}
-
-# data['pv2_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv2_eff', 'Value'].values[0]}
-# data['pv2_area'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'pv2_area', 'Value'].values[0]}
-
-data['bat1_E_max'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_E_max', 'Value'].values[0]}
-data['bat1_starting_SOC'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_starting_SOC', 'Value'].values[0]}
-data['bat1_c_rate_ch'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_c_rate_ch', 'Value'].values[0]}
-data['bat1_c_rate_dis'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_c_rate_dis', 'Value'].values[0]}
-data['bat1_ch_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_ch_eff', 'Value'].values[0]}
-data['bat1_dis_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat1_dis_eff', 'Value'].values[0]}
-
-data['bat2_E_max'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_E_max', 'Value'].values[0]}
-data['bat2_starting_SOC'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_starting_SOC', 'Value'].values[0]}
-data['bat2_c_rate_ch'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_c_rate_ch', 'Value'].values[0]}
-data['bat2_c_rate_dis'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_c_rate_dis', 'Value'].values[0]}
-data['bat2_ch_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_ch_eff', 'Value'].values[0]}
-data['bat2_dis_eff'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'bat2_dis_eff', 'Value'].values[0]}
-
 data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
+
+#getting list with all needed PARAMETERS of created classes and reading data, or getting default values
+for i in df_aux.index:
+    element = df_aux['element'].iloc[i]
+    class_type = df_aux['type'].iloc[i]
+    list_parameters =  getattr(globals()[element],'list_param')
+    for j in list_parameters:
+        name_param = j.replace(class_type,element)
+        try:
+            data[name_param] = {None:df_input_other.loc[df_input_other['Parameter'] == name_param, 'Value'].values[0]}
+        except Exception:
+            value = getattr(globals()[element],j)
+            data[name_param] = {None: value}
+
+#getting list with all needed SERIES of created classes and reading data, or getting default values
+for i in df_aux.index:
+    element = df_aux['element'].iloc[i]
+    class_type = df_aux['type'].iloc[i]
+    list_series =  getattr(globals()[element],'list_series')
+    for j in list_series:
+        name_series = j.replace(class_type,element)
+        try:
+            data[name_series] = df_input_series.set_index('HOURS')[name_series].to_dict()
+        except Exception:
+            list_par = getattr(globals()[element], j)
+            list_par = [list_par] * len(data['HOURS'])
+            data[name_series] = {hour_value: getattr(globals()[element], j) for hour_value in data['HOURS']}
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------

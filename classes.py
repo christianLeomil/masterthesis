@@ -18,7 +18,8 @@ class pv():
         self.list_series = []
         self.list_text_series =[]
 
-        self.pv_eff = 0.2
+        #default values in case of no input
+        self.pv_eff = 0.7
         self.pv_area = 1
 
     def solar_rule(model,t):
@@ -34,6 +35,14 @@ class bat:
         self.list_text_param = ['','','','','','']
         self.list_series = []
         self.list_text_series = []
+
+        #default values in case of no input
+        self.bat_starting_SOC = 0.5
+        self.bat_ch_eff = 0.95
+        self.bat_dis_eff = 0.95
+        self.bat_E_max = 100
+        self.bat_c_rate_ch = 1
+        self.bat_c_rate_dis = 1 
 
     def function_rule(model,t):
             if t ==1:
@@ -57,9 +66,12 @@ class demand:
         self.list_text_var = []
         self.list_param = []
         self.list_text_param = []
-        self.list_series = ['P_to_demand']
-        self.list_text_series =['model.HOURS']
-    pass
+        self.list_series = ['P_to_demand','Q_to_demand']
+        self.list_text_series =['model.HOURS','model.HOURS']
+
+        #default values in case of no input
+        self.P_to_demand = 500
+        self.Q_to_demand = 1000
 
 class net:
     def __init__(self):
@@ -69,6 +81,10 @@ class net:
         self.list_text_param = []
         self.list_series = ['net_cost_buy','net_cost_sell']
         self.list_text_series =['model.HOURS','model.HOURS']
+
+        #default values in case of no input
+        self.net_cost_buy = 0.4
+        self.net_cost_sell = 0.3
         
     def sell_energy(model,t):
         return model.net_sell[t] == model.P_to_net[t] * model.time_step * model.net_cost_sell[t]
@@ -85,3 +101,4 @@ class objective:
         self.list_series = []
         self.list_text_series =[]
 
+        #default values in case of no input
