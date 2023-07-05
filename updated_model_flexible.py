@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 import pandas as pd
 import classes
-import test
+import functions
 import inspect
 import textwrap
 import warnings
@@ -17,25 +17,19 @@ name_file = 'df_input.xlsx'
 
 df_input_series = pd.read_excel(path_input +name_file, sheet_name= 'series')
 df_input_other = pd.read_excel(path_input +name_file, sheet_name= 'other')
-# df_elements = pd.read_excel(path_input + name_file, sheet_name = 'elements')
 
 df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements test')
 df_elements.index.name = None
 
-[df_con_electric,df_con_thermal,df_aux] = test.aux_creator(df_elements)
-# [df_matrix, df_aux] = functions.matrix_creator(df_elements)
-# df_matrix.to_excel(path_output + 'df_matrix.xlsx') 
+[df_con_electric,df_con_thermal,df_aux] = functions.aux_creator(df_elements)
+df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
+df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-# functions.write_excel(df_matrix,path_input)
-# test.write_excel(df_con_electric,path_input,'conect_electric')
-# test.write_excel(df_con_thermal,path_input,'conect_thermal')
-
+# functions.write_excel(df_con_electric,path_input,'conect_electric')
+# functions.write_excel(df_con_thermal,path_input,'conect_thermal')
 # input("Press Enter to continue...")
-
-# df_conect = pd.read_excel(path_input + name_file, sheet_name = 'conect',index_col = 0)
-# df_conect.index.name = None
 
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
 df_con_electric.index.name = None
@@ -43,30 +37,11 @@ df_con_electric.index.name = None
 df_con_thermal = pd.read_excel(path_input + name_file, sheet_name = 'conect_thermal', index_col=0)
 df_con_thermal.index.name = None
 
-# [df_conect, list_expressions, list_con_variables, list_attr_classes] = functions.connection_creator(df_conect)
-# df_conect.to_excel(path_output + 'df_conect.xlsx')
-
 [df_con_thermal, df_con_electric, list_expressions, 
- list_con_variables, list_attr_classes] = test.connection_creator(df_con_electric, df_con_thermal)
+ list_con_variables, list_attr_classes] = functions.connection_creator(df_con_electric, df_con_thermal)
 
-# list_objective_constraints = functions.objective_constraint_creator(df_aux)
-
-list_objective_constraints = test.objective_constraint_creator(df_aux)
-
-# print('\n#df_con_electric:')
-# print(df_con_electric)
-# print('\n#df_con_thermal:')
-# print(df_con_thermal)
-# print('\n#list_con_variables:')
-# print(list_con_variables)
-# print('\n#list_attr_classes:')
-# print(list_attr_classes)
-# print('\n#list_expressions:')
-# print(list_expressions)
-# print('\n#df_aux:')
-# print(df_aux)
-# print('\n#list_constraints_objective:')
-# print(list_objective_constraints)
+list_objective_constraints = functions.objective_constraint_creator(df_aux)
+print(list_objective_constraints)
 
 #endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -124,7 +99,7 @@ for i,n in enumerate(list_elements):
 # ---------------------------------------------------------------------------------------------------------------------
 # region adding parameters and variables to abstract model
 
-#create series parameters from classes:
+#add SERIES PARAMETERS from classes to abstract model:
 print('\n------------------------series from classes') 
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
@@ -135,11 +110,11 @@ for i in df_aux.index:
             specifications = globals()[element].list_text_series[j]
             text = specifications
             print(m)
-            print(specifications)
+            # print(specifications)
             exec(f"model.add_component('{m}',pyo.Param({text}))")
 
 
-#create parameters from classes:
+#add PARAMETERS from classes to abstract model:
 print('\n------------------------paramaters from classes')
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
@@ -150,10 +125,10 @@ for i in df_aux.index:
             specifications = globals()[element].list_text_param[j]
             text = specifications
             print(m)
-            print(specifications)
+            # print(specifications)
             exec(f"model.add_component('{m}',pyo.Param({text}))")
 
-#create variables from classes:
+#add VARIABLES from classes to abstract model:
 print('\n------------------------variables from classes')
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
@@ -164,10 +139,10 @@ for i in df_aux.index:
             specifications = globals()[element].list_text_var[j]
             text = 'model.HOURS,' + specifications
             print(m)
-            print(specifications)
+            # print(specifications)
             exec(f"model.add_component('{m}',pyo.Var({text}))")
 
-# dynamically creating variables from connections
+# dynamically adding variables from connections to abstract model
 print('\n------------------------variables from connections')
 for i in list_con_variables:
     if not i.startswith('P_to_demand'):
@@ -183,8 +158,9 @@ for i in list_con_variables:
 model.time_step = pyo.Param()
 model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
 
-model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals)
-model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
+model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals) # variable contained in objective constraints
+model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
+model.total_operation_cost = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -255,10 +231,12 @@ method = getattr(objective_class,'constraint_objective_1')
 model.add_component('Constraint_objective_buy',pyo.Constraint(model.HOURS, rule = method))
 method = getattr(objective_class,'constraint_objective_2')
 model.add_component('Constraint_objective_sell',pyo.Constraint(model.HOURS, rule = method))
+method = getattr(objective_class,'constraint_objective_3')
+model.add_component('Constraint_objective_operation',pyo.Constraint(model.HOURS, rule = method))
 
 #creating objective of abstract model
 def objective_rule(model,t):
-    return sum(model.total_buy[t] -  model.total_sell[t] for t in model.HOURS)
+    return sum(model.total_buy[t] + model.total_operation_cost[t] -  model.total_sell[t] for t in model.HOURS)
 model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
 
 # endregion
@@ -347,7 +325,8 @@ for t in instance.HOURS:
         row[var_name] = pyo.value(var_value[t])
     df_variable_values = df_variable_values.append(row, ignore_index=True)
 
-# Display the DataFrame with the variable values
+# Organize and export the DataFrame with the variable values
+df_variable_values = functions.organize_output_columns(df_variable_values,df_aux)
 df_variable_values.to_excel(path_output + 'variable_values.xlsx',index = False)
 
 #endregion

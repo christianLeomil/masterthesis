@@ -11,16 +11,17 @@
 
 class pv():
     def __init__(self):
-        self.list_var = [] #no powers
-        self.list_text_var = []
-        self.list_param = ['pv_eff','pv_area']
-        self.list_text_param = ['','']
+        self.list_var = ['pv_op_cost'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals']
+        self.list_param = ['pv_eff','pv_area','pv_spec_op_cost']
+        self.list_text_param = ['','','']
         self.list_series = []
         self.list_text_series =[]
 
         #default values in case of no input
-        self.pv_eff = 0.7
-        self.pv_area = 1
+        self.pv_eff = 0.1 # overall efficiency 
+        self.pv_area = 1 # m^2
+        self.pv_spec_op_cost = 0.01 # cost per hour per m^2 area of pv installed
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -28,6 +29,9 @@ class pv():
 
     def solar_rule(model,t):
         return model.P_from_pv[t] == model.P_solar[t] * model.pv_eff * model.pv_area
+    
+    def operation_costs(model,t):
+        return model.pv_op_cost[t] == model.pv_area * model.pv_spec_op_cost
     
 class bat:
     def __init__(self):
@@ -130,9 +134,9 @@ class CHP:
 
         #default values in case of no input
         self.P_CHP_max = 20000 #W electric
-        self.P_CHP_min = 0.2 * self.P_CHP_max #minimal load of 20% 
+        self.P_CHP_min = 0
         self.CHP_P_to_Q_ratio = 0.5 
-        self.CHP_fuel_cons_ratio = 0.5 #dm3 per kWh of P_from_CHP
+        self.CHP_fuel_cons_ratio = 0.105 #dm3 per kWh of P_from_CHP
         self.CHP_fuel_price = 5 # EUROS/dm3 of fuel 
 
         #defining energy type to build connections with other componets correctly
