@@ -1,18 +1,33 @@
 import pandas as pd
-from openpyxl import load_workbook
+import classes
+# from openpyxl import load_workbook
 
-def matrix_creator(df_elements):
+def aux_creator(df_elements):
     list_elements = []
     list_type = []
-    for i in df_elements.columns:
-        for j in range(0, df_elements[i].iloc[0]):
-            list_elements.append(i + str(j+1))
+    for i in df_elements.index:
+        for j in range(0,df_elements['# components'].loc[i]):
             list_type.append(i)
-    df_matrix = pd.DataFrame(0, index = list_elements, columns = list_elements)
+            name_element = i + str(j+1)
+            list_elements.append(name_element)
     df_aux = pd.DataFrame({'element': list_elements,
                            'type':list_type})
+    list_con_electric = []
+    list_con_thermal = []
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        element_type = df_aux['type'].iloc[i]
 
-    return df_matrix , df_aux
+        myClass = getattr(classes,element_type)()
+        energy_type = getattr(myClass,'energy_type')
+        if energy_type['electric'] == 'yes':
+            list_con_electric.append(element)
+        if energy_type['thermal'] == 'yes':
+            list_con_thermal.append(element)
+    df_con_electric = pd.DataFrame(0,columns = list_con_electric, index = list_con_electric)
+    df_con_thermal = pd.DataFrame(0,columns = list_con_thermal, index = list_con_thermal)
+
+    return  df_con_electric, df_con_thermal
 
 def connection_creator(df_conect):
 
@@ -81,9 +96,9 @@ def connection_creator(df_conect):
     return df_conect, list_expressions, list_con_variables, list_attr_classes
 
 
-def write_excel(df_matrix, path_input):
+def write_excel(df,path_input,name_sheet):
     with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a',engine = 'openpyxl', if_sheet_exists='replace') as writer:
-        df_matrix.to_excel(writer,sheet_name = 'conect')
+        df.to_excel(writer,sheet_name = name_sheet)
 
 
 def objective_constraint_creator(df_aux): # this function creates the constraints in order for the objective function to work

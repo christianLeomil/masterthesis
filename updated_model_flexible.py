@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 import pandas as pd
 import classes
-import functions
+import test
 import inspect
 import textwrap
 import warnings
@@ -17,22 +17,56 @@ name_file = 'df_input.xlsx'
 
 df_input_series = pd.read_excel(path_input +name_file, sheet_name= 'series')
 df_input_other = pd.read_excel(path_input +name_file, sheet_name= 'other')
-df_elements = pd.read_excel(path_input + name_file, sheet_name = 'elements')
-[df_matrix, df_aux] = functions.matrix_creator(df_elements)
+# df_elements = pd.read_excel(path_input + name_file, sheet_name = 'elements')
+
+df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements test')
+df_elements.index.name = None
+
+[df_con_electric,df_con_thermal,df_aux] = test.aux_creator(df_elements)
+# [df_matrix, df_aux] = functions.matrix_creator(df_elements)
+# df_matrix.to_excel(path_output + 'df_matrix.xlsx') 
+
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-functions.write_excel(df_matrix,path_input)
+# functions.write_excel(df_matrix,path_input)
+# test.write_excel(df_con_electric,path_input,'conect_electric')
+# test.write_excel(df_con_thermal,path_input,'conect_thermal')
 
-df_matrix.to_excel(path_output + 'df_matrix.xlsx') 
+# input("Press Enter to continue...")
 
-input("Press Enter to continue...")
+# df_conect = pd.read_excel(path_input + name_file, sheet_name = 'conect',index_col = 0)
+# df_conect.index.name = None
 
-df_conect = pd.read_excel(path_input + name_file, sheet_name = 'conect',index_col = 0)
-df_conect.index.name = None
-[df_conect, list_expressions, list_con_variables, list_attr_classes] = functions.connection_creator(df_conect)
-df_conect.to_excel(path_output + 'df_conect.xlsx')
+df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
+df_con_electric.index.name = None
 
-list_objective_constraints = functions.objective_constraint_creator(df_aux)
+df_con_thermal = pd.read_excel(path_input + name_file, sheet_name = 'conect_thermal', index_col=0)
+df_con_thermal.index.name = None
+
+# [df_conect, list_expressions, list_con_variables, list_attr_classes] = functions.connection_creator(df_conect)
+# df_conect.to_excel(path_output + 'df_conect.xlsx')
+
+[df_con_thermal, df_con_electric, list_expressions, 
+ list_con_variables, list_attr_classes] = test.connection_creator(df_con_electric, df_con_thermal)
+
+# list_objective_constraints = functions.objective_constraint_creator(df_aux)
+
+list_objective_constraints = test.objective_constraint_creator(df_aux)
+
+# print('\n#df_con_electric:')
+# print(df_con_electric)
+# print('\n#df_con_thermal:')
+# print(df_con_thermal)
+# print('\n#list_con_variables:')
+# print(list_con_variables)
+# print('\n#list_attr_classes:')
+# print(list_attr_classes)
+# print('\n#list_expressions:')
+# print(list_expressions)
+# print('\n#df_aux:')
+# print(df_aux)
+# print('\n#list_constraints_objective:')
+# print(list_objective_constraints)
 
 #endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -52,7 +86,7 @@ model.HOURS = pyo.Set()
 for i in df_aux.index:
     globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])()
 
-#comented code below is for checking what the global variables in this program are.  
+# # comented code below is for checking what the global variables in this program are.  
 # def print_global_variables():
 #     global_vars = globals()
 #     for var_name, var_value in global_vars.items():
@@ -90,7 +124,8 @@ for i,n in enumerate(list_elements):
 # ---------------------------------------------------------------------------------------------------------------------
 # region adding parameters and variables to abstract model
 
-#create series parameters from classes: 
+#create series parameters from classes:
+print('\n------------------------series from classes') 
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
@@ -99,12 +134,13 @@ for i in df_aux.index:
         for j,m in enumerate(list_classes_series):
             specifications = globals()[element].list_text_series[j]
             text = specifications
-            # print(m)
-            # print(specifications)
+            print(m)
+            print(specifications)
             exec(f"model.add_component('{m}',pyo.Param({text}))")
 
 
 #create parameters from classes:
+print('\n------------------------paramaters from classes')
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
@@ -113,11 +149,12 @@ for i in df_aux.index:
         for j,m in enumerate(list_classes_parameters):
             specifications = globals()[element].list_text_param[j]
             text = specifications
-            # print(m)
-            # print(specifications)
+            print(m)
+            print(specifications)
             exec(f"model.add_component('{m}',pyo.Param({text}))")
 
 #create variables from classes:
+print('\n------------------------variables from classes')
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
@@ -126,16 +163,18 @@ for i in df_aux.index:
         for j,m in enumerate(list_classes_variables):
             specifications = globals()[element].list_text_var[j]
             text = 'model.HOURS,' + specifications
-            # print(m)
-            # print(specifications)
+            print(m)
+            print(specifications)
             exec(f"model.add_component('{m}',pyo.Var({text}))")
 
 # dynamically creating variables from connections
+print('\n------------------------variables from connections')
 for i in list_con_variables:
     if not i.startswith('P_to_demand'):
-        # print(i)
-        text = 'model.HOURS, within = pyo.NonNegativeReals'
-        exec(f"model.add_component('{i}',pyo.Var({text}))")
+        if not i.startswith('Q_to_demand'):
+            print(i)
+            text = 'model.HOURS, within = pyo.NonNegativeReals'
+            exec(f"model.add_component('{i}',pyo.Var({text}))")
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
