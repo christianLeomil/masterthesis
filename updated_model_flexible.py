@@ -15,7 +15,7 @@ path_input = './input/'
 path_output = './output/'
 name_file = 'df_input.xlsx'
 
-df_input_series = pd.read_excel(path_input +name_file, sheet_name= 'series')
+df_input_series = pd.read_excel(path_input +name_file, sheet_name= 'series',nrows = 48)
 df_input_other = pd.read_excel(path_input +name_file, sheet_name= 'other')
 
 df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements test')
@@ -27,9 +27,9 @@ df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-# functions.write_excel(df_con_electric,path_input,'conect_electric')
-# functions.write_excel(df_con_thermal,path_input,'conect_thermal')
-# input("Press Enter to continue...")
+functions.write_excel(df_con_electric,path_input,'conect_electric')
+functions.write_excel(df_con_thermal,path_input,'conect_thermal')
+input("Press Enter to continue...")
 
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
 df_con_electric.index.name = None
@@ -156,7 +156,7 @@ for i in list_con_variables:
 # region creating extra series and variables
 
 model.time_step = pyo.Param()
-model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
+# model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
 
 model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals) # variable contained in objective constraints
 model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
@@ -227,11 +227,11 @@ for i in dir(objective_class):
             print(i)
 
 #creating constraints from class objective
-method = getattr(objective_class,'constraint_objective_1')
+method = getattr(objective_class,'constraint_objective_1') 
 model.add_component('Constraint_objective_buy',pyo.Constraint(model.HOURS, rule = method))
 method = getattr(objective_class,'constraint_objective_2')
 model.add_component('Constraint_objective_sell',pyo.Constraint(model.HOURS, rule = method))
-method = getattr(objective_class,'constraint_objective_3')
+method = getattr(objective_class,'constraint_objective_3') #constraint for opreational costs
 model.add_component('Constraint_objective_operation',pyo.Constraint(model.HOURS, rule = method))
 
 #creating objective of abstract model
@@ -246,7 +246,7 @@ model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
 #reading data
 data = pyo.DataPortal()
 data['HOURS'] = df_input_series['HOURS'].tolist()
-data['P_solar'] = df_input_series.set_index('HOURS')['P_solar'].to_dict()
+# data['P_solar'] = df_input_series.set_index('HOURS')['P_solar'].to_dict()
 data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
 
 #getting list with all needed PARAMETERS of created classes and reading data, or getting default values

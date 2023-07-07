@@ -15,20 +15,33 @@ def aux_creator(df_elements):
             list_elements.append(name_element)
     df_aux = pd.DataFrame({'element': list_elements,
                            'type':list_type})
-    list_con_electric = []
-    list_con_thermal = []
+
+    list_to_con_electric = []
+    list_from_con_electric = []
+    list_to_con_thermal = []
+    list_from_con_thermal = []
+
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
 
         myClass = getattr(classes,element_type)()
         energy_type = getattr(myClass,'energy_type')
+        super_class = getattr(myClass,'super_class')
+
         if energy_type['electric'] == 'yes':
-            list_con_electric.append(element)
+            if super_class != 'generator':
+                list_to_con_electric.append(element)
+            if super_class != 'demand':
+                list_from_con_electric.append(element)
         if energy_type['thermal'] == 'yes':
-            list_con_thermal.append(element)
-    df_con_electric = pd.DataFrame(0,columns = list_con_electric, index = list_con_electric)
-    df_con_thermal = pd.DataFrame(0,columns = list_con_thermal, index = list_con_thermal)
+            if super_class != 'generator':
+                list_to_con_thermal.append(element)
+            if super_class != 'demand':
+                list_from_con_thermal.append(element)
+
+    df_con_electric = pd.DataFrame(0,columns = list_from_con_electric, index = list_to_con_electric)
+    df_con_thermal = pd.DataFrame(0,columns = list_from_con_thermal, index = list_to_con_thermal)
 
     return  df_con_electric, df_con_thermal, df_aux
 
@@ -89,7 +102,7 @@ def connection_creator(df_con_electric,df_con_thermal):
     for i in df_con_electric.index:
         list_exp_partial = []
         for j,m in enumerate(df_con_electric.columns):
-            if df_con_electric.loc[i,m] !=0:
+            if df_con_electric.loc[i,m] != 0:
                 if list_exp_partial == []:
                     list_exp_partial.append('model.'+ i + '[t] == model.' + df_con_electric.loc[i,m] + '[t]')
                 else:
