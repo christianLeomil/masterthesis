@@ -152,7 +152,7 @@ class net:
         return model.net_buy_thermal[t] == model.Q_from_net[t] * model.time_step * model.net_cost_buy_thermal[t]
     
     def emissions(model,t):
-        return model.net_emissions[t] == model.P_from_net[t] * model.net_spec_em_P + model.Q_from_net[t] * model.net_spec_em_Q
+        return model.net_emissions[t] == model.P_from_net[t] * model.net_spec_em_P + model.Q_from_net[t] * model.net_spec_em_Q 
 
 class CHP:
     def __init__(self):
@@ -208,4 +208,4 @@ class objective:
         #default values in case of no input
 
         #defining energy type to build connections with other componets correctly
-        self.super_class = 'generator'
+        self.super_class = 'objective'

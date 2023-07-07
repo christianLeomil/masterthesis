@@ -27,9 +27,9 @@ df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-# functions.write_excel(df_con_electric,path_input,'conect_electric')
-# functions.write_excel(df_con_thermal,path_input,'conect_thermal')
-# input("Press Enter to continue...")
+functions.write_excel(df_con_electric,path_input,'conect_electric')
+functions.write_excel(df_con_thermal,path_input,'conect_thermal')
+input("Press Enter to continue...")
 
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
 df_con_electric.index.name = None
@@ -41,7 +41,6 @@ df_con_thermal.index.name = None
  list_con_variables, list_attr_classes] = functions.connection_creator(df_con_electric, df_con_thermal)
 
 list_objective_constraints = functions.objective_constraint_creator(df_aux)
-print(list_objective_constraints)
 
 #endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -156,7 +155,6 @@ for i in list_con_variables:
 # region creating extra series and variables
 
 model.time_step = pyo.Param()
-# model.P_solar = pyo.Param(model.HOURS) #time series with solar energy
 
 model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals) # variable contained in objective constraints
 model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
@@ -237,15 +235,17 @@ model.add_component('Constraint_objective_operation',pyo.Constraint(model.HOURS,
 method = getattr(objective_class,'constraint_objective_4') #constraint for opreational costs
 model.add_component('Constraint_objective_emissions',pyo.Constraint(model.HOURS, rule = method))
 
-# #creating objective of abstract model
-# def objective_rule(model,t):
-#     return sum(model.total_buy[t] + model.total_operation_cost[t] -  model.total_sell[t] for t in model.HOURS)
-# model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
+#creating objective of abstract model
+def cost_objective(model,t):
+    return sum(model.total_buy[t] + model.total_operation_cost[t] -  model.total_sell[t] for t in model.HOURS)
+model.costObjective = pyo.Objective(rule = cost_objective,sense= pyo.minimize)
 
 #creating objective of abstract model
-def objective_rule(model,t):
+def emission_objective(model,t):
     return sum(model.total_emissions[t] for t in model.HOURS)
-model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
+model.emissionObjective = pyo.Objective(rule = emission_objective,sense= pyo.minimize)
+
+model.costObjective.deactivate()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -254,7 +254,6 @@ model.objectiveRule = pyo.Objective(rule = objective_rule,sense= pyo.minimize)
 #reading data
 data = pyo.DataPortal()
 data['HOURS'] = df_input_series['HOURS'].tolist()
-# data['P_solar'] = df_input_series.set_index('HOURS')['P_solar'].to_dict()
 data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
 
 #getting list with all needed PARAMETERS of created classes and reading data, or getting default values
