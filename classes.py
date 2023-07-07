@@ -11,10 +11,10 @@
 
 class pv():
     def __init__(self):
-        self.list_var = ['pv_op_cost'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals']
-        self.list_param = ['pv_eff','pv_area','pv_spec_op_cost']
-        self.list_text_param = ['','','']
+        self.list_var = ['pv_op_cost','pv_emissions'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+        self.list_param = ['pv_eff','pv_area','pv_spec_op_cost','pv_spec_em']
+        self.list_text_param = ['','','','']
         self.list_series = ['P_pv_solar']
         self.list_text_series =['model.HOURS']
 
@@ -23,6 +23,7 @@ class pv():
         self.pv_area = 100 # m^2
         self.pv_spec_op_cost = 0.01 # cost per hour per m^2 area of pv installed
         self.P_pv_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
+        self.pv_spec_em = 0 #There is no CO2 emission from generation energy with PV
 
 
         #defining energy type to build connections with other componets correctly
@@ -36,15 +37,19 @@ class pv():
     def operation_costs(model,t):
         return model.pv_op_cost[t] == model.pv_area * model.pv_spec_op_cost
     
+    def emissions(model,t):
+        return model.pv_emissions[t] == model.P_from_pv[t] * model.pv_spec_em
+    
 class bat:
     def __init__(self):
-        self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost'] #no powers
+        self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost','bat_emissions'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals, bounds=(0, 1)',
                               'domain = pyo.Binary','domain = pyo.Binary',
-                              'within = pyo.NonNegativeReals']
+                              'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
         self.list_param = ['bat_starting_SOC','bat_ch_eff','bat_dis_eff','bat_E_max',
-                           'bat_c_rate_ch','bat_c_rate_dis','bat_spec_op_cost']
-        self.list_text_param = ['','','','','','','']
+                           'bat_c_rate_ch','bat_c_rate_dis','bat_spec_op_cost',
+                           'bat_spec_em']
+        self.list_text_param = ['','','','','','','','']
         self.list_series = []
         self.list_text_series = []
 
@@ -56,6 +61,7 @@ class bat:
         self.bat_c_rate_ch = 1
         self.bat_c_rate_dis = 1
         self.bat_spec_op_cost = 0.01
+        self.bat_spec_em = 0 # no emission for operating batteries
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -83,6 +89,9 @@ class bat:
     def operation_costs(model,t):
         return model.bat_op_cost[t] == model.bat_E_max * model.bat_spec_op_cost
     
+    def emissions(model,t):
+        return model.bat_emissions[t] == (model.P_from_bat[t] + model.P_to_bat[t]) * model.bat_spec_em
+    
 class demand:
     def __init__(self):
         self.list_var = [] #no powers
@@ -104,11 +113,13 @@ class demand:
 
 class net:
     def __init__(self):
-        self.list_var = ['net_sell_electric','net_buy_electric','net_sell_thermal','net_buy_thermal'] #no powers
+        self.list_var = ['net_sell_electric','net_buy_electric','net_sell_thermal','net_buy_thermal'
+                         ,'net_emissions'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
-                              ,'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
-        self.list_param = []
-        self.list_text_param = []
+                              ,'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
+                              ,'within = pyo.NonNegativeReals']
+        self.list_param = ['net_spec_em_P','net_spec_em_Q']
+        self.list_text_param = ['','']
         self.list_series = ['net_cost_buy_electric','net_cost_sell_electric',
                             'net_cost_buy_thermal','net_cost_sell_thermal']
         self.list_text_series =['model.HOURS','model.HOURS',
@@ -119,6 +130,8 @@ class net:
         self.net_cost_sell_electric = 0.3
         self.net_cost_buy_thermal = 0.2
         self.net_cost_sell_thermal = 0.1
+        self.net_spec_em_P = 0.56 # kg of CO2 per kWh
+        self.net_spec_em_Q = 0.24 # kg of CO2 per kWh
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -138,12 +151,16 @@ class net:
     def buy_energy_thermal(model,t):
         return model.net_buy_thermal[t] == model.Q_from_net[t] * model.time_step * model.net_cost_buy_thermal[t]
     
+    def emissions(model,t):
+        return model.net_emissions[t] == model.P_from_net[t] * model.net_spec_em_P + model.Q_from_net[t] * model.net_spec_em_Q
+
 class CHP:
     def __init__(self):
-        self.list_var = ['CHP_fuel_cons','CHP_op_cost'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
-        self.list_param = ['P_CHP_max','P_CHP_min','CHP_P_to_Q_ratio','CHP_fuel_cons_ratio','CHP_fuel_price']
-        self.list_text_param = ['','','','','']
+        self.list_var = ['CHP_fuel_cons','CHP_op_cost','CHP_emissions'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+        self.list_param = ['P_CHP_max','P_CHP_min','CHP_P_to_Q_ratio','CHP_fuel_cons_ratio','CHP_fuel_price',
+                           'CHP_spec_em']
+        self.list_text_param = ['','','','','','']
         self.list_series = []
         self.list_text_series =[]
 
@@ -153,6 +170,7 @@ class CHP:
         self.CHP_P_to_Q_ratio = 0.5 
         self.CHP_fuel_cons_ratio = 0.105 #dm3 per kWh of P_from_CHP
         self.CHP_fuel_price = 5 # EUROS/dm3 of fuel 
+        self.CHP_spec_em = 2.3 # kg of CO2 emitted per dm3 of fuel (gasoline)
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -174,6 +192,9 @@ class CHP:
 
     def operation_costs(model,t):
         return model.CHP_op_cost[t] == model.CHP_fuel_cons[t] * model.CHP_fuel_price
+    
+    def emissions(model,t):
+        return model.CHP_emissions[t] == model.CHP_fuel_cons[t] * model.CHP_spec_em
     
 class objective:
     def __init__(self):

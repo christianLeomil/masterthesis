@@ -199,6 +199,22 @@ def objective_constraint_creator(df_aux): # this function creates the constraint
 
     list_objective_constraints = list_objective_constraints + list_operation_costs_total
 
+    list_emissions_constraint = []
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        element_type = df_aux['type'].iloc[i]
+        method = getattr(classes,element_type)()
+        if hasattr(method,'emissions'):
+            if list_emissions_constraint == [] :
+                list_emissions_constraint.append('model.total_emissions[t] == ' + 'model. ' + element +'_emissions[t]')
+            else:
+                list_emissions_constraint[-1] = list_emissions_constraint[-1] + ' + model. ' + element +'_emissions[t]'
+    
+    print('\nEmission Constriants')
+    print(list_emissions_constraint)
+
+    list_objective_constraints = list_objective_constraints + list_emissions_constraint
+
     return list_objective_constraints
 
 def organize_output_columns(df_variable_values,df_aux):
