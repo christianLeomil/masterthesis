@@ -1,6 +1,26 @@
-joules_per_cm_squared = 1000  # Example value in J/cm²
+# import numpy as np
 
-joules_per_m_squared = joules_per_cm_squared * 10000
-kwh_per_m_squared = joules_per_m_squared * 0.00000027778
+# lista = [1]
 
-print(f"{joules_per_cm_squared} J/cm² is approximately {kwh_per_m_squared} kWh/m².")
+# lista = lista * 100
+# lista_resultado = []
+# lista_resultado_2 =[]
+# for i in range(1,100):
+#     dividendo = i/100
+#     v = int(dividendo/0.2)
+#     c = int(dividendo//0.2)
+#     lista_resultado.append(v)
+#     lista_resultado_2.append(c)
+
+# print(lista_resultado)
+# print('\n')
+# print(lista_resultado_2)
+
+import chime
+
+c = 1//2
+c = 3.5//2
+
+print(c)
+
+chime.success()

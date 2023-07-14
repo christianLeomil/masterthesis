@@ -13,8 +13,10 @@ class pv():
     def __init__(self):
         self.list_var = ['pv_op_cost','pv_emissions'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+
         self.list_param = ['pv_eff','pv_area','pv_spec_op_cost','pv_spec_em']
         self.list_text_param = ['','','','']
+
         self.list_series = ['P_pv_solar']
         self.list_text_series =['model.HOURS']
 
@@ -22,9 +24,10 @@ class pv():
         self.pv_eff = 0.15 # aproximate overall efficiency of pv cells 
         self.pv_area = 100 # m^2
         self.pv_spec_op_cost = 0.01 # cost per hour per m^2 area of pv installed
-        self.P_pv_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
         self.pv_spec_em = 0 #There is no CO2 emission from generation energy with PV
 
+        #default series
+        self.P_pv_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -42,26 +45,37 @@ class pv():
     
 class bat:
     def __init__(self):
-        self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost','bat_emissions'] #no powers
+        self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost','bat_emissions','bat_SOC_max',
+                         'bat_integer','bat_cumulated_aging'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals, bounds=(0, 1)',
                               'domain = pyo.Binary','domain = pyo.Binary',
-                              'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
-        self.list_param = ['bat_starting_SOC','bat_ch_eff','bat_dis_eff','bat_E_max',
+                              'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals, bounds=(0, 1)',
+                              'within = pyo.Integers', 'within = pyo.NonNegativeReals']
+        
+        self.list_param = ['bat_starting_SOC','bat_ch_eff','bat_dis_eff','bat_E_max_initial',
                            'bat_c_rate_ch','bat_c_rate_dis','bat_spec_op_cost',
-                           'bat_spec_em']
-        self.list_text_param = ['','','','','','','','']
+                           'bat_spec_em','bat_DoD','bat_final_SoH','bat_cycles','bat_aging']
+        self.list_text_param = ['','','','','','','','','','','','']
+
         self.list_series = []
         self.list_text_series = []
 
         #default values in case of no input
+        # self.bat_E_max = 100 ############
+        self.bat_E_max_initial = 100
         self.bat_starting_SOC = 0.5
         self.bat_ch_eff = 0.95
         self.bat_dis_eff = 0.95
-        self.bat_E_max = 100
         self.bat_c_rate_ch = 1
         self.bat_c_rate_dis = 1
         self.bat_spec_op_cost = 0.01
         self.bat_spec_em = 0 # no emission for operating batteries
+        self.bat_DoD = 0.7
+        self.bat_final_SoH = 0.7
+        self.bat_cycles = 9000 # full cycles before final SoH is reached and battery is replaced
+        self.bat_aging = (self.bat_E_max_initial * (1 -self.bat_final_SoH)) / (self.bat_cycles * 2 * self.bat_E_max_initial) / self.bat_E_max_initial
+        # self.bat_aging = 0.0001
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -69,28 +83,78 @@ class bat:
         
         self.super_class = 'transformer'
 
+    def depth_of_discharge(model,t):
+        return model.bat_SOC[t] >= (1 - model.bat_DoD)
+    
+    def max_state_of_charge(model,t):
+        if t == 1:
+            return model.bat_SOC[t] <= 1
+        else:
+            return model.bat_SOC[t] <= model.bat_SOC_max[t]
+    
+    def cumulated_aging(model,t):
+        if t == 1:
+            return model.bat_cumulated_aging[t] == (model.P_from_bat[t] + 
+                                                    model.P_to_bat[t]) * model.time_step * model.bat_aging
+        else:
+            return model.bat_cumulated_aging[t] == model.bat_cumulated_aging[t-1] + (model.P_from_bat[t] + 
+                                                                                     model.P_to_bat[t]) * model.time_step * model.bat_aging
+        
+    def upper_integer_rule(model,t):
+        if t == 1:
+            return model.bat_integer[t] <= 0/(1-model.bat_final_SoH)
+        else:
+            return model.bat_integer[t] <= model.bat_cumulated_aging[t] / (1-model.bat_final_SoH)
+    
+    def lower_integer_rule(model,t):
+        if t == 1:
+            return model.bat_integer[t] >= 0/(1-model.bat_final_SoH) - 1
+        else:
+            return model.bat_integer[t] >= model.bat_cumulated_aging[t] / (1-model.bat_final_SoH) - 1
+     
+    def aging(model,t):
+        if t == 1:
+            return model.bat_SOC_max[t] == 1
+        else:
+            return model.bat_SOC_max[t] == 1 - model.bat_cumulated_aging[t] + model.bat_integer[t] * (1 - model.bat_final_SoH)
+    
     def function_rule(model,t):
             if t == 1:
                 return model.bat_SOC[t] == model.bat_starting_SOC + (model.P_to_bat[t] * model.bat_ch_eff 
-                                                                 - model.P_from_bat[t]/model.bat_dis_eff) * model.time_step / model.bat_E_max
+                                                                 - model.P_from_bat[t]/model.bat_dis_eff) * model.time_step / model.bat_E_max_initial
             else:
                 return model.bat_SOC[t] == model.bat_SOC[t-1] + (model.P_to_bat[t] * model.bat_ch_eff 
-                                                                 - model.P_from_bat[t]/model.bat_dis_eff) * model.time_step / model.bat_E_max
+                                                                 - model.P_from_bat[t]/model.bat_dis_eff) * model.time_step / model.bat_E_max_initial
 
     def charge_limit(model,t):
-        return model.P_to_bat[t] <= model.bat_E_max * model.bat_K_ch[t] * model.bat_c_rate_ch
-    
+        return model.P_to_bat[t] <= model.bat_E_max_initial * model.bat_K_ch[t] * model.bat_c_rate_ch
+
     def discharge_limit(model,t):
-        return model.P_from_bat[t] <= model.bat_E_max * model.bat_K_dis[t] * model.bat_c_rate_dis
+        return model.P_from_bat[t] <= model.bat_E_max_initial *  model.bat_K_dis[t] * model.bat_c_rate_dis
     
     def keys_rule(model,t):
         return model.bat_K_ch[t] + model.bat_K_dis[t] <= 1
-    
+
     def operation_costs(model,t):
-        return model.bat_op_cost[t] == model.bat_E_max * model.bat_spec_op_cost
+        return model.bat_op_cost[t] == model.bat_E_max_initial * model.bat_spec_op_cost
     
     def emissions(model,t):
         return model.bat_emissions[t] == (model.P_from_bat[t] + model.P_to_bat[t]) * model.bat_spec_em
+    
+
+    # def aging(model,t):
+    #     if t == 1:
+    #         return model.bat_SOC_max[t] == 1
+    #     else:
+    #         if model.bat_SOC_max[t-1] >= model.bat_final_SoH:
+    #             return model.bat_SOC_max[t] == max(model.bat_final_SoH,
+    #                                                 model.bat_SOC_max[t-1] - 
+    #                                                 (model.P_from_bat[t] + model.P_to_bat[t]) * 
+    #                                                 model.time_step * model.bat_aging)
+    #         else:
+    #             return model.bat_SOC_max[t] == 1
+
+
     
 class demand:
     def __init__(self):
@@ -118,8 +182,10 @@ class net:
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
                               ,'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
                               ,'within = pyo.NonNegativeReals']
+        
         self.list_param = ['net_spec_em_P','net_spec_em_Q']
         self.list_text_param = ['','']
+
         self.list_series = ['net_cost_buy_electric','net_cost_sell_electric',
                             'net_cost_buy_thermal','net_cost_sell_thermal']
         self.list_text_series =['model.HOURS','model.HOURS',
@@ -158,9 +224,11 @@ class CHP:
     def __init__(self):
         self.list_var = ['CHP_fuel_cons','CHP_op_cost','CHP_emissions'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+
         self.list_param = ['P_CHP_max','P_CHP_min','CHP_P_to_Q_ratio','CHP_fuel_cons_ratio','CHP_fuel_price',
                            'CHP_spec_em']
         self.list_text_param = ['','','','','','']
+        
         self.list_series = []
         self.list_text_series =[]
 

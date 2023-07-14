@@ -73,6 +73,8 @@ model.quant_x = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 model.quant_y = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 
+model.test = pyo.Var(model.HOURS, within = pyo.PositiveIntegers)
+
 #endregion
 #-------------------------------------------------------------------------------------------------------------
 #region creating constriant
