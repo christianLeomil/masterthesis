@@ -11,11 +11,13 @@
 
 class pv:
     def __init__(self):
-        self.list_var = ['pv_op_cost','pv_emissions'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+        self.list_var = ['pv_op_cost','pv_emissions','pv_inv_cost'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
 
-        self.list_param = ['pv_eff','pv_area','pv_spec_op_cost','pv_spec_em']
-        self.list_text_param = ['','','','']
+        self.list_param = ['pv_eff','pv_area','pv_spec_op_cost','pv_spec_em','pv_kWp_per_area',
+                           'pv_inv_per_kWp']
+        self.list_text_param = ['','','','','','']
 
         self.list_series = ['E_pv_solar']
         self.list_text_series =['model.HOURS']
@@ -25,6 +27,8 @@ class pv:
         self.pv_area = 100 # m^2
         self.pv_spec_op_cost = 0.01 # cost per hour per m^2 area of pv installed
         self.pv_spec_em = 0 #There is no CO2 emission from generation energy with PV
+        self.pv_kWp_per_area  = 0.12 # kWP per m2 of Pv
+        self.pv_inv_per_kWp = 1000 # EURO per kWp
 
         #default series
         self.E_pv_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
@@ -43,13 +47,21 @@ class pv:
     def emissions(model,t):
         return model.pv_emissions[t] == model.P_from_pv[t] * model.pv_spec_em
     
+    def investment_costs(model,t):
+        if t == 1:
+            return model.pv_inv_cost[t] == model.pv_area * model.pv_kWp_per_area * model.pv_inv_per_kWp
+        else:
+            return model.pv_inv_cost[t] == 0
+    
 class solar_th:
     def __init__(self):
-        self.list_var = ['solar_th_op_cost','solar_th_emissions'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+        self.list_var = ['solar_th_op_cost','solar_th_emissions','solar_th_inv_cost'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
 
-        self.list_param = ['solar_th_eff','solar_th_area','solar_th_spec_op_cost','solar_th_spec_em']
-        self.list_text_param = ['','','','']
+        self.list_param = ['solar_th_eff','solar_th_area','solar_th_spec_op_cost','solar_th_spec_em',
+                           'solar_th_inv_per_area']
+        self.list_text_param = ['','','','','']
 
         self.list_series = ['E_solar_th_solar']
         self.list_text_series =['model.HOURS']
@@ -59,6 +71,7 @@ class solar_th:
         self.solar_th_area = 50 # m^2
         self.solar_th_spec_op_cost = 0.02 # cost per hour per m^2 area of pv installed
         self.solar_th_spec_em = 0 #There is no CO2 emission from generation energy with PV
+        self.solar_th_inv_per_area = 700 #EURO per m2 aperture
 
         #default series
         self.E_solar_th_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
@@ -77,15 +90,23 @@ class solar_th:
         
     def emission(model,t):
         return model.solar_th_emissions[t] == model.Q_from_solar_th[t] * model.solar_th_spec_em
+    
+    def investment_costs(model,t):
+        if t == 1:
+            return model.solar_th_inv_cost[t] == model.solar_th_area * model.solar_th_inv_per_area
+        else:
+            return model.solar_th_inv_cost[t] == 0
 
 
 class pvt:
     def __init__(self):
-        self.list_var = ['pvt_op_cost','pvt_emissions'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+        self.list_var = ['pvt_op_cost','pvt_emissions','pvt_inv_cost'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
 
-        self.list_param = ['pvt_eff','pvt_area','pvt_spec_op_cost','pvt_spec_em','pvt_Q_to_P_ratio']
-        self.list_text_param = ['','','','','']
+        self.list_param = ['pvt_eff','pvt_area','pvt_spec_op_cost','pvt_spec_em','pvt_Q_to_P_ratio',
+                           'pvt_inv_per_area']
+        self.list_text_param = ['','','','','','']
 
         self.list_series = ['E_pvt_solar']
         self.list_text_series =['model.HOURS']
@@ -95,7 +116,8 @@ class pvt:
         self.pvt_area = 50 # m^2
         self.pvt_spec_op_cost = 0.02 # cost per hour per m^2 area of pv installed
         self.pvt_spec_em = 0 #There is no CO2 emission from generation energy with PV
-        self.pvt_Q_to_P_ratio = 1.3
+        self.pvt_Q_to_P_ratio = 1.3 #proportion between power and generated heat
+        self.pvt_inv_per_area = 850 # EURO per m2 aperture
 
         #default series
         self.E_pvt_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
@@ -118,20 +140,28 @@ class pvt:
     def emission(model,t):
         return model.pvt_emissions[t] == model.Q_from_pvt[t] * model.pvt_spec_em
 
+    def investment_costs(model,t):
+        if t == 1:
+            return model.pvt_inv_cost[t] == model.pvt_area * model.pvt_inv_per_area
+        else:
+            return model.pvt_inv_cost[t] == 0
+
 class bat:
     def __init__(self):
         self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost','bat_emissions','bat_SOC_max',
-                         'bat_integer','bat_cumulated_aging'] #no powers
+                         'bat_integer','bat_cumulated_aging','bat_inv_cost'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals, bounds=(0, 1)',
                               'domain = pyo.Binary','domain = pyo.Binary',
                               'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals, bounds=(0, 1)',
-                              'within = pyo.Integers', 'within = pyo.NonNegativeReals']
+                              'within = pyo.Integers', 'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
         
         self.list_param = ['bat_starting_SOC','bat_ch_eff','bat_dis_eff','bat_E_max_initial',
                            'bat_c_rate_ch','bat_c_rate_dis','bat_spec_op_cost',
-                           'bat_spec_em','bat_DoD','bat_final_SoH','bat_cycles','bat_aging']
-        self.list_text_param = ['','','','','','','','','','','','']
+                           'bat_spec_em','bat_DoD','bat_final_SoH','bat_cycles','bat_aging',
+                           'bat_inv_per_capacity']
+        self.list_text_param = ['','','','','','','','','','','','','']
 
         self.list_series = []
         self.list_text_series = []
@@ -150,7 +180,7 @@ class bat:
         self.bat_final_SoH = 0.7
         self.bat_cycles = 9000 # full cycles before final SoH is reached and battery is replaced
         self.bat_aging = (self.bat_E_max_initial * (1 -self.bat_final_SoH)) / (self.bat_cycles * 2 * self.bat_E_max_initial) / self.bat_E_max_initial
-        # self.bat_aging = 0.0001
+        self.bat_inv_per_capacity = 650 # EURO per kWh capacity
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -177,13 +207,13 @@ class bat:
         
     def upper_integer_rule(model,t):
         if t == 1:
-            return model.bat_integer[t] <= 0/(1-model.bat_final_SoH)
+            return model.bat_integer[t] == 0
         else:
             return model.bat_integer[t] <= model.bat_cumulated_aging[t] / (1-model.bat_final_SoH)
     
     def lower_integer_rule(model,t):
         if t == 1:
-            return model.bat_integer[t] >= 0/(1-model.bat_final_SoH) - 1
+            return model.bat_integer[t] == 0 
         else:
             return model.bat_integer[t] >= model.bat_cumulated_aging[t] / (1-model.bat_final_SoH) - 1
      
@@ -215,14 +245,21 @@ class bat:
     
     def emissions(model,t):
         return model.bat_emissions[t] == (model.P_from_bat[t] + model.P_to_bat[t]) * model.bat_spec_em
-
+    
+    def investment_costs(model,t):
+        if t == 1:
+            return model.bat_inv_cost[t] == model.bat_E_max_initial * model.bat_inv_per_capacity
+        else:
+            return model.bat_inv_cost[t] == model.bat_E_max_initial * model.bat_inv_per_capacity * (model.bat_integer[t] - model.bat_integer[t-1])
 
 class demand:
     def __init__(self):
-        self.list_var = [] #no powers
-        self.list_text_var = []
+        self.list_var = ['demand_inv_cost'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals']
+
         self.list_param = []
         self.list_text_param = []
+
         self.list_series = ['P_to_demand','Q_to_demand']
         self.list_text_series =['model.HOURS','model.HOURS']
 
@@ -236,12 +273,16 @@ class demand:
         
         self.super_class = 'demand'
 
+    def investment_costs(model,t):
+        return model.demand_inv_cost[t] == 0
+
 class net:
     def __init__(self):
         self.list_var = ['net_sell_electric','net_buy_electric','net_sell_thermal','net_buy_thermal'
-                         ,'net_emissions'] #no powers
+                         ,'net_emissions','net_inv_cost'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
                               ,'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
+                              ,'within = pyo.NonNegativeReals'
                               ,'within = pyo.NonNegativeReals']
         
         self.list_param = ['net_spec_em_P','net_spec_em_Q']
@@ -279,27 +320,32 @@ class net:
         return model.net_buy_thermal[t] == model.Q_from_net[t] * model.time_step * model.net_cost_buy_thermal[t]
     
     def emissions(model,t):
-        return model.net_emissions[t] == model.P_from_net[t] * model.net_spec_em_P + model.Q_from_net[t] * model.net_spec_em_Q 
+        return model.net_emissions[t] == model.P_from_net[t] * model.net_spec_em_P + model.Q_from_net[t] * model.net_spec_em_Q
+    
+    def investment_costs(model,t):
+        return model.net_inv_cost[t] == 0
 
 class CHP:
     def __init__(self):
-        self.list_var = ['CHP_fuel_cons','CHP_op_cost','CHP_emissions'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+        self.list_var = ['CHP_fuel_cons','CHP_op_cost','CHP_emissions','CHP_inv_cost'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
+                              ,'within = pyo.NonNegativeReals']
 
         self.list_param = ['P_CHP_max','P_CHP_min','CHP_P_to_Q_ratio','CHP_fuel_cons_ratio','CHP_fuel_price',
-                           'CHP_spec_em']
-        self.list_text_param = ['','','','','','']
+                           'CHP_spec_em','CHP_inv_cost_per_power']
+        self.list_text_param = ['','','','','','','']
         
         self.list_series = []
         self.list_text_series =[]
 
         #default values in case of no input
-        self.P_CHP_max = 2000 #W electric
+        self.P_CHP_max = 20 #W electric
         self.P_CHP_min = 0
         self.CHP_P_to_Q_ratio = 0.5 
         self.CHP_fuel_cons_ratio = 0.105 #dm3 per kWh of P_from_CHP
         self.CHP_fuel_price = 5 # EUROS/dm3 of fuel 
         self.CHP_spec_em = 2.3 # kg of CO2 emitted per dm3 of fuel (gasoline)
+        self.CHP_inv_cost_per_power = 1700 # EURO per kW power
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -324,6 +370,12 @@ class CHP:
     
     def emissions(model,t):
         return model.CHP_emissions[t] == model.CHP_fuel_cons[t] * model.CHP_spec_em
+    
+    def investment_costs(model,t):
+        if t == 1:
+            return model.CHP_inv_cost[t] == model.P_CHP_max * model.CHP_inv_cost_per_power
+        else:
+            return model.CHP_inv_cost[t] == 0
     
 class objective:
     def __init__(self):
