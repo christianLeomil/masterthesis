@@ -9,7 +9,7 @@
 #         self.op_cost = op_cost
 #         self.emission = emission
 
-class pv():
+class pv:
     def __init__(self):
         self.list_var = ['pv_op_cost','pv_emissions'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
@@ -17,7 +17,7 @@ class pv():
         self.list_param = ['pv_eff','pv_area','pv_spec_op_cost','pv_spec_em']
         self.list_text_param = ['','','','']
 
-        self.list_series = ['P_pv_solar']
+        self.list_series = ['E_pv_solar']
         self.list_text_series =['model.HOURS']
 
         #default values in case of no input
@@ -27,15 +27,15 @@ class pv():
         self.pv_spec_em = 0 #There is no CO2 emission from generation energy with PV
 
         #default series
-        self.P_pv_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
+        self.E_pv_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
                             'thermal':'no'}
         self.super_class = 'generator'
 
-    def solar_rule(model,t):
-        return model.P_from_pv[t] == (model.P_pv_solar[t] / model.time_step) * model.pv_eff * model.pv_area 
+    def generation_rule(model,t):
+        return model.P_from_pv[t] == (model.E_pv_solar[t] / model.time_step) * model.pv_eff * model.pv_area 
     
     def operation_costs(model,t):
         return model.pv_op_cost[t] == model.pv_area * model.pv_spec_op_cost
@@ -43,6 +43,81 @@ class pv():
     def emissions(model,t):
         return model.pv_emissions[t] == model.P_from_pv[t] * model.pv_spec_em
     
+class solar_th:
+    def __init__(self):
+        self.list_var = ['solar_th_op_cost','solar_th_emissions'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+
+        self.list_param = ['solar_th_eff','solar_th_area','solar_th_spec_op_cost','solar_th_spec_em']
+        self.list_text_param = ['','','','']
+
+        self.list_series = ['E_solar_th_solar']
+        self.list_text_series =['model.HOURS']
+
+        #default values in case of no input
+        self.solar_th_eff = 0.20 # aproximate overall efficiency of pv cells 
+        self.solar_th_area = 50 # m^2
+        self.solar_th_spec_op_cost = 0.02 # cost per hour per m^2 area of pv installed
+        self.solar_th_spec_em = 0 #There is no CO2 emission from generation energy with PV
+
+        #default series
+        self.E_solar_th_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
+
+        #defining energy type to build connections with other componets correctly
+        self.energy_type = {'electric':'no',
+                            'thermal':'yes'}
+        
+        self.super_class = 'generator'
+        
+    def generation_rule(model,t):
+        return model.Q_from_solar_th[t] == (model.E_solar_th_solar[t] * model.time_step) * model.solar_th_area * model.solar_th_eff
+        
+    def operation_cost(model,t):
+        return model.solar_th_op_cost[t] == model.solar_th_area * model.solar_th_spec_op_cost
+        
+    def emission(model,t):
+        return model.solar_th_emissions[t] == model.Q_from_solar_th[t] * model.solar_th_spec_em
+
+
+class pvt:
+    def __init__(self):
+        self.list_var = ['pvt_op_cost','pvt_emissions'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+
+        self.list_param = ['pvt_eff','pvt_area','pvt_spec_op_cost','pvt_spec_em','pvt_Q_to_P_ratio']
+        self.list_text_param = ['','','','','']
+
+        self.list_series = ['E_pvt_solar']
+        self.list_text_series =['model.HOURS']
+
+        #default values in case of no input
+        self.pvt_eff = 0.20 # aproximate overall efficiency of pv cells 
+        self.pvt_area = 50 # m^2
+        self.pvt_spec_op_cost = 0.02 # cost per hour per m^2 area of pv installed
+        self.pvt_spec_em = 0 #There is no CO2 emission from generation energy with PV
+        self.pvt_Q_to_P_ratio = 1.3
+
+        #default series
+        self.E_pvt_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
+
+        #defining energy type to build connections with other componets correctly
+        self.energy_type = {'electric':'yes',
+                            'thermal':'yes'}
+        
+        self.super_class = 'generator'
+        
+    def generation_rule(model,t):
+        return model.P_from_pvt[t] == (model.E_pvt_solar[t] * model.time_step) * model.pvt_area * model.pvt_eff
+    
+    def thermal_energy_rule(model,t):
+        return model.Q_from_pvt[t] == model.P_from_pvt[t] * model.pvt_Q_to_P_ratio
+        
+    def operation_cost(model,t):
+        return model.pvt_op_cost[t] == model.pvt_area * model.pvt_spec_op_cost
+        
+    def emission(model,t):
+        return model.pvt_emissions[t] == model.Q_from_pvt[t] * model.pvt_spec_em
+
 class bat:
     def __init__(self):
         self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost','bat_emissions','bat_SOC_max',
@@ -140,22 +215,8 @@ class bat:
     
     def emissions(model,t):
         return model.bat_emissions[t] == (model.P_from_bat[t] + model.P_to_bat[t]) * model.bat_spec_em
-    
-
-    # def aging(model,t):
-    #     if t == 1:
-    #         return model.bat_SOC_max[t] == 1
-    #     else:
-    #         if model.bat_SOC_max[t-1] >= model.bat_final_SoH:
-    #             return model.bat_SOC_max[t] == max(model.bat_final_SoH,
-    #                                                 model.bat_SOC_max[t-1] - 
-    #                                                 (model.P_from_bat[t] + model.P_to_bat[t]) * 
-    #                                                 model.time_step * model.bat_aging)
-    #         else:
-    #             return model.bat_SOC_max[t] == 1
 
 
-    
 class demand:
     def __init__(self):
         self.list_var = [] #no powers
@@ -277,3 +338,4 @@ class objective:
 
         #defining energy type to build connections with other componets correctly
         self.super_class = 'objective'
+

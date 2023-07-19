@@ -6,7 +6,6 @@ import inspect
 import textwrap
 import warnings
 
-
 warnings.filterwarnings("ignore", '.*')
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -16,7 +15,7 @@ path_input = './input/'
 path_output = './output/'
 name_file = 'df_input.xlsx'
 
-df_input_series = pd.read_excel(path_input +name_file, sheet_name= 'series',nrows = 1000)
+df_input_series = pd.read_excel(path_input +name_file, sheet_name= 'series',nrows = 100)
 df_input_other = pd.read_excel(path_input +name_file, sheet_name= 'other')
 
 df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements test')
@@ -28,9 +27,9 @@ df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-# functions.write_excel(df_con_electric,path_input,'conect_electric')
-# functions.write_excel(df_con_thermal,path_input,'conect_thermal')
-# input("Press Enter to continue...")
+functions.write_excel(df_con_electric,path_input,'conect_electric')
+functions.write_excel(df_con_thermal,path_input,'conect_thermal')
+input("Press Enter to continue...")
 
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
 df_con_electric.index.name = None
@@ -247,6 +246,7 @@ def emission_objective(model,t):
 model.emissionObjective = pyo.Objective(rule = emission_objective,sense= pyo.minimize)
 
 model.emissionObjective.deactivate()
+# model.costObjective.deactivate()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
