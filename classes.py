@@ -1,3 +1,9 @@
+import random
+import numpy as np
+import pandas as pd
+from datetime import datetime, timedelta
+import random
+
 # class Generator:
 #     def __init__(self,type_, id,eff,E_in,op_cost,inv_cost,emission):
 #         self.class_type = 'generator'
@@ -276,6 +282,33 @@ class demand:
     def investment_costs(model,t):
         return model.demand_inv_cost[t] == 0
 
+    
+class charging_station:
+    def __init__(self):
+        self.list_var = [] #no powers
+        self.list_text_var = []
+
+        self.list_param = []
+        self.list_text_param = []
+
+        self.list_series = ['charging_point_demand_curve']
+        self.list_text_series =['model.HOURS']
+
+        #default values in case of no input
+        self.charging_point_demand_curve = [100] * 100
+
+        #defining energy type to build connections with other componets correctly
+        self.energy_type = {'electric':'yes',
+                            'thermal':'no'}
+        
+        self.super_class = 'demand'
+
+    def charging_point_rule(model,t):
+        return model.P_to_charging_point[t] == model.charging_point_demand_curve[t] 
+
+    def investment_costs(model,t):
+        return model.charging_point_inv_cost[t] == 0
+
 class net:
     def __init__(self):
         self.list_var = ['net_sell_electric','net_buy_electric','net_sell_thermal','net_buy_thermal'
@@ -376,7 +409,7 @@ class CHP:
             return model.CHP_inv_cost[t] == model.P_CHP_max * model.CHP_inv_cost_per_power
         else:
             return model.CHP_inv_cost[t] == 0
-    
+
 class objective:
     def __init__(self):
         self.list_var = []
@@ -391,3 +424,128 @@ class objective:
         #defining energy type to build connections with other componets correctly
         self.super_class = 'objective'
 
+
+class charging_station:
+
+    def __init__(self):
+        #default values in case of no input
+        self.list_models = ['Tesla MODEL 3','VW E-UP','VW ID.3','Renault ZOE','Smart FORTWO',
+                            'Hyundai KONA 39 kWh','Hyundai KONA 64 kWh','Hyundai IONIQ5 58kWh',
+                            'Hyundai IONIQ5 77kWh','VW ID.4','Fiat 500 E','BMW I3 22kWh','BMW I3 33kWh',
+                            'BMW I3 42kWh','Opel CORSA','MINI Cooper SE','Audi E-TRON','Peugeot 208',
+                            'Renault TWINGO','Opel MOKKA','Nissan LEAF 24 kWh','Nissan LEAF 30 kWh',
+                            'Nissan LEAF 40 kWh','Nissan LEAF 62 kWh','Audi Q4','Dacia SPRING','TESLA MODEL Y',
+                            'VW ID.5','SKODA ENYAQ 77kWh','SKODA ENYAQ 58kWh','CUPRA BORN 77kWh',
+                            'CUPRA BORN 58kWh','RENAULT MEGANE E-TECH','Polestar 2','KIA EV6','Porsche Taycan',
+                            'Others']
+        
+        self.list_mix_models = ['0.065','0.033','0.036','0.036','0.022','0.023','0.023','0.015','0.015','0.021',
+                                '0.067','0.009','0.009','0.009','0.019','0.03','0.033','0.013','0.016','0.018',
+                                '0.002','0.002','0.002','0.002','0.025','0.021','0.045','0.021','0.018','0.018',
+                                '0.007','0.007','0.005','0.012','0.01','0.009','0.282']
+        
+        self.list_capacity = ['50','36.8','58','52','17.6','39','64','58','77','77','24','22','33','42','45','28.9',
+                         '85','45','21.3','45','24','30','40','62','76.6','26.8','75','77','77','58','77','58',
+                         '60','75','74','83.7','52.6305555555556']
+        
+        self.list_SoC = ['0','0.05','0.1','0.15','0.2','0.25','0.3','0.35','0.4','0.45','0.5','0.55','0.6','0.65','0.7',
+                         '0.75','0.8','0.85','0.9','0.95','1']
+        
+        self.list_mix_start_SoC = ['0','0.07','0.1','0.13','0.15','0.17','0.14','0.12','0.08','0.03','0.01','0','0','0','0',
+                                   '0','0','0','0','0','0']
+        
+        self.list_mix_end_SoC = ['0','0','0','0','0','0','0','0','0','0','0','0','0.03','0.07','0.1','0.11','0.13','0.17',
+                                 '0.15','0.13','0.11']
+        
+        self.df_mix_capacity =  pd.DataFrame({'Model': self.list_models,
+                                              'Mix': self.list_mix_models,
+                                              'Max Capacity': self.list_capacity})
+
+        self.df_SoC = pd.DataFrame({'SoC':self.list_SoC,
+                                    'mix initial':self.list_mix_start_SoC,
+                                    'mix final':self.list_mix_end_SoC})
+        
+        self.charging_station_hours = [8, 12, 18]
+        self.charging_station_std = [1, 1, 1]
+        self.charging_station_number_cars = [5, 5, 5]
+
+        self.df_data_distribution = pd.DataFrame({'hours of peak':self.charging_station_hours,
+                                                  'std of each peak':self.charging_station_std,
+                                                  'number of cars in each peak':self.charging_station_number_cars})
+
+        #defining energy type to build connections with other componets correctly
+        self.energy_type = {'electric':'yes',
+                            'thermal':'no'}
+        self.super_class = 'demand'
+
+    def charging_demand_rule(self,model,t):
+
+        #generating list with mix of cars
+        list_mix_cars = []
+        for i in self.df_mix_capacity.index:
+            times = int(self.df_mix_capacity.loc[i,'Mix']*100)
+            for j in range(0,times):
+                list_mix_cars.append(self.df_mix_capacity.loc[i,'Model'])
+
+        #generating list with state of charges
+        list_start_SoC = []
+        list_end_SoC = []
+        for i in self.df_SoC.index:
+            times_start_SoC = int(self.df_SoC.loc[i,'mix initial']*100)
+            times_final_SoC = int(self.df_SoC.loc[i,'mix final']*100)
+            for j in range(0,times_start_SoC):
+                list_start_SoC.append(self.df_SoC.loc[i,'SoC'])
+            for j in range(0,times_final_SoC):
+                list_end_SoC.append(self.df_SoC.loc[i,'SoC'])
+        
+        def generate_normal_distribution(mean, standard_deviation, size):
+            # Generate random numbers from a normal distribution
+            samples = np.random.normal(mean, standard_deviation, size)
+            return samples
+        
+        def convert_time_stamp(day_integer,float_number):
+            seconds_integer = int(float_number * 3600)
+            delta = timedelta(seconds = seconds_integer)
+
+            reference_date = datetime(2023,1,day_integer)
+            converted_time_stamp = reference_date + delta
+            converted_time_stamp = converted_time_stamp.strftime('%Y-%m-%d %H:%M')
+
+            return converted_time_stamp
+
+        list_days_models = []
+        list_hours = []
+        list_initial_SoC = []
+        list_final_SoC = []
+        for i in range(0,len(model.HOURS)):
+            for j in self.df_data_distribution.index:
+                mean = self.df_data_distribution.loc[j,'hours of peak']
+                standard_deviation = self.df_data_distribution.loc[j,'std of each peak']
+                size = self.df_data_distribution.loc[j,'number of cars in each peak']
+
+        timestamps = generate_normal_distribution(mean, standard_deviation, size)
+        for k in timestamps:
+            timestamp = k
+            converted_time_stamp = convert_time_stamp(i+1,timestamp)
+            list_hours.append(converted_time_stamp)
+            list_days_models.append(random.choice(list_mix_cars))
+
+            initial_SoC = random.choice(list_start_SoC)
+            final_SoC = random.choice(list_end_SoC)
+            while initial_SoC >= final_SoC:
+                initial_SoC = random.choice(list_start_SoC)
+                final_SoC = random.choice(list_end_SoC)
+
+            list_initial_SoC.append(initial_SoC)
+            list_final_SoC.append(final_SoC)
+        
+        df_schedule = pd.DataFrame({'car models': list_days_models,
+                            'time stamp':list_hours,
+                            'initial SoC':list_initial_SoC,
+                            'final SoC':list_final_SoC})
+        
+        
+
+
+
+        return charging_stations_load_curve

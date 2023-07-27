@@ -15,16 +15,13 @@ path_input = './input/'
 path_output = './output/'
 name_file = 'df_input.xlsx'
 
-df_input_series = pd.read_excel(path_input +name_file, sheet_name= 'series',nrows = 100)
-df_input_other = pd.read_excel(path_input +name_file, sheet_name= 'other')
+df_input_series = pd.read_excel(path_input +name_file, sheet_name = 'series', nrows = 100)
+df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
 
 df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements test')
 df_elements.index.name = None
 
 [df_con_electric,df_con_thermal,df_aux] = functions.aux_creator(df_elements)
-df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
-df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
-
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # functions.write_excel(df_con_electric,path_input,'conect_electric')
@@ -39,6 +36,9 @@ df_con_thermal.index.name = None
 
 [df_con_thermal, df_con_electric, list_expressions, 
  list_con_variables, list_attr_classes] = functions.connection_creator(df_con_electric, df_con_thermal)
+
+df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
+df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 list_objective_constraints = functions.objective_constraint_creator(df_aux)
 
