@@ -83,16 +83,17 @@ for i,n in enumerate(list_elements):
     methods = inspect.getmembers(globals()[element],inspect.ismethod)
     for method_name,method in methods:
         if not method_name.startswith('__'):
-            original_method = getattr(globals()[element],method_name)
-            source_code = inspect.getsource(original_method)
-            source_code = textwrap.dedent(source_code)
-            modified_source_code = source_code.replace(element_type,element)
-            # print(modified_source_code)
-            compiled_code = compile(modified_source_code, "<string>", "exec")
-            namespace = {}
-            exec(compiled_code, namespace)
-            modified_method = namespace[method_name]
-            setattr(globals()[element], method_name , modified_method)
+            if not method_name.startswith('X'):
+                original_method = getattr(globals()[element],method_name)
+                source_code = inspect.getsource(original_method)
+                source_code = textwrap.dedent(source_code)
+                modified_source_code = source_code.replace(element_type,element)
+                # print(modified_source_code)
+                compiled_code = compile(modified_source_code, "<string>", "exec")
+                namespace = {}
+                exec(compiled_code, namespace)
+                modified_method = namespace[method_name]
+                setattr(globals()[element], method_name , modified_method)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -146,9 +147,10 @@ print('\n------------------------variables from connections')
 for i in list_con_variables:
     if not i.startswith('P_to_demand'):
         if not i.startswith('Q_to_demand'):
-            print(i)
-            text = 'model.HOURS, within = pyo.NonNegativeReals'
-            exec(f"model.add_component('{i}',pyo.Var({text}))")
+            if not i.startswith('P_to_charging_station'):
+                print(i)
+                text = 'model.HOURS, within = pyo.NonNegativeReals'
+                exec(f"model.add_component('{i}',pyo.Var({text}))")
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -257,7 +259,7 @@ data = pyo.DataPortal()
 data['HOURS'] = df_input_series['HOURS'].tolist()
 data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
 
-#getting list with all needed PARAMETERS of created classes and reading data, or getting default values
+#getting list with all needed PARAMETERS of created classes and reading data, or getting default values from classes
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
@@ -281,8 +283,13 @@ for i in df_aux.index:
             data[name_series] = df_input_series.set_index('HOURS')[name_series].to_dict()
         except Exception:
             list_par = getattr(globals()[element], j)
-            list_par = [list_par] * len(data['HOURS'])
-            data[name_series] = {hour_value: getattr(globals()[element], j) for hour_value in data['HOURS']}
+            if not isinstance(list_par,list):
+                list_par = [list_par] * len(data['HOURS'])
+                data[name_series] = {hour_value: getattr(globals()[element], j) for hour_value in data['HOURS']}
+            else:
+                df_test= pd.DataFrame({'HOURS': data['HOURS'],
+                                       name_series:list_par})
+                data[name_series] = df_test.set_index('HOURS')[name_series].to_dict()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
