@@ -5,17 +5,6 @@ from datetime import datetime, timedelta
 import random
 import math
 
-# class Generator:
-#     def __init__(self,type_, id,eff,E_in,op_cost,inv_cost,emission):
-#         self.class_type = 'generator'
-#         self.type_ = type_
-#         self.id = id
-#         self.eff = eff
-#         self.E_in= E_in
-#         self.inv_cost = inv_cost
-#         self.op_cost = op_cost
-#         self.emission = emission
-
 class pv:
     def __init__(self):
         self.list_var = ['pv_op_cost','pv_emissions','pv_inv_cost'] #no powers
@@ -45,16 +34,16 @@ class pv:
                             'thermal':'no'}
         self.super_class = 'generator'
 
-    def generation_rule(model,t):
+    def constraint_generation_rule(model,t):
         return model.P_from_pv[t] == (model.E_pv_solar[t] / model.time_step) * model.pv_eff * model.pv_area 
     
-    def operation_costs(model,t):
+    def constraint_operation_costs(model,t):
         return model.pv_op_cost[t] == model.pv_area * model.pv_spec_op_cost
     
-    def emissions(model,t):
+    def constraint_emissions(model,t):
         return model.pv_emissions[t] == model.P_from_pv[t] * model.pv_spec_em
     
-    def investment_costs(model,t):
+    def constraint_investment_costs(model,t):
         if t == 1:
             return model.pv_inv_cost[t] == model.pv_area * model.pv_kWp_per_area * model.pv_inv_per_kWp
         else:
@@ -89,16 +78,16 @@ class solar_th:
         
         self.super_class = 'generator'
         
-    def generation_rule(model,t):
+    def constraint_generation_rule(model,t):
         return model.Q_from_solar_th[t] == (model.E_solar_th_solar[t] * model.time_step) * model.solar_th_area * model.solar_th_eff
         
-    def operation_cost(model,t):
+    def constraint_operation_cost(model,t):
         return model.solar_th_op_cost[t] == model.solar_th_area * model.solar_th_spec_op_cost
         
-    def emission(model,t):
+    def constraint_emission(model,t):
         return model.solar_th_emissions[t] == model.Q_from_solar_th[t] * model.solar_th_spec_em
     
-    def investment_costs(model,t):
+    def constraint_investment_costs(model,t):
         if t == 1:
             return model.solar_th_inv_cost[t] == model.solar_th_area * model.solar_th_inv_per_area
         else:
@@ -135,19 +124,19 @@ class pvt:
         
         self.super_class = 'generator'
         
-    def generation_rule(model,t):
+    def constraint_generation_rule(model,t):
         return model.P_from_pvt[t] == (model.E_pvt_solar[t] * model.time_step) * model.pvt_area * model.pvt_eff
     
-    def thermal_energy_rule(model,t):
+    def constraint_thermal_energy_rule(model,t):
         return model.Q_from_pvt[t] == model.P_from_pvt[t] * model.pvt_Q_to_P_ratio
         
-    def operation_cost(model,t):
+    def constraint_operation_cost(model,t):
         return model.pvt_op_cost[t] == model.pvt_area * model.pvt_spec_op_cost
         
-    def emission(model,t):
+    def constraint_emission(model,t):
         return model.pvt_emissions[t] == model.Q_from_pvt[t] * model.pvt_spec_em
 
-    def investment_costs(model,t):
+    def constraint_investment_costs(model,t):
         if t == 1:
             return model.pvt_inv_cost[t] == model.pvt_area * model.pvt_inv_per_area
         else:
@@ -195,16 +184,16 @@ class bat:
         
         self.super_class = 'transformer'
 
-    def depth_of_discharge(model,t):
+    def constraint_depth_of_discharge(model,t):
         return model.bat_SOC[t] >= (1 - model.bat_DoD)
     
-    def max_state_of_charge(model,t):
+    def constraint_max_state_of_charge(model,t):
         if t == 1:
             return model.bat_SOC[t] <= 1
         else:
             return model.bat_SOC[t] <= model.bat_SOC_max[t]
     
-    def cumulated_aging(model,t):
+    def constraint_cumulated_aging(model,t):
         if t == 1:
             return model.bat_cumulated_aging[t] == (model.P_from_bat[t] + 
                                                     model.P_to_bat[t]) * model.time_step * model.bat_aging
@@ -212,25 +201,25 @@ class bat:
             return model.bat_cumulated_aging[t] == model.bat_cumulated_aging[t-1] + (model.P_from_bat[t] + 
                                                                                      model.P_to_bat[t]) * model.time_step * model.bat_aging
         
-    def upper_integer_rule(model,t):
+    def constraint_upper_integer_rule(model,t):
         if t == 1:
             return model.bat_integer[t] == 0
         else:
             return model.bat_integer[t] <= model.bat_cumulated_aging[t] / (1-model.bat_final_SoH)
     
-    def lower_integer_rule(model,t):
+    def constraint_lower_integer_rule(model,t):
         if t == 1:
             return model.bat_integer[t] == 0 
         else:
             return model.bat_integer[t] >= model.bat_cumulated_aging[t] / (1-model.bat_final_SoH) - 1
      
-    def aging(model,t):
+    def constraint_aging(model,t):
         if t == 1:
             return model.bat_SOC_max[t] == 1
         else:
             return model.bat_SOC_max[t] == 1 - model.bat_cumulated_aging[t] + model.bat_integer[t] * (1 - model.bat_final_SoH)
     
-    def function_rule(model,t):
+    def constraint_function_rule(model,t):
             if t == 1:
                 return model.bat_SOC[t] == model.bat_starting_SOC + (model.P_to_bat[t] * model.bat_ch_eff 
                                                                  - model.P_from_bat[t]/model.bat_dis_eff) * model.time_step / model.bat_E_max_initial
@@ -238,22 +227,22 @@ class bat:
                 return model.bat_SOC[t] == model.bat_SOC[t-1] + (model.P_to_bat[t] * model.bat_ch_eff 
                                                                  - model.P_from_bat[t]/model.bat_dis_eff) * model.time_step / model.bat_E_max_initial
 
-    def charge_limit(model,t):
+    def constraint_charge_limit(model,t):
         return model.P_to_bat[t] <= model.bat_E_max_initial * model.bat_K_ch[t] * model.bat_c_rate_ch
 
-    def discharge_limit(model,t):
+    def constraint_discharge_limit(model,t):
         return model.P_from_bat[t] <= model.bat_E_max_initial *  model.bat_K_dis[t] * model.bat_c_rate_dis
     
-    def keys_rule(model,t):
+    def constraint_keys_rule(model,t):
         return model.bat_K_ch[t] + model.bat_K_dis[t] <= 1
 
-    def operation_costs(model,t):
+    def constraint_operation_costs(model,t):
         return model.bat_op_cost[t] == model.bat_E_max_initial * model.bat_spec_op_cost
     
-    def emissions(model,t):
+    def constraint_emissions(model,t):
         return model.bat_emissions[t] == (model.P_from_bat[t] + model.P_to_bat[t]) * model.bat_spec_em
     
-    def investment_costs(model,t):
+    def constraint_investment_costs(model,t):
         if t == 1:
             return model.bat_inv_cost[t] == model.bat_E_max_initial * model.bat_inv_per_capacity
         else:
@@ -280,7 +269,7 @@ class demand:
         
         self.super_class = 'demand'
 
-    def investment_costs(model,t):
+    def constraint_investment_costs(model,t):
         return model.demand_inv_cost[t] == 0
 
 class net:
@@ -314,22 +303,22 @@ class net:
         
         self.super_class = 'external net'
         
-    def sell_energy_electric(model,t):
+    def constraint_sell_energy_electric(model,t):
         return model.net_sell_electric[t] == model.P_to_net[t] * model.time_step * model.net_cost_sell_electric[t]
     
-    def buy_energy_electric(model,t):
+    def constraint_buy_energy_electric(model,t):
         return model.net_buy_electric[t] == model.P_from_net[t] * model.time_step * model.net_cost_buy_electric[t]
     
-    def sell_energy_thermal(model,t):
+    def constraint_sell_energy_thermal(model,t):
         return model.net_sell_thermal[t] == model.Q_to_net[t] * model.time_step * model.net_cost_sell_thermal[t]
     
-    def buy_energy_thermal(model,t):
+    def constraint_buy_energy_thermal(model,t):
         return model.net_buy_thermal[t] == model.Q_from_net[t] * model.time_step * model.net_cost_buy_thermal[t]
     
-    def emissions(model,t):
+    def constraint_emissions(model,t):
         return model.net_emissions[t] == model.P_from_net[t] * model.net_spec_em_P + model.Q_from_net[t] * model.net_spec_em_Q
     
-    def investment_costs(model,t):
+    def constraint_investment_costs(model,t):
         return model.net_inv_cost[t] == 0
 
 class CHP:
@@ -360,25 +349,25 @@ class CHP:
         
         self.super_class = 'generator'
     
-    def min_generation(model,t):
+    def constraint_min_generation(model,t):
         return model.P_from_CHP[t] >= model.P_CHP_min
 
-    def max_generation(model,t):
+    def constraint_max_generation(model,t):
         return model.P_from_CHP[t] <= model.P_CHP_max 
 
-    def generation(model,t):
+    def constraint_generation(model,t):
         return model.P_from_CHP[t] == model.Q_from_CHP[t] * model.CHP_P_to_Q_ratio
 
-    def fuel_consumption(model,t):
+    def constraint_fuel_consumption(model,t):
         return model.CHP_fuel_cons[t] == model.P_from_CHP[t] * model.time_step * model.CHP_fuel_cons_ratio 
 
-    def operation_costs(model,t):
+    def constraint_operation_costs(model,t):
         return model.CHP_op_cost[t] == model.CHP_fuel_cons[t] * model.CHP_fuel_price
     
-    def emissions(model,t):
+    def constraint_emissions(model,t):
         return model.CHP_emissions[t] == model.CHP_fuel_cons[t] * model.CHP_spec_em
     
-    def investment_costs(model,t):
+    def constraint_investment_costs(model,t):
         if t == 1:
             return model.CHP_inv_cost[t] == model.P_CHP_max * model.CHP_inv_cost_per_power
         else:
@@ -403,18 +392,19 @@ class charging_station:
 
     def __init__(self):
         #default values in case of no input
-        self.list_var = [] #no powers
-        self.list_text_var = []
+        self.list_var = ['charging_station_op_cost','charging_station_inv_cost'] #no powers
+        self.list_text_var = ['within = pyo.NegativeReals','within = pyo.NonNegativeReals']
 
-        self.list_param = []
-        self.list_text_param = []
+        self.list_param = ['charging_station_inv_specific_costs','charging_station_selling_price']
+        self.list_text_param = ['','']
         
         self.list_series = ['P_to_charging_station']
         self.list_text_series =['model.HOURS']
 
         #defining paramenters:
         self.charging_station_mult = 1.2
-        # self.charging_station_demand = self.charging_demand_rule(self.charging_station_mult)
+        self.charging_station_inv_specific_costs = 100000
+        self.charging_station_selling_price = 0.60 # € per sold kWh
     
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -446,7 +436,6 @@ class charging_station:
                                              'Mix': self.list_mix_models,
                                              'Max Capacity': self.list_capacity})
 
-
         self.list_SoC = [0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1]
 
         self.list_mix_start_SoC = [0,0.07,0.1,0.13,0.15,0.17,0.14,0.12,0.08,0.03,0.01,0,0,0,0,0,0,0,0,0,0]
@@ -460,6 +449,7 @@ class charging_station:
         self.list_means = [8, 12, 16]
         self.list_std = [0.5, 0.5, 0.5]
         self.list_size = [5, 5, 5]
+
         self.number_hours = 101
         self.number_days = math.ceil(self.number_hours/24)
         
@@ -467,10 +457,10 @@ class charging_station:
                                         'std of each peak': self.list_std,
                                         'number of cars in each peak': self.list_size})
     
-        self.P_to_charging_station = self.X_charging_demand_calculation()
+        self.P_to_charging_station = self.charging_demand_calculation()
 
     #function for transforming timestamp to YYYY-MM_DD hh:mm
-    def X_convert_time_stamp(self, day_integer, float_number):
+    def convert_time_stamp(self, day_integer, float_number):
         seconds_integer = int(float_number * 3600)
         delta = timedelta(seconds = seconds_integer,days = day_integer)
         converted_time_stamp = self.reference_date + delta
@@ -478,12 +468,12 @@ class charging_station:
         return converted_time_stamp
 
     #function to return elements of normal distribution
-    def X_generate_normal_distribution(self,mean, standard_deviation, size):
+    def generate_normal_distribution(self,mean, standard_deviation, size):
         # Generate random numbers from a normal distribution
         samples = np.random.normal(mean, standard_deviation, size)
         return samples
 
-    def X_charging_demand_calculation(self):
+    def charging_demand_calculation(self):
 
         #creating list of car models with mix of EVs in germany
         list_models = []
@@ -515,9 +505,9 @@ class charging_station:
                 standard_deviation = self.df_data_distribution.loc[j,'std of each peak']
                 size = self.df_data_distribution.loc[j,'number of cars in each peak']
 
-                timestamps = self.X_generate_normal_distribution(mean, standard_deviation, size)
+                timestamps = self.generate_normal_distribution(mean, standard_deviation, size)
                 for k in timestamps:
-                    converted_time_stamp = self.X_convert_time_stamp(i, k)
+                    converted_time_stamp = self.convert_time_stamp(i, k)
                     list_hours.append(converted_time_stamp)
                     list_days_models.append(random.choice(list_models))
 
@@ -537,7 +527,6 @@ class charging_station:
 
         path_output = 'G:/My Drive/02. Mestrado/TU Darmstadt/Energy Science and Engineering/5. Sommersemester 2023/Masterarbeit/5. Thesis/3. Python Routine/masterthesis/output/'
         df_schedule.to_excel(path_output + 'df_schedule.xlsx',index = False)
-
 
         list_time = []
 
@@ -563,7 +552,7 @@ class charging_station:
                                     'start SoC':list_start_SoC,
                                     'end SoC':list_end_SoC})
 
-        df_structured.to_excel(path_output + 'df_structured.xlsx',index = False)
+        # df_structured.to_excel(path_output + 'df_structured.xlsx',index = False)
         list_power = []
         list_total_power = []
         for i in df_structured.index:
@@ -584,13 +573,18 @@ class charging_station:
 
         df_structured['power'] = list_power
         df_structured['total power'] = list_total_power
-        # df_structured.to_excel(path_output + 'df_structured.xlsx', index = False)
+        df_structured.to_excel(path_output + 'df_structured.xlsx', index = False)
 
         lista = df_structured['total power'].tolist()
-        print(lista)
-        print(len(lista))
 
         return [self.charging_station_mult * i for i in lista]
+        
+    def constraint_operation_cost(model,t):
+        return model.charging_station_op_cost[t] == -model.P_to_charging_station[t] * model.time_step * model.charging_station_selling_price
     
-# myClass = charging_station()
+    def constraint_investment_cost(model,t):
+        if t == 1:
+            return model.charging_station_inv_cost[t] == model.charging_station_inv_specific_costs
+        else:
+            return model.charging_station_inv_cost[t] == 0
 

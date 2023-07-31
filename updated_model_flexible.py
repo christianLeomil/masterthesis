@@ -42,7 +42,7 @@ df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 list_objective_constraints = functions.objective_constraint_creator(df_aux)
 
-#endregion
+# endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region abstract creating model
 
@@ -82,8 +82,7 @@ for i,n in enumerate(list_elements):
     element_type = list_types[i]
     methods = inspect.getmembers(globals()[element],inspect.ismethod)
     for method_name,method in methods:
-        if not method_name.startswith('__'):
-            if not method_name.startswith('X'):
+        if method_name.startswith('constraint'):
                 original_method = getattr(globals()[element],method_name)
                 source_code = inspect.getsource(original_method)
                 source_code = textwrap.dedent(source_code)
@@ -228,13 +227,13 @@ for i in dir(objective_class):
             print(i)
 
 #creating constraints from class objective
-method = getattr(objective_class,'constraint_objective_1') 
+method = getattr(objective_class,'constraint_objective_1')  # constraint for calculating bought energy
 model.add_component('Constraint_objective_buy',pyo.Constraint(model.HOURS, rule = method))
-method = getattr(objective_class,'constraint_objective_2')
+method = getattr(objective_class,'constraint_objective_2') # constraint for calculating sold energy
 model.add_component('Constraint_objective_sell',pyo.Constraint(model.HOURS, rule = method))
 method = getattr(objective_class,'constraint_objective_3') #constraint for opreational costs
 model.add_component('Constraint_objective_operation',pyo.Constraint(model.HOURS, rule = method))
-method = getattr(objective_class,'constraint_objective_4') #constraint for opreational costs
+method = getattr(objective_class,'constraint_objective_4') #constraint for calculating emissions
 model.add_component('Constraint_objective_emissions',pyo.Constraint(model.HOURS, rule = method))
 
 #creating objective of abstract model

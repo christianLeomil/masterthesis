@@ -137,6 +137,7 @@ def connection_creator(df_con_electric, df_con_thermal):
 
 
 def objective_constraint_creator(df_aux): # this function creates the constraints for the objective function to work
+    
     list_buy_constraint = ['model.total_buy[t] == '] 
     list_sell_constraint = ['model.total_sell[t] == ']
     df_temp = df_aux[df_aux['type'] == 'net' ].reset_index(drop = True)
@@ -156,7 +157,7 @@ def objective_constraint_creator(df_aux): # this function creates the constraint
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
         method = getattr(classes,element_type)()
-        if hasattr(method,'operation_costs'):
+        if hasattr(method,'constraint_operation_costs'):
             if list_operation_costs_total == [] :
                 list_operation_costs_total.append('model.total_operation_cost[t] == ' + ' model.' + element + '_op_cost[t]')
             else:
@@ -169,7 +170,7 @@ def objective_constraint_creator(df_aux): # this function creates the constraint
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
         method = getattr(classes,element_type)()
-        if hasattr(method,'emissions'):
+        if hasattr(method,'constraint_emissions'):
             if list_emissions_constraint == [] :
                 list_emissions_constraint.append('model.total_emissions[t] == ' + 'model. ' + element +'_emissions[t]')
             else:
