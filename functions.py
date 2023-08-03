@@ -137,7 +137,6 @@ def connection_creator(df_con_electric, df_con_thermal):
 
 
 def objective_constraint_creator(df_aux): # this function creates the constraints for the objective function to work
-    
     list_buy_constraint = ['model.total_buy[t] == '] 
     list_sell_constraint = ['model.total_sell[t] == ']
     df_temp = df_aux[df_aux['type'] == 'net' ].reset_index(drop = True)
@@ -176,8 +175,8 @@ def objective_constraint_creator(df_aux): # this function creates the constraint
             else:
                 list_emissions_constraint[-1] = list_emissions_constraint[-1] + ' + model. ' + element +'_emissions[t]'
     
-    print('\nEmission Constriants')
-    print(list_emissions_constraint)
+    # print('\nEmission Constriants')
+    # print(list_emissions_constraint)
 
     list_objective_constraints = list_objective_constraints + list_emissions_constraint
 

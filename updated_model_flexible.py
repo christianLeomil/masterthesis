@@ -18,7 +18,7 @@ name_file = 'df_input.xlsx'
 df_input_series = pd.read_excel(path_input +name_file, sheet_name = 'series', nrows = 100)
 df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
 
-df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements test')
+df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements')
 df_elements.index.name = None
 
 [df_con_electric,df_con_thermal,df_aux] = functions.aux_creator(df_elements)
@@ -159,7 +159,7 @@ model.time_step = pyo.Param()
 
 model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals) # variable contained in objective constraints
 model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
-model.total_operation_cost = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
+model.total_operation_cost = pyo.Var(model.HOURS, within = pyo.Reals) # variable contained in objective constraints
 model.total_emissions = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
 
 # endregion
@@ -205,6 +205,7 @@ for i in df_aux.index:
 # region objective
 
 #adding total cost and total buy constraint to objective class
+
 constraint_num = 1
 objective_class = classes.objective()
 for i in list_objective_constraints:
@@ -246,8 +247,8 @@ def emission_objective(model,t):
     return sum(model.total_emissions[t] for t in model.HOURS)
 model.emissionObjective = pyo.Objective(rule = emission_objective,sense= pyo.minimize)
 
-model.emissionObjective.deactivate()
-# model.costObjective.deactivate()
+# model.emissionObjective.deactivate()
+model.costObjective.deactivate()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -286,8 +287,7 @@ for i in df_aux.index:
                 list_par = [list_par] * len(data['HOURS'])
                 data[name_series] = {hour_value: getattr(globals()[element], j) for hour_value in data['HOURS']}
             else:
-                df_test= pd.DataFrame({'HOURS': data['HOURS'],
-                                       name_series:list_par})
+                df_test= pd.DataFrame({'HOURS': data['HOURS'],name_series : list_par})
                 data[name_series] = df_test.set_index('HOURS')[name_series].to_dict()
 
 # endregion
