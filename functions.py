@@ -25,7 +25,7 @@ def aux_creator(df_elements):
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
 
-        myClass = getattr(classes,element_type)()
+        myClass = getattr(classes,element_type)(element)
         energy_type = getattr(myClass,'energy_type')
         super_class = getattr(myClass,'super_class')
 
@@ -151,11 +151,12 @@ def objective_constraint_creator(df_aux): # this function creates the constraint
     
     list_objective_constraints = list_buy_constraint + list_sell_constraint
 
+
     list_operation_costs_total = []
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
-        method = getattr(classes,element_type)()
+        method = getattr(classes,element_type)(element)
         if hasattr(method,'constraint_operation_costs'):
             if list_operation_costs_total == [] :
                 list_operation_costs_total.append('model.total_operation_cost[t] == ' + ' model.' + element + '_op_cost[t]')
@@ -168,7 +169,7 @@ def objective_constraint_creator(df_aux): # this function creates the constraint
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
-        method = getattr(classes,element_type)()
+        method = getattr(classes,element_type)(element)
         if hasattr(method,'constraint_emissions'):
             if list_emissions_constraint == [] :
                 list_emissions_constraint.append('model.total_emissions[t] == ' + 'model. ' + element +'_emissions[t]')

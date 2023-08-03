@@ -6,7 +6,9 @@ import random
 import math
 
 class pv:
-    def __init__(self):
+    def __init__(self,name_of_instance):
+        self.name_of_instance = name_of_instance
+
         self.list_var = ['pv_op_cost','pv_emissions','pv_inv_cost'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals']
@@ -50,7 +52,9 @@ class pv:
             return model.pv_inv_cost[t] == 0
     
 class solar_th:
-    def __init__(self):
+    def __init__(self,name_of_instance):
+        self.name_of_instance = name_of_instance
+
         self.list_var = ['solar_th_op_cost','solar_th_emissions','solar_th_inv_cost'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals']
@@ -95,7 +99,9 @@ class solar_th:
 
 
 class pvt:
-    def __init__(self):
+    def __init__(self,name_of_instance):
+        self.name_of_instance = name_of_instance
+
         self.list_var = ['pvt_op_cost','pvt_emissions','pvt_inv_cost'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals']
@@ -143,7 +149,9 @@ class pvt:
             return model.pvt_inv_cost[t] == 0
 
 class bat:
-    def __init__(self):
+    def __init__(self,name_of_instance):
+        self.name_of_instance = name_of_instance
+
         self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost','bat_emissions','bat_SOC_max',
                          'bat_integer','bat_cumulated_aging','bat_inv_cost'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals, bounds=(0, 1)',
@@ -249,7 +257,9 @@ class bat:
             return model.bat_inv_cost[t] == model.bat_E_max_initial * model.bat_inv_per_capacity * (model.bat_integer[t] - model.bat_integer[t-1])
 
 class demand:
-    def __init__(self):
+    def __init__(self,name_of_instance):
+        self.name_of_instance = name_of_instance
+
         self.list_var = ['demand_inv_cost','demand_op_cost'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
 
@@ -276,7 +286,9 @@ class demand:
         return model.demand_op_cost[t] == 0
 
 class net:
-    def __init__(self):
+    def __init__(self,name_of_instance):
+        self.name_of_instance = name_of_instance
+
         self.list_var = ['net_sell_electric','net_buy_electric','net_sell_thermal','net_buy_thermal'
                          ,'net_emissions','net_inv_cost'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
@@ -325,7 +337,9 @@ class net:
         return model.net_inv_cost[t] == 0
 
 class CHP:
-    def __init__(self):
+    def __init__(self,name_of_instance):
+        self.name_of_instance = name_of_instance
+
         self.list_var = ['CHP_fuel_cons','CHP_op_cost','CHP_emissions','CHP_inv_cost'] #no powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
                               ,'within = pyo.NonNegativeReals']
@@ -377,7 +391,9 @@ class CHP:
             return model.CHP_inv_cost[t] == 0
 
 class objective:
-    def __init__(self):
+    def __init__(self,name_of_instance):
+        self.name_of_instance = name_of_instance
+
         self.list_var = []
         self.list_text_var = []
         self.list_param = []
@@ -393,7 +409,9 @@ class objective:
 
 class charging_station:
 
-    def __init__(self):
+    def __init__(self,name_of_instance):
+        self.name_of_instance = name_of_instance
+
         #default values in case of no input
         self.list_var = ['charging_station_op_cost','charging_station_inv_cost','charging_station_emissions'] #no powers
         self.list_text_var = ['within = pyo.NegativeReals','within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
@@ -445,9 +463,12 @@ class charging_station:
                         'list_SoC':[0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1],
                         'list_mix_start_SoC':[0,0.07,0.1,0.13,0.15,0.17,0.14,0.12,0.08,0.03,0.01,0,0,0,0,0,0,0,0,0,0],
                         'list_mix_end_SoC':[0,0,0,0,0,0,0,0,0,0,0,0,0.03,0.07,0.1,0.11,0.13,0.17,0.15,0.13,0.11],
-                        'list_means':[8, 12, 16],
-                        'list_std':[0.5, 0.5, 0.5],
-                        'list_size':[5, 5, 5] }
+                        f"{self.name_of_instance}_list_means": [8, 12, 16],
+                        f"{self.name_of_instance}_list_std": [0.5, 0.5, 0.5],
+                        f"{self.name_of_instance}_list_size": [5, 5, 5] }
+                        # 'list_means':[8, 12, 16],
+                        # 'list_std':[0.5, 0.5, 0.5],
+                        # 'list_size':[5, 5, 5] }
         
         # calling functions to try and read parameter values as soon as class is created
         self.read_parameters(self.dict_parameters)
@@ -462,9 +483,9 @@ class charging_station:
                                'mix initial':self.dict_series['list_mix_start_SoC'],
                                'mix final':self.dict_series['list_mix_end_SoC']})
         
-        self.df_data_distribution = pd.DataFrame({'hours of peak': self.dict_series['list_means'],
-                                                  'std of each peak': self.dict_series['list_std'],
-                                                  'number of cars in each peak': self.dict_series['list_size']})
+        self.df_data_distribution = pd.DataFrame({'hours of peak': self.dict_series[f"{self.name_of_instance}_list_means"],
+                                                  'std of each peak': self.dict_series[f"{self.name_of_instance}_list_std"],
+                                                  'number of cars in each peak': self.dict_series[f"{self.name_of_instance}_list_size"]})
         
         self.P_to_charging_station = self.charging_demand_calculation()
 

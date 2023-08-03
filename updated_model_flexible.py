@@ -21,7 +21,7 @@ df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
 df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements')
 df_elements.index.name = None
 
-[df_con_electric,df_con_thermal,df_aux] = functions.aux_creator(df_elements)
+[df_con_electric, df_con_thermal,df_aux] = functions.aux_creator(df_elements)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # functions.write_excel(df_con_electric,path_input,'conect_electric')
@@ -56,9 +56,9 @@ model.HOURS = pyo.Set()
 # ---------------------------------------------------------------------------------------------------------------------
 # region creating classes for elements selected from existing classes
 
-#create one class of each element chosen
+#create one instance of the class of each element chosen
 for i in df_aux.index:
-    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])()
+    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i])
 
 # # comented code below is for checking what the global variables in this program are.  
 # def print_global_variables():
@@ -207,7 +207,7 @@ for i in df_aux.index:
 #adding total cost and total buy constraint to objective class
 
 constraint_num = 1
-objective_class = classes.objective()
+objective_class = classes.objective('objective')
 for i in list_objective_constraints:
     def dynamic_method(model,t,expr):
         return eval(expr, globals(), locals())
