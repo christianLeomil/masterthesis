@@ -2,7 +2,6 @@ import random
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-import random
 import math
 
 class pv:
@@ -466,9 +465,6 @@ class charging_station:
                         f"{self.name_of_instance}_list_means": [8, 12, 16],
                         f"{self.name_of_instance}_list_std": [0.5, 0.5, 0.5],
                         f"{self.name_of_instance}_list_size": [5, 5, 5] }
-                        # 'list_means':[8, 12, 16],
-                        # 'list_std':[0.5, 0.5, 0.5],
-                        # 'list_size':[5, 5, 5] }
         
         # calling functions to try and read parameter values as soon as class is created
         self.read_parameters(self.dict_parameters)

@@ -7,30 +7,26 @@ import textwrap
     
 import inspect
 
-# class MyClass:
-#       def extra_rule(model,t):
-#             if t <= 10:
-#                   return model.quant_z[t] <= 200
-#             else:
-#                   return model.quant_z[t] <= 100
-      
-#       def first_rule(model,t):
-#             return model.demand[t] == model.quant_x[t] + model.quant_z[t]
-
 class MyClass:
-      def first_constraint(model,t,var_1,var_2,var_3):
-            if t == 10:
-                  return model.globals()[var_1][t] <= 200
+      def extra_rule(model,t):
+            if t <= 10:
+                  return model.quant_z[t] <= 200
             else:
-                  return model.globals()[var_1][t] <= 100
-            
-      def second_rule(model,t,var_1,var_2,var_3):
-            return model.globals()[var_1] == model.globals()[var_2] + model.globals()[var_3]
+                  return model.quant_z[t] <= 100
       
-myObj = MyClass()
+      def first_rule(model,t):
+            return model.demand[t] == model.quant_x[t] + model.quant_z[t]
 
-
-
+# class MyClass:
+#       def first_constraint(model,t,var_1,var_2,var_3):
+#             if t == 10:
+#                   return model.globals()[var_1][t] <= 200
+#             else:
+#                   return model.globals()[var_1][t] <= 100
+            
+#       def second_rule(model,t,var_1,var_2,var_3):
+#             return model.globals()[var_1] == model.globals()[var_2] + model.globals()[var_3]
+      
 myObj = MyClass()
 
 for i in dir(myObj):

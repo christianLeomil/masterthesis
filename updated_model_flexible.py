@@ -24,9 +24,9 @@ df_elements.index.name = None
 [df_con_electric, df_con_thermal,df_aux] = functions.aux_creator(df_elements)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-# functions.write_excel(df_con_electric,path_input,'conect_electric')
-# functions.write_excel(df_con_thermal,path_input,'conect_thermal')
-# input("Press Enter to continue...")
+functions.write_excel(df_con_electric,path_input,'conect_electric')
+functions.write_excel(df_con_thermal,path_input,'conect_thermal')
+input("Press Enter to continue...")
 
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
 df_con_electric.index.name = None
