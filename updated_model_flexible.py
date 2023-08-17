@@ -24,9 +24,9 @@ df_elements.index.name = None
 [df_con_electric, df_con_thermal,df_aux] = functions.aux_creator(df_elements)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-functions.write_excel(df_con_electric,path_input,'conect_electric')
-functions.write_excel(df_con_thermal,path_input,'conect_thermal')
-input("Press Enter to continue...")
+# functions.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
+# functions.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
+# input("Press Enter to continue...")
 
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
 df_con_electric.index.name = None
@@ -247,8 +247,8 @@ def emission_objective(model,t):
     return sum(model.total_emissions[t] for t in model.HOURS)
 model.emissionObjective = pyo.Objective(rule = emission_objective,sense= pyo.minimize)
 
-# model.emissionObjective.deactivate()
-model.costObjective.deactivate()
+model.emissionObjective.deactivate()
+# model.costObjective.deactivate()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -342,5 +342,7 @@ for t in instance.HOURS:
 # Organize and export the DataFrame with the variable values
 df_variable_values = functions.organize_output_columns(df_variable_values,df_aux)
 df_variable_values.to_excel(path_output + 'variable_values.xlsx',index = False)
+
+functions.write_to_financial_model(df_variable_values, path_output, False)
 
 #endregion

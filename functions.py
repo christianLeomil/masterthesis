@@ -5,6 +5,32 @@ path_input ='./input/'
 path_output = './output'
 name_file = 'df_input.xlsx'
 
+def write_to_financial_model(df_variable_values, path_output, boolean):
+    columns = list(df_variable_values.columns)
+    investment_costs = [i for i in columns if 'inv_cost' in i]
+    operational_costs = [i for i in columns if 'op_cost' in i]
+
+    df_cost = df_variable_values[operational_costs]
+    df_cost['total cost'] = df_cost.sum(axis = 1)
+
+    df_investment = df_variable_values[investment_costs]
+    df_investment['total investment'] = df_investment.sum(axis = 1)
+
+    df_variable_values = df_variable_values[operational_costs + investment_costs]
+
+    cash = 0
+    list_cash_flow = []
+    for i in df_cost['total cost'].index:
+        cash = cash - df_cost['total cost'].iloc[i] - df_investment['total investment'].iloc[i]
+        list_cash_flow.append(cash)
+
+    df_cash_flow = pd.DataFrame({'cash flow':list_cash_flow})
+
+    write_excel(df_cash_flow,path_output,'cash flow','financial data.xlsx',boolean)
+    write_excel(df_cost,path_output,'df_cost','financial data.xlsx',boolean)
+    write_excel(df_investment,path_output,'df_investment','financial data.xlsx',boolean)
+    write_excel(df_variable_values,path_output,'input data','financial data.xlsx',boolean)
+    
 def aux_creator(df_elements):
     list_elements = []
     list_type = []
@@ -45,9 +71,9 @@ def aux_creator(df_elements):
 
     return  df_con_electric, df_con_thermal, df_aux
 
-def write_excel(df,path_input,name_sheet):
-    with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a',engine = 'openpyxl', if_sheet_exists='replace') as writer:
-        df.to_excel(writer,sheet_name = name_sheet)
+def write_excel(df,path, name_sheet, name_file, boolean):
+    with pd.ExcelWriter(path + name_file,mode = 'a',engine = 'openpyxl', if_sheet_exists='replace') as writer:
+        df.to_excel(writer,sheet_name = name_sheet, index = boolean)
 
 def connection_creator(df_con_electric, df_con_thermal):
     list_attr_classes = []

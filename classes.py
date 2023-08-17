@@ -23,9 +23,10 @@ class pv:
         self.pv_eff = 0.15 # aproximate overall efficiency of pv cells 
         self.pv_area = 100 # m^2
         self.pv_spec_op_cost = 0.01 # cost per hour per m^2 area of pv installed
-        self.pv_spec_em = 0 #There is no CO2 emission from generation energy with PV
-        self.pv_kWp_per_area  = 0.12 # kWP per m2 of Pv
+        self.pv_kWp_per_area  = 0.12 # kWP per m2 of PV
         self.pv_inv_per_kWp = 1000 # EURO per kWp
+        self.pv_life_time = 30 #lifetime of panels in years
+        self.pv_spec_em = 0.50 #kgCO2eq/kWh generated
 
         #default series
         self.E_pv_solar = 0.12 # kWh/m^2 series for solar irradiation input, in case none is given
@@ -69,7 +70,8 @@ class solar_th:
         self.solar_th_eff = 0.20 # aproximate overall efficiency of pv cells 
         self.solar_th_area = 50 # m^2
         self.solar_th_spec_op_cost = 0.02 # cost per hour per m^2 area of pv installed
-        self.solar_th_spec_em = 0 #There is no CO2 emission from generation energy with PV
+        self.solar_th_spec_em = 0.50 #kgCO2eq/kWh, same value assumed as for PV
+        self.pv_life_time = 15 #lifetime of panels in years
         self.solar_th_inv_per_area = 700 #EURO per m2 aperture
 
         #default series
@@ -116,7 +118,8 @@ class pvt:
         self.pvt_eff = 0.20 # aproximate overall efficiency of pv cells 
         self.pvt_area = 50 # m^2
         self.pvt_spec_op_cost = 0.02 # cost per hour per m^2 area of pv installed
-        self.pvt_spec_em = 0 #There is no CO2 emission from generation energy with PV
+        self.pvt_spec_em = 0.50 #kgCO2eq/kWh, same value assumed as for PV
+        self.pv_life_time = 30 #lifetime of panels in years, same as PV
         self.pvt_Q_to_P_ratio = 1.3 #proportion between power and generated heat
         self.pvt_inv_per_area = 850 # EURO per m2 aperture
 
@@ -178,7 +181,7 @@ class bat:
         self.bat_c_rate_ch = 1
         self.bat_c_rate_dis = 1
         self.bat_spec_op_cost = 0.01
-        self.bat_spec_em = 0 # no emission for operating batteries
+        self.bat_spec_em = 50 # kgCO2eq/kWh capacity of the battery in EU
         self.bat_DoD = 0.7
         self.bat_final_SoH = 0.7
         self.bat_cycles = 9000 # full cycles before final SoH is reached and battery is replaced
@@ -247,7 +250,7 @@ class bat:
         return model.bat_op_cost[t] == model.bat_E_max_initial * model.bat_spec_op_cost
     
     def constraint_emissions(model,t):
-        return model.bat_emissions[t] == (model.P_from_bat[t] + model.P_to_bat[t]) * model.bat_spec_em
+        return model.bat_emissions[t] == (model.P_from_bat[t] + model.P_to_bat[t]) * model.bat_spec_em/(model.bat_cycles*2)
     
     def constraint_investment_costs(model,t):
         if t == 1:
@@ -453,15 +456,21 @@ class charging_station:
                                       'Nissan LEAF 40 kWh','Nissan LEAF 62 kWh','Audi Q4','Dacia SPRING','TESLA MODEL Y',
                                       'VW ID.5','SKODA ENYAQ 77kWh','SKODA ENYAQ 58kWh','CUPRA BORN 77kWh',
                                       'CUPRA BORN 58kWh','RENAULT MEGANE E-TECH','Polestar 2','KIA EV6','Porsche Taycan','Others'],
+
                         'list_mix_models':[0.065,0.033,0.036,0.036,0.022,0.023,0.023,0.015,0.015,0.021,0.067,
                                            0.009,0.009,0.009,0.019,0.03,0.033,0.013,0.016,0.018,0.002,0.002,
                                            0.002,0.002,0.025,0.021,0.045,0.021,0.018,0.018,0.007,0.007,0.005,
                                            0.012,0.01,0.009,0.282],
+
                         'list_capacity':[50,36.8,58,52,17.6,39,64,58,77,77,24,22,33,42,45,28.9,85,45,21.3,45,
                                          24,30,40,62,76.6,26.8,75,77,77,58,77,58,60,75,74,83.7,52.631],
+
                         'list_SoC':[0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1],
+
                         'list_mix_start_SoC':[0,0.07,0.1,0.13,0.15,0.17,0.14,0.12,0.08,0.03,0.01,0,0,0,0,0,0,0,0,0,0],
+
                         'list_mix_end_SoC':[0,0,0,0,0,0,0,0,0,0,0,0,0.03,0.07,0.1,0.11,0.13,0.17,0.15,0.13,0.11],
+
                         f"{self.name_of_instance}_list_means": [8, 12, 16],
                         f"{self.name_of_instance}_list_std": [0.5, 0.5, 0.5],
                         f"{self.name_of_instance}_list_size": [5, 5, 5] }
@@ -640,3 +649,52 @@ class charging_station:
         
     def constraint_emissions(model,t):
         return model.charging_station_emissions[t] == model.P_to_charging_station[t] * model.charging_station_spec_emissions
+    
+class heat_pump:
+    def __init__(self, name_of_instance):
+        self.name_of_instance = name_of_instance
+
+        self.list_var = ['heat_pump_emissions','heat_pump_inv_cost','heat_pump_op_cost'] #no powers
+        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',]
+
+        self.list_param = ['P_heat_pump_max','P_heat_pump_min','heat_pump_COP',
+                           'heat_pump_spec_em','heat_pump_inv_specific_costs',
+                           'heat_pump_spec_op_cost']
+        
+        self.list_text_param = ['','','','','','','','',]
+        
+        self.list_series = []
+        self.list_text_series =[]
+
+        #default values in case of no input
+        self.P_heat_pump_max = 20 #kW electric
+        self.P_heat_pump_min = 0.3*self.P_heat_pump_max #kW electric
+        self.heat_pump_COP = 4 #value assumed to be constant 
+        self.heat_pump_spec_em = 0.138 # kgCO2eq/kWh 
+        self.heat_pump_inv_specific_costs = 10000 # VERIFICAR
+        self.heat_pump_spec_op_cost = 1875 * 2 / 8760 * self.P_heat_pump_max # EURO per h operation and kW max power
+
+        #defining energy type to build connections with other componets correctly
+        self.energy_type = {'electric':'yes',
+                            'thermal':'yes'}
+        
+        self.super_class = 'transformer'
+
+    def constraint_generation_rule(model,t):
+        return model.Q_from_heat_pump[t] == model.P_to_heat_pump[t] * model.heat_pump_COP
+    
+    def constraint_max_power(model,t):
+        return model.P_to_heat_pump[t] <= model.P_heat_pump_max
+    
+    def constraint_operation_costs(model,t):
+        return model.heat_pump_op_cost[t] == model.heat_pump_spec_op_cost * model.time_step
+
+    def constraint_investment_costs(model,t):
+        if t == 1:
+            return model.heat_pump_inv_cost[t] == model.heat_pump_inv_specific_costs
+        else:
+            return model.heat_pump_inv_cost[t] == 0
+
+    def constraint_emissions(model,t): 
+        return model.heat_pump_emissions[t] == model.P_to_heat_pump[t] * model.heat_pump_spec_em
