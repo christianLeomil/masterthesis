@@ -15,7 +15,9 @@ path_input = './input/'
 path_output = './output/'
 name_file = 'df_input.xlsx'
 
-df_input_series = pd.read_excel(path_input +name_file, sheet_name = 'series', nrows = 100)
+control = getattr(classes,'control')(path_input)
+
+df_input_series = pd.read_excel(path_input +name_file, sheet_name = 'series', nrows = 999)
 df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
 
 df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements')
@@ -44,7 +46,7 @@ list_objective_constraints = functions.objective_constraint_creator(df_aux)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region abstract creating model
+# region creating abstract model
 
 #model
 model = pyo.AbstractModel()
@@ -93,6 +95,12 @@ for i,n in enumerate(list_elements):
                 exec(compiled_code, namespace)
                 modified_method = namespace[method_name]
                 setattr(globals()[element], method_name , modified_method)
+
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region checking if optimization should do also size optimization of components
+
+
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -237,18 +245,26 @@ model.add_component('Constraint_objective_operation',pyo.Constraint(model.HOURS,
 method = getattr(objective_class,'constraint_objective_4') #constraint for calculating emissions
 model.add_component('Constraint_objective_emissions',pyo.Constraint(model.HOURS, rule = method))
 
-#creating objective of abstract model
+#creating cost objective of abstract model
 def cost_objective(model,t):
     return sum(model.total_buy[t] + model.total_operation_cost[t] -  model.total_sell[t] for t in model.HOURS)
-model.costObjective = pyo.Objective(rule = cost_objective,sense= pyo.minimize)
+if control.opt_objective == 'minimize':
+    model.costObjective = pyo.Objective(rule = cost_objective, sense = pyo.minimize)
+else:
+    model.costObjective = pyo.Objective(rule = cost_objective, sense = pyo.maximize)
 
-#creating objective of abstract model
+#creating emission objective of abstract model
 def emission_objective(model,t):
     return sum(model.total_emissions[t] for t in model.HOURS)
-model.emissionObjective = pyo.Objective(rule = emission_objective,sense= pyo.minimize)
+if control.opt_objective == 'minimize':
+    model.emissionObjective = pyo.Objective(rule = emission_objective, sense = pyo.minimize)
+else:
+    model.emissionObjective = pyo.Objective(rule = emission_objective, sense = pyo.maximize)
 
-model.emissionObjective.deactivate()
-# model.costObjective.deactivate()
+if control.opt_equation == 'cost objective':
+    model.emissionObjective.deactivate()
+else:
+    model.costObjective.deactivate()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------

@@ -93,6 +93,14 @@ horizon_length = 10
 num_time_periods = len(list_hours) - horizon_length + 1
 
 for t in range(num_time_periods):
+
+    def constraint_3(model,t):
+        if t != 1:
+            return model.quant_z[t] == model.quant_z[t-1] + model.tranfer_z[t]
+        else:
+            return model.quant_z[t] == 100
+    model.constraint_3 = pyo.Constraint(model.HOURS, rule = constraint_3)
+
     print(f"===== Time Period: {t} =====")
 
     # Create a subset of the hours for the current horizon

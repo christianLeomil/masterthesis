@@ -3,6 +3,26 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 import math
+import sys
+
+class control:
+    def __init__(self,path_input):
+        self.df = pd.read_excel(path_input + 'df_input.xlsx', sheet_name = 'control', index_col = 0)
+        self.df.index.name = None
+
+        self.opt_objective = self.df.loc['opt_objective','value']
+        if self.df.loc['cost objective','value'] == 1:
+            if self.df.loc['emission objective','value'] == 1:
+                print('Both ojectives cannot be chose, please choose only of the two.')
+                sys.exit()
+            else:
+                self.opt_equation = 'cost objective'
+        else:
+            if self.df.loc['emission objective','value'] == 0:
+                print('One of the obejctives as to be chosen, please choose only of the two.')
+                sys.exit()
+            else:
+                self.opt_equation = 'emission objective'
 
 class pv:
     def __init__(self,name_of_instance):
@@ -434,7 +454,7 @@ class charging_station:
         self.path_output = './output/'
         self.name_file = 'df_input.xlsx'
 
-        self.charging_station_inv_specific_costs = 100000
+        self.charging_station_inv_specific_costs = 200000
         self.charging_station_selling_price = 0.60
         self.charging_station_spec_emissions = 0.05
 
