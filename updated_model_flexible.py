@@ -17,7 +17,7 @@ name_file = 'df_input.xlsx'
 
 control = getattr(classes,'control')(path_input)
 
-df_input_series = pd.read_excel(path_input +name_file, sheet_name = 'series', nrows = 999)
+df_input_series = pd.read_excel(path_input +name_file, sheet_name = 'series', nrows = control.time_span - 1)
 df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
 
 df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements')
@@ -74,6 +74,81 @@ for i in df_aux.index:
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
+# region checking if optimization should do also size optimization of components
+
+if control.df.loc['size_optimization','value'] == 'yes':
+    list_param_to_var = []
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        print('\n')
+        print(element)
+        # methods = inspect.getmembers(globals()[element])
+        method_value = getattr(globals()[element],'list_param')
+        print(method_value)
+        list_param_to_var = list_param_to_var + method_value
+        # for methos_name, method_value in methods:
+        #     if method_name == 'list_param':
+        #         print(method_value)
+        #         list_altered = list_altered + method_value
+
+    df_size_optimization = pd.DataFrame({'list_altered':list_param_to_var})
+    df_size_optimization['choice'] = 0
+    df_size_optimization['lower bound'] = 0
+    df_size_optimization['upper bound'] = 0
+
+    # with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
+    #     df_size_optimization.to_excel(writer,sheet_name = 'parameters to variables',index = False)
+    # input('Please select parameters that are going to be optimized and press enter...')
+
+    df_size_optimization = pd.read_excel(path_input + 'df_input.xlsx',sheet_name = 'parameters to variables', index_col = 0)
+    df_size_optimization.index.title = None
+    df_size_optimization = df_size_optimization[df_size_optimization['choice'] == 1]
+
+    list_altered_variables = df_size_optimization.index.tolist()
+    list_upper_value = df_size_optimization['upper bound'].tolist()
+    list_lower_value = df_size_optimization['lower bound'].tolist()
+    
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        list_original_param = getattr(globals()[element],'list_param')
+        list_original_text_param = getattr(globals()[element],'list_text_param')
+        # list_original_var = getattr(globals()[element],'list_var')
+        # list_original_text_var = getattr(globals()[element],'list_text_var')
+
+        list_altered_var = []
+        list_text_altered_var = []
+        for ind,j in enumerate(list_altered_variables):
+            try:
+                index = list_original_param.index(j)
+                list_original_param.pop(index)
+                list_original_text_param.pop(index)
+                # list_original_var.append(j)
+                list_altered_var.append(j)
+
+                text ='within = pyo.NonNegativeReals, bounds = ('+str(list_lower_value[ind])+','+str(list_upper_value[ind])+')'
+                list_text_altered_var.append(text)
+                # list_original_text_var.append(text)
+            except Exception:
+                pass
+        
+        print('list_original_parameters')
+        print(list_original_param)
+        setattr(globals()[element],'list_param', list_original_param)
+        setattr(globals()[element],'list_text_param', list_original_text_param)
+        setattr(globals()[element],'list_altered_var', list_altered_var)
+        setattr(globals()[element],'list_text_altered_var', list_text_altered_var)
+
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        print('\n '+ element)
+        methods = inspect.getmembers(globals()[element])
+        for method_name, method_value in methods:
+            if method_name in ['list_param','list_text_param','list_altered_var','list_text_altered_var']:
+                print(method_name)
+                print(method_value)
+
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
 # region renaming variables from methods from created classes
 
 list_elements = df_aux['element']
@@ -95,12 +170,6 @@ for i,n in enumerate(list_elements):
                 exec(compiled_code, namespace)
                 modified_method = namespace[method_name]
                 setattr(globals()[element], method_name , modified_method)
-
-# endregion
-# ---------------------------------------------------------------------------------------------------------------------
-# region checking if optimization should do also size optimization of components
-
-
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -149,7 +218,21 @@ for i in df_aux.index:
             # print(specifications)
             exec(f"model.add_component('{m}',pyo.Var({text}))")
 
-# dynamically adding variables from connections to abstract model
+#add ALTERED VARIABLES from classes to abstract model:
+print('\n------------------------altered variables from classes')
+for i in df_aux.index:
+    element = df_aux['element'].iloc[i]
+    class_type = df_aux['type'].iloc[i]
+    if hasattr(globals()[element],'list_altered_var'):
+        list_classes_variables = [s.replace(class_type, element) for s in globals()[element].list_altered_var]
+        for j,m in enumerate(list_classes_variables):
+            specifications = globals()[element].list_text_altered_var[j]
+            text = specifications
+            print(m)
+            # print(specifications)
+            exec(f"model.add_component('{m}',pyo.Var({text}))")
+
+# dynamically adding VARIABLES FROM CONNECTIONS to abstract model
 print('\n------------------------variables from connections')
 for i in list_con_variables:
     if not i.startswith('P_to_demand'):
@@ -197,15 +280,18 @@ for i in df_aux.index:
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region create constraints from created classes:
+print('\n=============Creating constraints from classes=============')
 
 constraint_num = 1
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     methods = inspect.getmembers(globals()[element],inspect.isfunction)
+    print('------------' + element)
     for method_name,method in methods:
         if not method_name.startswith('__'):
             method = getattr(globals()[element],method_name)
             model.add_component('Constraint_class_'+ str(constraint_num), pyo.Constraint(model.HOURS, rule = method))
+            print('-' + str(constraint_num) + '-' + method_name)
             constraint_num += 1
 
 # endregion
@@ -227,7 +313,7 @@ for i in list_objective_constraints:
     constraint_num += 1
 
 #checking content of class objective:
-print('------------------objective')
+print('\n------------------objective')
 for i in dir(objective_class):
     if not i.startswith('__'):
         original_method = getattr(objective_class,i)
@@ -261,10 +347,12 @@ if control.opt_objective == 'minimize':
 else:
     model.emissionObjective = pyo.Objective(rule = emission_objective, sense = pyo.maximize)
 
-if control.opt_equation == 'cost objective':
+if control.opt_equation == 'cost_objective':
     model.emissionObjective.deactivate()
+    print('emission objective deactivated')
 else:
     model.costObjective.deactivate()
+    print('cost objective deactivated')
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -325,7 +413,7 @@ results = optimizer.solve(instance)
 
 # # Displaying the results
 # instance.pprint()
-# instance.display()
+instance.display()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -351,9 +439,12 @@ df_variable_values = pd.DataFrame(columns=['TimeStep'] + variable_names)
 for t in instance.HOURS:
     row = {'TimeStep': t}
     for var_name in variable_names:
-        var_value = getattr(instance, var_name)
-        row[var_name] = pyo.value(var_value[t])
-    df_variable_values = df_variable_values.append(row, ignore_index=True)
+        if var_name == 'pv1_are':!!!!!!!!!!!!!!!!
+            pass
+        else:
+            var_value = getattr(instance, var_name)
+            row[var_name] = pyo.value(var_value[t])
+        df_variable_values = df_variable_values.append(row, ignore_index = True)
 
 # Organize and export the DataFrame with the variable values
 df_variable_values = functions.organize_output_columns(df_variable_values,df_aux)

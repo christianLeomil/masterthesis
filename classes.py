@@ -10,19 +10,29 @@ class control:
         self.df = pd.read_excel(path_input + 'df_input.xlsx', sheet_name = 'control', index_col = 0)
         self.df.index.name = None
 
+        self.time_span = self.df.loc['time_span','value']
         self.opt_objective = self.df.loc['opt_objective','value']
-        if self.df.loc['cost objective','value'] == 1:
-            if self.df.loc['emission objective','value'] == 1:
-                print('Both ojectives cannot be chose, please choose only of the two.')
+        
+        if self.df.loc['cost_objective','value'] == 'yes':
+            if self.df.loc['emission_objective','value'] == 'yes':
+                print('==========ERROR==========')
+                print('Both ojectives cannot be chosen, please choose only of the two.')
                 sys.exit()
             else:
-                self.opt_equation = 'cost objective'
+                self.opt_equation = 'cost_objective'
         else:
-            if self.df.loc['emission objective','value'] == 0:
-                print('One of the obejctives as to be chosen, please choose only of the two.')
-                sys.exit()
+            if self.df.loc['emission_objective','value'] == 'yes':
+                self.opt_equation = 'emission_objective'
             else:
-                self.opt_equation = 'emission objective'
+                print('==========ERROR==========')
+                print('One of the obejctives has to be chosen, please choose either cost objecitve or emission objective.')
+                sys.exit()
+
+        if self.df.loc['receding_horizon','value'] == 'yes':
+            if self.df.loc['size_optimization','value'] == 'yes':
+                print('==========ERROR==========')
+                print('It is not possible to do a size optimization and receiding horizon simultaneously, Please choose one of the two.')
+                sys.exit()
 
 class pv:
     def __init__(self,name_of_instance):
@@ -38,6 +48,9 @@ class pv:
 
         self.list_series = ['E_pv_solar']
         self.list_text_series =['model.HOURS']
+
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
 
         #default values in case of no input
         self.pv_eff = 0.15 # aproximate overall efficiency of pv cells 
@@ -86,6 +99,9 @@ class solar_th:
         self.list_series = ['E_solar_th_solar']
         self.list_text_series =['model.HOURS']
 
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
+
         #default values in case of no input
         self.solar_th_eff = 0.20 # aproximate overall efficiency of pv cells 
         self.solar_th_area = 50 # m^2
@@ -133,6 +149,9 @@ class pvt:
 
         self.list_series = ['E_pvt_solar']
         self.list_text_series =['model.HOURS']
+
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
 
         #default values in case of no input
         self.pvt_eff = 0.20 # aproximate overall efficiency of pv cells 
@@ -191,6 +210,9 @@ class bat:
 
         self.list_series = []
         self.list_text_series = []
+
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
 
         #default values in case of no input
         # self.bat_E_max = 100 ############
@@ -291,6 +313,9 @@ class demand:
         self.list_series = ['P_to_demand','Q_to_demand']
         self.list_text_series =['model.HOURS','model.HOURS']
 
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
+
         #default values in case of no input
         self.P_to_demand = 500 # this is tranformed into a series in case user does not give input
         self.Q_to_demand = 1000 # this is tranformed into a series in case user does not give input
@@ -323,8 +348,12 @@ class net:
 
         self.list_series = ['net_cost_buy_electric','net_cost_sell_electric',
                             'net_cost_buy_thermal','net_cost_sell_thermal']
+        
         self.list_text_series =['model.HOURS','model.HOURS',
                                 'model.HOURS','model.HOURS']
+        
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
 
         #default values in case of no input
         self.net_cost_buy_electric = 0.4
@@ -372,6 +401,9 @@ class CHP:
         
         self.list_series = []
         self.list_text_series =[]
+
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
 
         #default values in case of no input
         self.P_CHP_max = 20 #W electric
@@ -423,6 +455,9 @@ class objective:
         self.list_series = []
         self.list_text_series =[]
 
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
+
         #default values in case of no input
 
         #defining energy type to build connections with other componets correctly
@@ -443,6 +478,9 @@ class charging_station:
         
         self.list_series = ['P_to_charging_station']
         self.list_text_series =['model.HOURS']
+
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -494,6 +532,9 @@ class charging_station:
                         f"{self.name_of_instance}_list_means": [8, 12, 16],
                         f"{self.name_of_instance}_list_std": [0.5, 0.5, 0.5],
                         f"{self.name_of_instance}_list_size": [5, 5, 5] }
+        
+        self.list_altered = []
+        self.list_text_altered = []
         
         # calling functions to try and read parameter values as soon as class is created
         self.read_parameters(self.dict_parameters)
@@ -686,6 +727,9 @@ class heat_pump:
         
         self.list_series = []
         self.list_text_series =[]
+
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
 
         #default values in case of no input
         self.P_heat_pump_max = 20 #kW electric

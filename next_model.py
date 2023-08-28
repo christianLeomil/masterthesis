@@ -8,9 +8,9 @@ import textwrap
 import inspect
 
 class MyClass:
-      def extra_rule(model,t):
+      def extra_rule(model,t): 
             if t <= 10:
-                  return model.quant_z[t] <= 200
+                  return model.quant_z[t] <= model.upper_limit
             else:
                   return model.quant_z[t] <= 100
       
@@ -59,7 +59,7 @@ for i in dir(myObj):
 
 model = pyo.AbstractModel()
 
-model.HOURS = pyo.Set()
+model.HOURS = pyo.Set() 
 
 model.demand = pyo.Param(model.HOURS)
 model.cost_x = pyo.Param(model.HOURS)
@@ -69,7 +69,9 @@ model.quant_x = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 model.quant_y = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 model.quant_z = pyo.Var(model.HOURS, within=pyo.NonNegativeReals)
 
-model.test = pyo.Var(model.HOURS, within = pyo.PositiveIntegers)
+model.upper_limit = pyo.Var(within = pyo.NonNegativeReals, bounds=(70/2, 200/2))
+
+# model.test = pyo.Var(model.HOURS, within = pyo.PositiveIntegers)
 
 #endregion
 #-------------------------------------------------------------------------------------------------------------

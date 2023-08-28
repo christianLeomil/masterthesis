@@ -107,20 +107,77 @@ path_input = './input/'
 pv = PV('pv')
 solar_th = Solar_Th('solar_th')
 
-list_elements = ['solart_th','pv']
+list_elements = ['solar_th','pv']
 
 list_altered = []
 if control.df.loc['size_optimization','value'] == 'yes':
     for i in list_elements:
-        methods = inspect.getmembers(pv)
+        methods = inspect.getmembers(globals()[i])
         for method_name, method_value in methods:
             if method_name == 'list_param':
                 list_altered = list_altered + method_value
 
 df = pd.DataFrame({'list_altered':list_altered})
 df['choice'] = 0
+df['upper value'] = 0
+df['lower value'] = 0
 
 with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
-    df.to_excel(writer,sheet_name = 'test',index = False)
-            
+    df.to_excel(writer,sheet_name = 'parameters to variables',index = False)
+input('Please select components that are going to be otpimized and press enter...')
+
+df = pd.read_excel(path_input + 'df_input.xlsx',sheet_name = 'parameters to variables',index_col = 0)
+df.index.name = None
+print('\n')
+print(df)
+
+list_altered_variables = []
+list_upper_value = []
+list_lower_value = []
+
+for i in range(0,len(df)):
+    if df['choice'].iloc[i] == 1:
+        list_altered_variables.append(df.index[i])
+        list_upper_value.append(df['upper value'].iloc[i])
+        list_lower_value.append(df['lower value'].iloc[i])
+
+for i in list_elements:
+    list_original_param = getattr(globals()[i],'list_param')
+    list_original_text_param = getattr(globals()[i],'list_text_param')
+    list_original_var = getattr(globals()[i],'list_var')
+    list_original_text_var = getattr(globals()[i],'list_text_var')
+
+    print('\n')
+    print(list_original_param)
+    print(list_altered_variables)
+    for ind,j in enumerate(list_altered_variables):
+        try:
+            index = list_original_param.index(j)
+            list_original_param.pop(index)
+            list_original_text_param.pop(index)
+            list_original_var.append(j)
+
+            text ='within = NonNegativeReals, bounds = ('+str(list_lower_value[ind])+','+str(list_upper_value[ind])+')'
+            list_original_text_var.append(text) 
+        except Exception:
+            pass
+    print('list_original_parameters')
+    print(list_original_param)
+    setattr(globals()[i],'list_param',list_original_param)
+    setattr(globals()[i],'list_text_param',list_original_text_param)
+    setattr(globals()[i],'list_var',list_original_var)
+    setattr(globals()[i],'list_text_var',list_original_text_var)
+
+for i in list_elements:
+    print('\n '+ i)
+    methods = inspect.getmembers(globals()[i])
+    for method_name, method_value in methods:
+        if method_name in ['list_param','list_text_param','list_var','list_text_var']:
+            print(method_name)
+            print(method_value)
+
+
+
+
+
 
