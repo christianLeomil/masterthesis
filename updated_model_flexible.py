@@ -413,43 +413,69 @@ results = optimizer.solve(instance)
 
 # # Displaying the results
 # instance.pprint()
-instance.display()
+# instance.display()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region exporting results
 
-variable_names =[]
+
+variable_names_time_dependent = []
+variable_names_scalar = []
+variable_values_scalar = []
 for var_component in instance.component_objects(pyo.Var):
-    for var in var_component.values():
-        variable_names.append(var.name)
+    # print(var_component)
+    # print(len(var_component))
+    if len(var_component) == 1:
+        variable_names_scalar.append(var_component.name)
+        variable_values_scalar.append(pyo.value(getattr(instance,var_component.name)))
+    else:
+        for var in var_component.values():
+            variable_names_time_dependent.append(var.name)
 
-for i in range(len(variable_names)):
+# variable_names =[]
+# for var_component in instance.component_objects(pyo.Var):
+#     for var in var_component.values():
+#         if var.name == 'pv1_area':
+#             print(pyo.value(getattr(instance,var.name)))
+#         else: pass
+#         variable_names.append(var.name)
+
+for i in range(len(variable_names_time_dependent)):
     # Find the index of '['
-    index = variable_names[i].find('[') 
+    index = variable_names_time_dependent[i].find('[') 
     # Remove the text after '[' including '['
-    variable_names[i] = variable_names[i][:index]
+    variable_names_time_dependent[i] = variable_names_time_dependent[i][:index]
 
-variable_names = list(set(variable_names))
+variable_names_time_dependent = list(set(variable_names_time_dependent))
 
 # Create an empty DataFrame to store the variable values
-df_variable_values = pd.DataFrame(columns=['TimeStep'] + variable_names)
+df_time_dependent_variable_values = pd.DataFrame(columns=['TimeStep'] + variable_names_time_dependent)
+
+# Iterate over the time steps and extract the variable values
+# for t in instance.HOURS:
+#     row = {'TimeStep': t}
+#     for var_name in variable_names:
+#         var_value = getattr(instance, var_name)
+#         row[var_name] = pyo.value(var_value[t])
+#     df_variable_values = df_variable_values.append(row, ignore_index = True)
 
 # Iterate over the time steps and extract the variable values
 for t in instance.HOURS:
     row = {'TimeStep': t}
-    for var_name in variable_names:
-        if var_name == 'pv1_are':!!!!!!!!!!!!!!!!
-            pass
-        else:
-            var_value = getattr(instance, var_name)
-            row[var_name] = pyo.value(var_value[t])
-        df_variable_values = df_variable_values.append(row, ignore_index = True)
+    for var_name in variable_names_time_dependent:
+        var_value = getattr(instance, var_name)
+        row[var_name] = pyo.value(var_value[t])
+    df_time_dependent_variable_values = df_time_dependent_variable_values.append(row, ignore_index = True)
 
 # Organize and export the DataFrame with the variable values
-df_variable_values = functions.organize_output_columns(df_variable_values,df_aux)
-df_variable_values.to_excel(path_output + 'variable_values.xlsx',index = False)
+df_time_dependent_variable_values = functions.organize_output_columns(df_time_dependent_variable_values,df_aux)
+df_time_dependent_variable_values.to_excel(path_output + 'df_time_dependent_variable_values.xlsx',index = False)
 
-functions.write_to_financial_model(df_variable_values, path_output, False)
+df_scalar_variable_values = pd.DataFrame(columns = variable_names_scalar, data = variable_values_scalar).T
+df_scalar_variable_values.to_excel(path_output + 'df_scalar_variable_values.xlsx')
+# print(df_scalar_variable_values)
+
+functions.write_to_financial_model(df_time_dependent_variable_values, path_output, False)
 
 #endregion

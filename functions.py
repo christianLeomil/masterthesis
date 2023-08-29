@@ -27,10 +27,10 @@ def write_to_financial_model(df_variable_values, path_output, boolean):
 
     df_cash_flow = pd.DataFrame({'cash flow':list_cash_flow})
 
-    write_excel(df_cash_flow,path_output,'cash flow','financial data.xlsx',boolean)
-    write_excel(df_cost,path_output,'df_cost','financial data.xlsx',boolean)
-    write_excel(df_investment,path_output,'df_investment','financial data.xlsx',boolean)
-    write_excel(df_variable_values,path_output,'input data','financial data.xlsx',boolean)
+    write_excel(df_cash_flow,path_output,'cash flow','df_financial_data.xlsx',boolean)
+    write_excel(df_cost,path_output,'df_cost','df_financial_data.xlsx',boolean)
+    write_excel(df_investment,path_output,'df_investment','df_financial_data.xlsx',boolean)
+    write_excel(df_variable_values,path_output,'input data','df_financial_data.xlsx',boolean)
     
 def aux_creator(df_elements):
     list_elements = []
