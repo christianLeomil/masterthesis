@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 import pandas as pd
-import classes
-import functions
+import new_classes
+import new_functions
 import inspect
 import textwrap
 import warnings
@@ -9,44 +9,51 @@ import warnings
 warnings.filterwarnings("ignore", '.*')
 
 # ---------------------------------------------------------------------------------------------------------------------
-# region reading data
+# region reading data, creating connections variables, connections constraints, and objevtive constriants
 
+# paths and name of input file
 path_input = './input/'
 path_output = './output/'
 name_file = 'df_input.xlsx'
 
-control = getattr(classes,'control')(path_input)
+# creating instance of class that contains infos of how optimization is going to be
+control = new_classes.control(path_input,name_file)
 
-df_input_series = pd.read_excel(path_input +name_file, sheet_name = 'series', nrows = control.time_span - 1)
+#reading series data of input file and inputs for scalar data
+df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'series', nrows = control.time_span - 1)
 df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
 
+#getting list of elements of energy system
 df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements')
 df_elements.index.name = None
 
-[df_con_electric, df_con_thermal,df_aux] = functions.aux_creator(df_elements)
+#preparing data on elements of the energy system for the rest of the file
+[df_con_electric, df_con_thermal,df_aux] = new_functions.aux_creator(df_elements)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-# functions.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
-# functions.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
-# input("Press Enter to continue...")
+# writing dataframes on inputfile to input 
+new_functions.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
+new_functions.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
+input("Please insert the connection between elements of energy system and press enter to continue...")
 
+#reading inputs for the connections between elements of the energy system written in the input file
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
 df_con_electric.index.name = None
-
 df_con_thermal = pd.read_excel(path_input + name_file, sheet_name = 'conect_thermal', index_col=0)
 df_con_thermal.index.name = None
 
+#creating variables from connections exporting dataframes for check
 [df_con_thermal, df_con_electric, list_expressions, 
- list_con_variables, list_attr_classes] = functions.connection_creator(df_con_electric, df_con_thermal)
-
+ list_con_variables, list_attr_classes] = new_functions.connection_creator(df_con_electric, df_con_thermal)
 df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
 df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
-list_objective_constraints = functions.objective_constraint_creator(df_aux)
+# creating constriants that will turn into the objevtive functions
+list_objective_constraints = new_functions.objective_constraint_creator(df_aux)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region creating abstract model
+# region creating abstract model and creating temportal set
 
 #model
 model = pyo.AbstractModel()
@@ -56,26 +63,14 @@ model.HOURS = pyo.Set()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region creating classes for elements selected from existing classes
+# region creating instances of selected elements of the energy system
 
-#create one instance of the class of each element chosen
 for i in df_aux.index:
-    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i])
-
-# # comented code below is for checking what the global variables in this program are.  
-# def print_global_variables():
-#     global_vars = globals()
-#     for var_name, var_value in global_vars.items():
-#         print(var_name, "=", var_value)
-#         print('\n')
-
-# print_global_variables()
-# print('\n')
-
+    globals()[df_aux['element'].iloc[i]] = getattr(new_classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i],control.time_span - 1)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region renaming variables from methods from created classes
+# region RENAMING VARIABLES from METHODS of elements selected for the energy system
 
 list_elements = df_aux['element']
 list_types = df_aux['type']
@@ -99,33 +94,30 @@ for i,n in enumerate(list_elements):
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region renaming PARAMETERS of each class, in the list_param and in the __init__ method
+# region RENAMING (self.)PARAMETERS from classes of elements selected for the energy system
 
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
-    list_parameters =  getattr(globals()[element],'list_param')
-    setattr(globals()[element],'list_param',[s.replace(class_type,element) for s in list_parameters])
+    attribute_dict = list(vars(globals()[element]).keys())
+    attribute_dict_altered  = [s.replace(class_type,element) for s in attribute_dict]
 
-for i in df_aux.index:
-    element = df_aux['element'].iloc[i]
-    class_type = df_aux['type'].iloc[i]
-    attribute_list = list(vars(globals()[element]).keys())  
-    attribute_list_altered = [s.replace(class_type,element) for s in attribute_list]
-    for j in range(0,len(attribute_list_altered)):
-        setattr(globals()[element],attribute_list_altered[j],getattr(globals()[element],attribute_list[j]))
-        if class_type in attribute_list[j]:
-            delattr(globals()[element],attribute_list[j])
+    for j in range(0,len(attribute_dict_altered)):
+         if class_type in attribute_dict[j]:
+            setattr(globals()[element],attribute_dict_altered[j],getattr(globals()[element],attribute_dict[j]))
+            delattr(globals()[element],attribute_dict[j])
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region renaming SERIES of each class, in the list_series and in the __init__ method
+# region RENAMING VARIABLES from list_var of elements selected for the energy system
 
+# print('========================Renaming list_var parameters')
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
-    list_series =  getattr(globals()[element],'list_series')
-    setattr(globals()[element],'list_series',[s.replace(class_type,element) for s in list_series])
+    list_var = globals()[element].list_var
+    list_var = [s.replace(class_type,element) for s in list_var]
+    setattr(globals()[element],'list_var',list_var)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -135,22 +127,17 @@ if control.df.loc['size_optimization','value'] == 'yes':
     list_param_to_var = []
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
-        # print('\n')
-        # print(element)
-        # methods = inspect.getmembers(globals()[element])
-        method_value = getattr(globals()[element],'list_param')
-        # print(method_value)
+        method_value = list(vars(globals()[element]).keys())
+        method_value = [s for s in method_value if 'param_' in s]
+        # method_value = getattr(globals()[element],'list_param')
         list_param_to_var = list_param_to_var + method_value
-        # for methos_name, method_value in methods:
-        #     if method_name == 'list_param':
-        #         print(method_value)
-        #         list_altered = list_altered + method_value
 
     df_size_optimization = pd.DataFrame({'list_altered':list_param_to_var})
     df_size_optimization['choice'] = 0
     df_size_optimization['lower bound'] = 0
     df_size_optimization['upper bound'] = 0
 
+    #writes to input file in order
     with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
         df_size_optimization.to_excel(writer,sheet_name = 'parameters to variables',index = False)
     input('Please select parameters that are going to be optimized and press enter...')
@@ -163,77 +150,46 @@ if control.df.loc['size_optimization','value'] == 'yes':
     list_upper_value = df_size_optimization['upper bound'].tolist()
     list_lower_value = df_size_optimization['lower bound'].tolist()
     
+    
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
-        list_original_param = getattr(globals()[element],'list_param')
-        list_original_text_param = getattr(globals()[element],'list_text_param')
-        # list_original_var = getattr(globals()[element],'list_var')
-        # list_original_text_var = getattr(globals()[element],'list_text_var')
-
+        list_original_param = list(vars(globals()[element]).keys())
+        list_original_param = [s for s in list_original_param if 'param_' in s]
+        
         list_altered_var = []
         list_text_altered_var = []
-        for ind,j in enumerate(list_altered_variables):
-            try:
-                index = list_original_param.index(j)
-                list_original_param.pop(index)
-                list_original_text_param.pop(index)
-                # list_original_var.append(j)
-                list_altered_var.append(j)
 
+        for ind,j in enumerate(list_altered_variables):
+            if j in list_original_param:
+                list_altered_var.append(j)
                 text ='within = pyo.NonNegativeReals, bounds = ('+str(list_lower_value[ind])+','+str(list_upper_value[ind])+')'
                 list_text_altered_var.append(text)
-                # list_original_text_var.append(text)
-            except Exception:
-                pass
-        
-        print('list_original_parameters')
-        print(list_original_param)
-        setattr(globals()[element],'list_param', list_original_param)
-        setattr(globals()[element],'list_text_param', list_original_text_param)
+                delattr(globals()[element],j)
+
         setattr(globals()[element],'list_altered_var', list_altered_var)
         setattr(globals()[element],'list_text_altered_var', list_text_altered_var)
 
-    for i in df_aux.index:
-        element = df_aux['element'].iloc[i]
-        print('\n '+ element)
-        methods = inspect.getmembers(globals()[element])
-        for method_name, method_value in methods:
-            if method_name in ['list_param','list_text_param','list_altered_var','list_text_altered_var']:
-                print(method_name)
-                print(method_value)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region adding parameters and variables to abstract model
 
-#add SERIES PARAMETERS from classes to abstract model:
-print('\n------------------------series from classes') 
-for i in df_aux.index:
-    element = df_aux['element'].iloc[i]
-    class_type = df_aux['type'].iloc[i]
-    if hasattr(globals()[element],'list_series'):
-        list_classes_series = [s.replace(class_type, element) for s in globals()[element].list_series]
-        for j,m in enumerate(list_classes_series):
-            specifications = globals()[element].list_text_series[j]
-            text = specifications
-            print(m)
-            # print(specifications)
-            exec(f"model.add_component('{m}',pyo.Param({text}))")
 
-
-#add PARAMETERS from classes to abstract model:
+#add PARAMETERS and SERIES from classes to abstract model:
 print('\n------------------------paramaters from classes')
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
-    if hasattr(globals()[element],'list_param'):
-        list_classes_parameters = [s.replace(class_type, element) for s in globals()[element].list_param]
-        for j,m in enumerate(list_classes_parameters):
-            specifications = globals()[element].list_text_param[j]
-            text = specifications
-            print(m)
-            # print(specifications)
-            exec(f"model.add_component('{m}',pyo.Param({text}))")
+    list_parameters_series = list(vars(globals()[element]).keys())
+    print('\n------------' + element)
+    for j in list_parameters_series:
+        if j.startswith('param'):
+            print(j)
+            if isinstance(getattr(globals()[element],j),list):
+                exec(f"model.add_component('{j}',pyo.Param(model.HOURS))")
+            else:
+                exec(f"model.add_component('{j}',pyo.Param())")
+
 
 #add VARIABLES from classes to abstract model:
 print('\n------------------------variables from classes')
@@ -241,13 +197,15 @@ for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
     if hasattr(globals()[element],'list_var'):
-        list_classes_variables = [s.replace(class_type, element) for s in globals()[element].list_var]
-        for j,m in enumerate(list_classes_variables):
+        list_classes_varibles = globals()[element].list_var
+        # list_classes_variables = [s.replace(class_type, element) for s in globals()[element].list_var] 
+        for j,m in enumerate(list_classes_varibles):
             specifications = globals()[element].list_text_var[j]
             text = 'model.HOURS,' + specifications
             print(m)
             # print(specifications)
             exec(f"model.add_component('{m}',pyo.Var({text}))")
+
 
 #add ALTERED VARIABLES from classes to abstract model:
 print('\n------------------------altered variables from classes')
@@ -255,7 +213,8 @@ for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
     if hasattr(globals()[element],'list_altered_var'):
-        list_classes_variables = [s.replace(class_type, element) for s in globals()[element].list_altered_var]
+        list_classes_variables = globals()[element].list_altered_var
+        # list_classes_variables = [s.replace(class_type, element) for s in globals()[element].list_altered_var]
         for j,m in enumerate(list_classes_variables):
             specifications = globals()[element].list_text_altered_var[j]
             text = specifications
@@ -266,12 +225,12 @@ for i in df_aux.index:
 # dynamically adding VARIABLES FROM CONNECTIONS to abstract model
 print('\n------------------------variables from connections')
 for i in list_con_variables:
-    if not i.startswith('P_to_demand'):
-        if not i.startswith('Q_to_demand'):
-            if not i.startswith('P_to_charging_station'):
-                print(i)
-                text = 'model.HOURS, within = pyo.NonNegativeReals'
-                exec(f"model.add_component('{i}',pyo.Var({text}))")
+    if not i.startswith('param_'):
+        if not i.startswith('P_to_charging_station'):
+            print(i)
+            text = 'model.HOURS, within = pyo.NonNegativeReals'
+            exec(f"model.add_component('{i}',pyo.Var({text}))")
+
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -288,8 +247,7 @@ model.total_emissions = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # va
 # ---------------------------------------------------------------------------------------------------------------------
 # region adding connection methods to created classes
 
-# loopin throuhg list_of_expressions and giving classes their equations:
-
+# loopin throuhg list_of_expressions and giving each class the respective connection equation
 constraint_number = 1
 for i,n in enumerate(list_attr_classes):
 
@@ -297,6 +255,8 @@ for i,n in enumerate(list_attr_classes):
         return eval(expr, globals(), locals())
     method_name = 'constraint_con_' + str(constraint_number)
 
+    # print('\n-=-=-=-=-=-=-=' + list_expressions[i])
+    # print(list_expressions[i])
     def method_wrapper(model,t,expr = list_expressions[i]):
         return dynamic_method(model,t,expr)
     setattr(globals()[n], method_name, method_wrapper)
@@ -308,6 +268,7 @@ for i in df_aux.index:
         if not j.startswith('__'):
             if callable(getattr(globals()[df_aux['element'].iloc[i]],j)):
                 print(j)
+
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -329,12 +290,11 @@ for i in df_aux.index:
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region objective
+# region creating objective function and deactivating objectives
 
 #adding total cost and total buy constraint to objective class
-
 constraint_num = 1
-objective_class = classes.objective('objective')
+objective_class = new_classes.objective('objective')
 for i in list_objective_constraints:
     def dynamic_method(model,t,expr):
         return eval(expr, globals(), locals())
@@ -387,47 +347,38 @@ else:
     model.costObjective.deactivate()
     print('cost objective deactivated')
 
+
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region reading data
+# region reading data for parameters and series. If no input is given default value is set
 
 #reading data
 data = pyo.DataPortal()
 data['HOURS'] = df_input_series['HOURS'].tolist()
 data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
 
-#getting list with all needed PARAMETERS of created classes and reading data, or getting default values from classes
+#getting list with all needed PARAMETERS and SERIES of created classes and reading data, or getting default values from classes
 for i in df_aux.index:
     element = df_aux['element'].iloc[i]
     class_type = df_aux['type'].iloc[i]
-    list_parameters =  getattr(globals()[element],'list_param')
-    print('\n>>>>>>>>>>>>'+element)
-    print(list_parameters)
-    for j in list_parameters:
-        name_param = j.replace(class_type,element)
-        try:
-            data[name_param] = {None:df_input_other.loc[df_input_other['Parameter'] == name_param, 'Value'].values[0]}
-        except Exception:
-            value = getattr(globals()[element],j)
-            data[name_param] = {None: value}
+    list_parameters_series = list(vars(globals()[element]).keys())
+    list_parameters_series = [s for s in list_parameters_series if 'param_' in s]
+    # print('\n>>>>>>>>>>>>'+element)
+    # print(list_parameters_series)
+    for j in list_parameters_series:
+        if isinstance(getattr(globals()[element],j),list):
+            try:
+                data[j] = df_input_series.set_index('HOURS')[j].to_dict()
+            except Exception:
+                df_temp = pd.DataFrame({'HOURS': data['HOURS'],j : getattr(globals()[element],j)})
+                data[j] = df_temp.set_index('HOURS')[j].to_dict()
+        else:
+            try:
+                data[j] = {None:df_input_other.loc[df_input_other['Parameter'] == j, 'Value'].values[0]}
+            except Exception:
+                value = getattr(globals()[element],j)
+                data[j] = {None: value}
 
-#getting list with all needed SERIES of created classes and reading data, or getting default values
-for i in df_aux.index:
-    element = df_aux['element'].iloc[i]
-    class_type = df_aux['type'].iloc[i]
-    list_series =  getattr(globals()[element],'list_series')
-    for j in list_series:
-        name_series = j.replace(class_type,element)
-        try:
-            data[name_series] = df_input_series.set_index('HOURS')[name_series].to_dict()
-        except Exception:
-            list_par = getattr(globals()[element], j)
-            if not isinstance(list_par,list):
-                list_par = [list_par] * len(data['HOURS'])
-                data[name_series] = {hour_value: getattr(globals()[element], j) for hour_value in data['HOURS']}
-            else:
-                df_test= pd.DataFrame({'HOURS': data['HOURS'],name_series : list_par})
-                data[name_series] = df_test.set_index('HOURS')[name_series].to_dict()
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -454,7 +405,7 @@ results = optimizer.solve(instance)
 # ---------------------------------------------------------------------------------------------------------------------
 # region exporting results
 
-
+# separating time dependend and time independent variables to be exported
 variable_names_time_dependent = []
 variable_names_scalar = []
 variable_values_scalar = []
@@ -468,14 +419,6 @@ for var_component in instance.component_objects(pyo.Var):
         for var in var_component.values():
             variable_names_time_dependent.append(var.name)
 
-# variable_names =[]
-# for var_component in instance.component_objects(pyo.Var):
-#     for var in var_component.values():
-#         if var.name == 'pv1_area':
-#             print(pyo.value(getattr(instance,var.name)))
-#         else: pass
-#         variable_names.append(var.name)
-
 for i in range(len(variable_names_time_dependent)):
     # Find the index of '['
     index = variable_names_time_dependent[i].find('[') 
@@ -488,14 +431,6 @@ variable_names_time_dependent = list(set(variable_names_time_dependent))
 df_time_dependent_variable_values = pd.DataFrame(columns=['TimeStep'] + variable_names_time_dependent)
 
 # Iterate over the time steps and extract the variable values
-# for t in instance.HOURS:
-#     row = {'TimeStep': t}
-#     for var_name in variable_names:
-#         var_value = getattr(instance, var_name)
-#         row[var_name] = pyo.value(var_value[t])
-#     df_variable_values = df_variable_values.append(row, ignore_index = True)
-
-# Iterate over the time steps and extract the variable values
 for t in instance.HOURS:
     row = {'TimeStep': t}
     for var_name in variable_names_time_dependent:
@@ -504,13 +439,13 @@ for t in instance.HOURS:
     df_time_dependent_variable_values = df_time_dependent_variable_values.append(row, ignore_index = True)
 
 # Organize and export the DataFrame with the variable values
-df_time_dependent_variable_values = functions.organize_output_columns(df_time_dependent_variable_values,df_aux)
+df_time_dependent_variable_values = new_functions.organize_output_columns(df_time_dependent_variable_values,df_aux)
 df_time_dependent_variable_values.to_excel(path_output + 'df_time_dependent_variable_values.xlsx',index = False)
 
-df_scalar_variable_values = pd.DataFrame(columns = variable_names_scalar, data = variable_values_scalar).T
+df_scalar_variable_values = pd.DataFrame([variable_values_scalar], columns = variable_names_scalar).T
+df_scalar_variable_values.columns = ['value']
 df_scalar_variable_values.to_excel(path_output + 'df_scalar_variable_values.xlsx')
-# print(df_scalar_variable_values)
 
-functions.write_to_financial_model(df_time_dependent_variable_values, path_output, False)
+new_functions.write_to_financial_model(df_time_dependent_variable_values, path_output, False)
 
 #endregion

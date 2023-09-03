@@ -108,11 +108,18 @@ def connection_creator(df_con_electric, df_con_thermal):
 
     #creating variable names derived from index of conection matrix
     list_sub = ['P_to_' + i for i in df_con_electric.index]
+    list_sub = [s.replace('P_to_demand','param_P_to_demand') for s in list_sub]
+    list_sub = [s.replace('P_to_charging_station','param_P_to_charging_station') for s in list_sub]
+    print('\n->->->->->-list_sub_electric')
+    print(list_sub)
     df_con_electric.index = list_sub
     list_sub = ['Q_to_' + i for i in df_con_thermal.index]
+    list_sub = [s.replace('Q_to_demand','param_Q_to_demand') for s in list_sub]
+    print('\n->->->->->-list_sub_thermal')
+    print(list_sub)
     df_con_thermal.index = list_sub
 
-    # creating equation in the 'to' direction ELECTRIC
+    # creating equations in the 'to' direction ELECTRIC
     list_expressions = []
     for i in df_con_electric.index:
         list_exp_partial = 'model.' + i + '[t] == 0'
@@ -121,7 +128,7 @@ def connection_creator(df_con_electric, df_con_thermal):
                 list_exp_partial = list_exp_partial + ' + model.' + df_con_electric.loc[i,j] + '[t]'
         list_expressions.append(list_exp_partial)
 
-    # creating equation in the 'from' direction ELECTRIC
+    # creating equations in the 'from' direction ELECTRIC
     for i in df_con_electric.columns:
         list_exp_partial = 'model.' + i + '[t] == 0'
         for j in df_con_electric.index:
