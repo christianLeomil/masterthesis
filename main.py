@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 import pandas as pd
-import new_classes
-import new_functions
+import classes
+import utils
 import inspect
 import textwrap
 import warnings
@@ -17,7 +17,7 @@ path_output = './output/'
 name_file = 'df_input.xlsx'
 
 # creating instance of class that contains infos of how optimization is going to be
-control = new_classes.control(path_input,name_file)
+control = classes.control(path_input,name_file)
 
 #reading series data of input file and inputs for scalar data
 df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'series', nrows = control.time_span - 1)
@@ -28,13 +28,13 @@ df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'ele
 df_elements.index.name = None
 
 #preparing data on elements of the energy system for the rest of the file
-[df_con_electric, df_con_thermal,df_aux] = new_functions.aux_creator(df_elements)
+[df_con_electric, df_con_thermal,df_aux] = utils.aux_creator(df_elements,control.time_span)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # writing dataframes on inputfile to input 
-new_functions.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
-new_functions.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
-input("Please insert the connection between elements of energy system and press enter to continue...")
+# utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
+# utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
+# input("Please insert the connection between elements of energy system and press enter to continue...")
 
 #reading inputs for the connections between elements of the energy system written in the input file
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
@@ -44,12 +44,12 @@ df_con_thermal.index.name = None
 
 #creating variables from connections exporting dataframes for check
 [df_con_thermal, df_con_electric, list_expressions, 
- list_con_variables, list_attr_classes] = new_functions.connection_creator(df_con_electric, df_con_thermal)
+ list_con_variables, list_attr_classes] = utils.connection_creator(df_con_electric, df_con_thermal)
 df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
 df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 # creating constriants that will turn into the objevtive functions
-list_objective_constraints = new_functions.objective_constraint_creator(df_aux)
+list_objective_constraints = utils.objective_constraint_creator(df_aux,control.time_span)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -66,7 +66,7 @@ model.HOURS = pyo.Set()
 # region creating instances of selected elements of the energy system
 
 for i in df_aux.index:
-    globals()[df_aux['element'].iloc[i]] = getattr(new_classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i],control.time_span - 1)
+    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i],control.time_span - 1)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -294,7 +294,7 @@ for i in df_aux.index:
 
 #adding total cost and total buy constraint to objective class
 constraint_num = 1
-objective_class = new_classes.objective('objective')
+objective_class = classes.objective('objective')
 for i in list_objective_constraints:
     def dynamic_method(model,t,expr):
         return eval(expr, globals(), locals())
@@ -439,13 +439,13 @@ for t in instance.HOURS:
     df_time_dependent_variable_values = df_time_dependent_variable_values.append(row, ignore_index = True)
 
 # Organize and export the DataFrame with the variable values
-df_time_dependent_variable_values = new_functions.organize_output_columns(df_time_dependent_variable_values,df_aux)
+df_time_dependent_variable_values = utils.organize_output_columns(df_time_dependent_variable_values,df_aux)
 df_time_dependent_variable_values.to_excel(path_output + 'df_time_dependent_variable_values.xlsx',index = False)
 
 df_scalar_variable_values = pd.DataFrame([variable_values_scalar], columns = variable_names_scalar).T
 df_scalar_variable_values.columns = ['value']
 df_scalar_variable_values.to_excel(path_output + 'df_scalar_variable_values.xlsx')
 
-new_functions.write_to_financial_model(df_time_dependent_variable_values, path_output, False)
+utils.write_to_financial_model(df_time_dependent_variable_values, path_output, False)
 
 #endregion

@@ -1,11 +1,4 @@
-import random
-import numpy as np
-import pandas as pd
-from datetime import datetime, timedelta
-import math
-import sys
-
-class charging_station:
+class CHARGING_STATION:
 
     def __init__(self,name_of_instance,time_span):
         self.name_of_instance = name_of_instance
@@ -13,12 +6,6 @@ class charging_station:
         #default values in case of no input
         self.list_var = ['charging_station_op_cost','charging_station_inv_cost','charging_station_emissions'] #no powers
         self.list_text_var = ['within = pyo.NegativeReals','within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
-
-        # self.list_param = ['charging_station_inv_specific_costs','charging_station_selling_price','charging_station_spec_emissions']
-        # self.list_text_param = ['','','']
-        
-        # self.list_series = ['P_to_charging_station']
-        # self.list_text_series =['model.HOURS']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
@@ -43,8 +30,6 @@ class charging_station:
                                  'reference_date':datetime(2023,10,1),
                                  'number_hours': time_span + 1,
                                  'number_days': math.ceil((time_span + 1)/24)}
-        
-        print(self.dict_parameters['number_days'])
         
         self.dict_series = {'list_sheets':['mix and capacity','mix and capacity','mix and capacity','mix SoC','mix SoC','mix SoC',
                                            'data_charging_station','data_charging_station','data_charging_station'],
@@ -76,14 +61,11 @@ class charging_station:
                         f"{self.name_of_instance}_list_std": [0.5, 0.5, 0.5],
                         f"{self.name_of_instance}_list_size": [5, 5, 5] }
         
-        # self.list_altered = []
-        # self.list_text_altered = []
-        print(self.dict_parameters['number_days'])
+        
         # calling functions to try and read parameter values as soon as class is created
         self.read_parameters(self.dict_parameters)
         self.read_series(self.dict_series)
 
-        print(self.dict_parameters['number_days'])
         # creating dataframes that are going to be used in non-constraint function
         self.df_mix_capacity = pd.DataFrame({'Model': self.dict_series['list_models'],
                                              'Mix': self.dict_series['list_mix_models'],
@@ -98,8 +80,6 @@ class charging_station:
                                                   'number of cars in each peak': self.dict_series[f"{self.name_of_instance}_list_size"]})
         
         self.param_P_to_charging_station = self.charging_demand_calculation()
-
-        print('--------------' + str(len(self.param_P_to_charging_station)))
 
     def read_parameters(self, parameters):
         count = 0
@@ -164,14 +144,16 @@ class charging_station:
         list_initial_SoC = []
         list_final_SoC = []
 
-        print(self.dict_parameters['number_days'])
+
         for i in range(0,self.dict_parameters['number_days']):
             for j in self.df_data_distribution.index:
+
                 mean = self.df_data_distribution.loc[j,'hours of peak']
                 standard_deviation = self.df_data_distribution.loc[j,'std of each peak']
                 size = self.df_data_distribution.loc[j,'number of cars in each peak']
 
                 timestamps = self.generate_normal_distribution(mean, standard_deviation, size)
+
                 for k in timestamps:
                     converted_time_stamp = self.convert_time_stamp(i, k)
                     list_hours.append(converted_time_stamp)
@@ -179,7 +161,6 @@ class charging_station:
 
                     initial_SoC = random.choice(list_start_SoC)
                     final_SoC = random.choice(list_end_SoC)
-
                     while initial_SoC >= final_SoC:
                         initial_SoC = random.choice(list_start_SoC)
                         final_SoC = random.choice(list_end_SoC)
@@ -257,6 +238,3 @@ class charging_station:
         
     def constraint_emissions(model,t):
         return model.charging_station_emissions[t] == model.param_P_to_charging_station[t] * model.param_charging_station_spec_emissions
-    
-
-myClass = charging_station('charging_station',100)
