@@ -28,7 +28,7 @@ df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'ele
 df_elements.index.name = None
 
 #preparing data on elements of the energy system for the rest of the file
-[df_con_electric, df_con_thermal,df_aux] = utils.aux_creator(df_elements,control.time_span)
+[df_con_electric, df_con_thermal,df_aux] = utils.aux_creator(df_elements,control.time_span,control.receding_horizon)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # writing dataframes on inputfile to input 
@@ -49,7 +49,7 @@ df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
 df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 # creating constriants that will turn into the objevtive functions
-list_objective_constraints = utils.objective_constraint_creator(df_aux,control.time_span)
+list_objective_constraints = utils.objective_constraint_creator(df_aux,control.time_span,control.receding_horizon)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -66,7 +66,7 @@ model.HOURS = pyo.Set()
 # region creating instances of selected elements of the energy system
 
 for i in df_aux.index:
-    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i],control.time_span - 1)
+    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i],control.time_span - 1,control.receding_horizon)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -363,7 +363,7 @@ else:
 
 df_final = pd.DataFrame()
 for k,df in enumerate(list_split):
-    print(k)
+    print('Iteraction is ' + str(k))
     df.to_excel(path_output +'teste/df_split'+str(k)+'.xlsx')
 
     # endregion
@@ -396,15 +396,45 @@ for k,df in enumerate(list_split):
                 except Exception:
                     value = getattr(globals()[element],j)
                     data[j] = {None: value}
-    
+
+    # endregion
+    # ---------------------------------------------------------------------------------------------------------------------
+    # region creating extra constraints for fixing values of VARIABLES with conection with previous time step
+
+
+
     # if k != 0:
-    #     for i in df_time_dependent_variable_values.columns:
-    #         if i != 'TimeStep':
-    #             print(i)
-    #             var_value = df_time_dependent_variable_values[i].iloc[df['HOURS'].iloc[0]]
-    #             text = 'model.' + i + '[' + str(df['HOURS'].iloc[0]) + '].value = ' + str(var_value)
-    #             print(text)
-    #             exec(text)
+
+    #     print('\n============= Creating extra constraints for variables with connection with previous time step =============')
+
+    #     index = df['HOURS'].iloc[0]
+    #     value1 = df_time_dependent_variable_values['bat1_SOC'].iloc[index]
+    #     value2 = df_time_dependent_variable_values['bat1_cumulated_aging'].iloc[index]
+    #     value3 = df_time_dependent_variable_values['bat1_integer'].iloc[index]
+
+    #     def constraint_extra_1(model,t):
+    #         model.bat1_SOC[index] == value1
+    #     model.constraintExtra1 = pyo.Constraint(model.HOURS,rule= constraint_extra_1)
+
+    #     def constraint_extra_2(model,t):
+    #         model.bat1_cumulated_aging[index] == value2
+    #     model.constraintExtra2 = pyo.Constraint(model.HOURS,rule= constraint_extra_2)
+
+    #     def constraint_extra_3(model,t):
+    #         model.bat1_integer[index] == value3
+    #     model.constraintExtra3 = pyo.Constraint(model.HOURS,rule= constraint_extra_3)
+
+    # constraint_num = 1
+    # for i in df_aux.index:
+    #     element = df_aux['element'].iloc[i]
+    #     methods = inspect.getmembers(globals()[element],inspect.isfunction)
+    #     print('------------' + element)
+    #     for method_name,method in methods:
+    #         if not method_name.startswith('__'):
+    #             method = getattr(globals()[element],method_name)
+    #             model.add_component('Constraint_con_var_'+ str(constraint_num), pyo.Constraint(model.HOURS, rule = method))
+    #             print('-' + str(constraint_num) + '-' + method_name)
+    #             constraint_num += 1
 
 
     # endregion
@@ -420,15 +450,6 @@ for k,df in enumerate(list_split):
     #     for index in constraint:
     #         print(f"{constraint}[{index}]: {constraint[index].body}")
 
-    # endregion
-    # ---------------------------------------------------------------------------------------------------------------------
-    # region giving variables from last iteration in case receding horizon is on
-
-    if k != 0:
-        for i in df_time_dependent_variable_values.columns:
-            var_value = df_time_dependent_variable_values[i].iloc[df['HOURS'].iloc[0]]
-            text = 'instance.' + i + '[' + str(df['HOURS'].iloc[0]) + '].fix(' + str(var_value) + ')'
-            exec(text)
 
     # endregion
     # ---------------------------------------------------------------------------------------------------------------------

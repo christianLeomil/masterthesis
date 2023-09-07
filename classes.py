@@ -41,7 +41,7 @@ class control:
                 
         
 class pv:
-    def __init__(self,name_of_instance,time_span):
+    def __init__(self,name_of_instance,time_span,receding_horizon):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['pv_op_cost','pv_emissions','pv_inv_cost'] #no connection powers
@@ -77,7 +77,7 @@ class pv:
         return model.P_from_pv[t] == (model.param_E_pv_solar[t] / model.time_step) * model.param_pv_eff * model.param_pv_area 
     
     def constraint_operation_costs(model,t):
-        return model.pv_op_cost[t] == model.param_pv_area * model.param_pv_spec_op_cost
+        return model.pv_op_cost[t] == model.param_pv_area * model.param_pv_spec_op_cost 
     
     def constraint_emissions(model,t):
         return model.pv_emissions[t] == model.P_from_pv[t] * model.param_pv_spec_em
@@ -89,7 +89,7 @@ class pv:
             return model.pv_inv_cost[t] == 0
         
 class demand:
-    def __init__(self,name_of_instance,time_span):
+    def __init__(self,name_of_instance,time_span,receding_horizon):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['demand_inv_cost','demand_op_cost'] #no powers
@@ -115,7 +115,7 @@ class demand:
         return model.demand_op_cost[t] == 0
     
 class net:
-    def __init__(self,name_of_instance,time_span):
+    def __init__(self,name_of_instance,time_span,receding_horizon):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['net_sell_electric','net_buy_electric','net_sell_thermal','net_buy_thermal'
@@ -177,7 +177,7 @@ class objective:
         self.super_class = 'objective'
 
 class bat:
-    def __init__(self,name_of_instance,time_step):
+    def __init__(self,name_of_instance,time_step,receding_horizon):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost','bat_emissions','bat_SOC_max',
@@ -206,6 +206,11 @@ class bat:
         self.param_bat_cycles = 9000 # full cycles before final SoH is reached and battery is replaced
         self.param_bat_aging = (self.param_bat_E_max_initial * (1 -self.param_bat_final_SoH)) / (self.param_bat_cycles * 2 * self.param_bat_E_max_initial) / self.param_bat_E_max_initial
         self.param_bat_inv_per_capacity = 650 # EURO per kWh capacity
+        if receding_horizon == 'yes':
+            self.param_receding_horizon = 1
+        else:
+            self.param_receding_horizon = 0
+        # self.param_receding_horizon = receding_horizon
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -226,6 +231,8 @@ class bat:
         if t == 1:
             return model.bat_cumulated_aging[t] == (model.P_from_bat[t] + 
                                                     model.P_to_bat[t]) * model.time_step * model.param_bat_aging
+        elif t % 4 == 0 and model.param_receding_horizon == 1:
+            return model.bat_cumulated_aging[t] == 0.1
         else:
             return model.bat_cumulated_aging[t] == model.bat_cumulated_aging[t-1] + (model.P_from_bat[t] + 
                                                                                      model.P_to_bat[t]) * model.time_step * model.param_bat_aging
@@ -252,6 +259,9 @@ class bat:
             if t == 1:
                 return model.bat_SOC[t] == model.param_bat_starting_SOC + (model.P_to_bat[t] * model.param_bat_ch_eff 
                                                                  - model.P_from_bat[t]/model.param_bat_dis_eff) * model.time_step / model.param_bat_E_max_initial
+            elif t % 4 == 0 and model.param_receding_horizon == 1:
+                return model.bat_SOC[t] == 0.5
+            
             else:
                 return model.bat_SOC[t] == model.bat_SOC[t-1] + (model.P_to_bat[t] * model.param_bat_ch_eff 
                                                                  - model.P_from_bat[t]/model.param_bat_dis_eff) * model.time_step / model.param_bat_E_max_initial
@@ -274,6 +284,10 @@ class bat:
     def constraint_investment_costs(model,t):
         if t == 1:
             return model.bat_inv_cost[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity
+        
+        elif t % 4 == 0 and model.param_receding_horizon == 1:
+            return model.bat_inv_cost[t] == 0.5
+
         else:
             return model.bat_inv_cost[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity * (model.bat_integer[t] - model.bat_integer[t-1])
 

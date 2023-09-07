@@ -32,7 +32,7 @@ def write_to_financial_model(df_variable_values, path_output, boolean):
     write_excel(df_investment,path_output,'df_investment','df_financial_data.xlsx',boolean)
     write_excel(df_variable_values,path_output,'input data','df_financial_data.xlsx',boolean)
     
-def aux_creator(df_elements,time_span):
+def aux_creator(df_elements,time_span,receding_horizon):
     list_elements = []
     list_type = []
     for i in df_elements.index:
@@ -52,7 +52,7 @@ def aux_creator(df_elements,time_span):
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
 
-        myClass = getattr(classes,element_type)(element,time_span)
+        myClass = getattr(classes,element_type)(element,time_span,receding_horizon)
         energy_type = getattr(myClass,'energy_type')
         super_class = getattr(myClass,'super_class')
 
@@ -174,7 +174,7 @@ def connection_creator(df_con_electric, df_con_thermal):
     return df_con_thermal, df_con_electric, list_expressions, list_con_variables, list_attr_classes
 
 
-def objective_constraint_creator(df_aux,time_span): # this function creates the constraints for the objective function to work
+def objective_constraint_creator(df_aux,time_span,receding_horizon): # this function creates the constraints for the objective function to work
     list_buy_constraint = ['model.total_buy[t] == '] 
     list_sell_constraint = ['model.total_sell[t] == ']
     df_temp = df_aux[df_aux['type'] == 'net' ].reset_index(drop = True)
@@ -194,7 +194,7 @@ def objective_constraint_creator(df_aux,time_span): # this function creates the 
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
-        method = getattr(classes,element_type)(element,time_span)
+        method = getattr(classes,element_type)(element,time_span,receding_horizon)
         if hasattr(method,'constraint_operation_costs'):
             if list_operation_costs_total == [] :
                 list_operation_costs_total.append('model.total_operation_cost[t] == ' + ' model.' + element + '_op_cost[t]')
@@ -207,7 +207,7 @@ def objective_constraint_creator(df_aux,time_span): # this function creates the 
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
-        method = getattr(classes,element_type)(element,time_span)
+        method = getattr(classes,element_type)(element,time_span,receding_horizon)
         if hasattr(method,'constraint_emissions'):
             if list_emissions_constraint == [] :
                 list_emissions_constraint.append('model.total_emissions[t] == ' + 'model. ' + element +'_emissions[t]')
