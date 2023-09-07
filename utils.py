@@ -248,7 +248,10 @@ def breaking_dataframe(df,horizon,saved_position):
     list_split = []
     for i in range(0,len(df),saved_position):
         # print('\n------------'+str(i))
-        list_split.append(df.iloc[i:i + horizon])
+        if i == 0:
+            list_split.append(df.iloc[i : i + horizon])
+        else:
+            list_split.append(df.iloc[i-1 : i+horizon])
         # print(list_split[-1])
     return list_split
 

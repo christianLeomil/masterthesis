@@ -364,7 +364,7 @@ else:
 df_final = pd.DataFrame()
 for k,df in enumerate(list_split):
     print(k)
-    # df.to_excel(path_output + 'df_split'+str(k)+'.xlsx')
+    df.to_excel(path_output +'teste/df_split'+str(k)+'.xlsx')
 
     # endregion
     # ---------------------------------------------------------------------------------------------------------------------
@@ -372,17 +372,7 @@ for k,df in enumerate(list_split):
 
     #reading data
     data = pyo.DataPortal()
-    if df['HOURS'].iloc[0] != 1:
-        lista = df['HOURS'].tolist()
-        lista.insert(0,df['HOURS'].iloc[0]-1)
-        data['HOURS'] = lista
-        print('\n-------------------Lista:')
-        print(lista)
-    else:
-        data['HOURS'] = df['HOURS'].tolist()
-
-    df = pd.concat([df_input_series.iloc[df['HOURS'].iloc[0]-1 : df['HOURS'].iloc[0]], df], ignore_index = True)
-
+    data['HOURS'] = df['HOURS'].tolist()
     data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
 
     #getting list with all needed PARAMETERS and SERIES of created classes and reading data, or getting default values from classes
@@ -406,6 +396,15 @@ for k,df in enumerate(list_split):
                 except Exception:
                     value = getattr(globals()[element],j)
                     data[j] = {None: value}
+    
+    # if k != 0:
+    #     for i in df_time_dependent_variable_values.columns:
+    #         if i != 'TimeStep':
+    #             print(i)
+    #             var_value = df_time_dependent_variable_values[i].iloc[df['HOURS'].iloc[0]]
+    #             text = 'model.' + i + '[' + str(df['HOURS'].iloc[0]) + '].value = ' + str(var_value)
+    #             print(text)
+    #             exec(text)
 
 
     # endregion
@@ -421,7 +420,20 @@ for k,df in enumerate(list_split):
     #     for index in constraint:
     #         print(f"{constraint}[{index}]: {constraint[index].body}")
 
-    #solving the model
+    # endregion
+    # ---------------------------------------------------------------------------------------------------------------------
+    # region giving variables from last iteration in case receding horizon is on
+
+    if k != 0:
+        for i in df_time_dependent_variable_values.columns:
+            var_value = df_time_dependent_variable_values[i].iloc[df['HOURS'].iloc[0]]
+            text = 'instance.' + i + '[' + str(df['HOURS'].iloc[0]) + '].fix(' + str(var_value) + ')'
+            exec(text)
+
+    # endregion
+    # ---------------------------------------------------------------------------------------------------------------------
+    # region solving model
+
     optimizer = pyo.SolverFactory('cplex')
     results = optimizer.solve(instance)
 
@@ -433,13 +445,11 @@ for k,df in enumerate(list_split):
     # ---------------------------------------------------------------------------------------------------------------------
     # region exporting results
 
-    # separating time dependend and time independent variables to be exported
+    # separating time dependend and time independent variables to be exported, only important when receding horizon is turned off
     variable_names_time_dependent = []
     variable_names_scalar = []
     variable_values_scalar = []
     for var_component in instance.component_objects(pyo.Var):
-        # print(var_component)
-        # print(len(var_component))
         if len(var_component) == 1:
             variable_names_scalar.append(var_component.name)
             variable_values_scalar.append(pyo.value(getattr(instance,var_component.name)))
@@ -451,7 +461,6 @@ for k,df in enumerate(list_split):
         index = variable_names_time_dependent[i].find('[') 
         # Remove the text after '[' including '['
         variable_names_time_dependent[i] = variable_names_time_dependent[i][:index]
-
     variable_names_time_dependent = list(set(variable_names_time_dependent))
 
     # Create an empty DataFrame to store the variable values
@@ -469,34 +478,11 @@ for k,df in enumerate(list_split):
     df_time_dependent_variable_values = utils.organize_output_columns(df_time_dependent_variable_values,df_aux)
     df_time_dependent_variable_values.to_excel(path_output +'/time dependant variables/'+ 'df_time_dependent_variable_values' + str(k) + '.xlsx',index = False)
 
-    df_final = df_final.append(df_time_dependent_variable_values.iloc[0:control.saved_position], ignore_index = True)
+    utils.write_to_financial_model(df_time_dependent_variable_values, path_output, False) ######################## CORRIGIR AQUI DEPOIS
 
-    utils.write_to_financial_model(df_time_dependent_variable_values, path_output, False)
-
-    #getting values of VARIABLES from last time step in order to start the next horizon.
-    columns = df_final.columns
-    list_values_last_time_step = []
-    for i in columns:
-        list_values_last_time_step.append(df_final.loc[len(df_final)-1,i])
-
-    if df['HOURS'].iloc[0] != 1:
-        for var_name, value in zip(columns, list_values_last_time_step):
-            if var_name != 'TimeStep':
-                print(var_name)
-                # print('entrou!')
-                # Access the existing variable and set its value at time step 
-                # text = 'model.' + var_name + '= pyo.Var(model.HOURS, within = pyo.NonNegativeReals)'
-                # exec(text) 
-                text = 'instance.' + var_name + '[' + str(int(df_final['TimeStep'].iloc[len(df_final)-1])) + '].fix(' + str(value) + ')'
-                exec(text)
-                # variable = getattr(model, var_name)
-                # variable[model.HOURS[df_final['TimeStep'].iloc[len(df_final)-1]]].value = value    
-
-if control.receding_horizon == 'yes':
+if control.receding_horizon == 'no':
     df_scalar_variable_values = pd.DataFrame([variable_values_scalar], columns = variable_names_scalar).T
     df_scalar_variable_values.columns = ['value']
     df_scalar_variable_values.to_excel(path_output + 'df_scalar_variable_values.xlsx')
-
-df_final.to_excel(path_output + 'df_final.xlsx',index = False)
 
     #endregion 
