@@ -244,4 +244,12 @@ def organize_output_columns(df_variable_values,df_aux):
 
     return df_variable_values
 
+def breaking_dataframe(df,horizon,saved_position):
+    list_split = []
+    for i in range(0,len(df),saved_position):
+        # print('\n------------'+str(i))
+        list_split.append(df.iloc[i:i + horizon])
+        # print(list_split[-1])
+    return list_split
+
 

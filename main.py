@@ -138,9 +138,9 @@ if control.df.loc['size_optimization','value'] == 'yes':
     df_size_optimization['upper bound'] = 0
 
     #writes to input file in order
-    with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
-        df_size_optimization.to_excel(writer,sheet_name = 'parameters to variables',index = False)
-    input('Please select parameters that are going to be optimized and press enter...')
+    # with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
+    #     df_size_optimization.to_excel(writer,sheet_name = 'parameters to variables',index = False)
+    # input('Please select parameters that are going to be optimized and press enter...')
 
     df_size_optimization = pd.read_excel(path_input + 'df_input.xlsx',sheet_name = 'parameters to variables', index_col = 0)
     df_size_optimization.index.title = None
@@ -234,18 +234,7 @@ for i in list_con_variables:
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region creating extra series and variables
-
-model.time_step = pyo.Param()
-
-model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals) # variable contained in objective constraints
-model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
-model.total_operation_cost = pyo.Var(model.HOURS, within = pyo.Reals) # variable contained in objective constraints
-model.total_emissions = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
-
-# endregion
-# ---------------------------------------------------------------------------------------------------------------------
-# region adding connection methods to created classes
+# region for loop for receiding horizon
 
 # loopin throuhg list_of_expressions and giving each class the respective connection equation
 constraint_number = 1
@@ -269,6 +258,16 @@ for i in df_aux.index:
             if callable(getattr(globals()[df_aux['element'].iloc[i]],j)):
                 print(j)
 
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region creating extra series and variables
+
+model.time_step = pyo.Param()
+
+model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals) # variable contained in objective constraints
+model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
+model.total_operation_cost = pyo.Var(model.HOURS, within = pyo.Reals) # variable contained in objective constraints
+model.total_emissions = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -347,105 +346,157 @@ else:
     model.costObjective.deactivate()
     print('cost objective deactivated')
 
-
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region reading data for parameters and series. If no input is given default value is set
+# region checking if simulation will have receiding horizon and then splitting input_series if it does.
 
-#reading data
-data = pyo.DataPortal()
-data['HOURS'] = df_input_series['HOURS'].tolist()
-data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
-
-#getting list with all needed PARAMETERS and SERIES of created classes and reading data, or getting default values from classes
-for i in df_aux.index:
-    element = df_aux['element'].iloc[i]
-    class_type = df_aux['type'].iloc[i]
-    list_parameters_series = list(vars(globals()[element]).keys())
-    list_parameters_series = [s for s in list_parameters_series if 'param_' in s]
-    # print('\n>>>>>>>>>>>>'+element)
-    # print(list_parameters_series)
-    for j in list_parameters_series:
-        if isinstance(getattr(globals()[element],j),list):
-            try:
-                data[j] = df_input_series.set_index('HOURS')[j].to_dict()
-            except Exception:
-                df_temp = pd.DataFrame({'HOURS': data['HOURS'],j : getattr(globals()[element],j)})
-                data[j] = df_temp.set_index('HOURS')[j].to_dict()
-        else:
-            try:
-                data[j] = {None:df_input_other.loc[df_input_other['Parameter'] == j, 'Value'].values[0]}
-            except Exception:
-                value = getattr(globals()[element],j)
-                data[j] = {None: value}
+if control.receding_horizon == 'yes':
+    list_split = utils.breaking_dataframe(df_input_series,control.horizon,control.saved_position)
+else:
+    list_split = []
+    list_split.append(df_input_series)
 
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region starting model
+# region adding connection methods to created classes
 
-#generating instance
-instance = model.create_instance(data)
+df_final = pd.DataFrame()
+for k,df in enumerate(list_split):
+    print(k)
+    # df.to_excel(path_output + 'df_split'+str(k)+'.xlsx')
 
-#printing constriants to check (uncomment to see all contraints)
-# print("Constraint Expressions:")
-# for constraint in instance.component_objects(pyo.Constraint):
-#     for index in constraint:
-#         print(f"{constraint}[{index}]: {constraint[index].body}")
+    # endregion
+    # ---------------------------------------------------------------------------------------------------------------------
+    # region reading data for parameters and series. If no input is given default value is set
 
-#solving the model
-optimizer = pyo.SolverFactory('cplex')
-results = optimizer.solve(instance)
-
-# # Displaying the results
-# instance.pprint()
-# instance.display()
-
-# endregion
-# ---------------------------------------------------------------------------------------------------------------------
-# region exporting results
-
-# separating time dependend and time independent variables to be exported
-variable_names_time_dependent = []
-variable_names_scalar = []
-variable_values_scalar = []
-for var_component in instance.component_objects(pyo.Var):
-    # print(var_component)
-    # print(len(var_component))
-    if len(var_component) == 1:
-        variable_names_scalar.append(var_component.name)
-        variable_values_scalar.append(pyo.value(getattr(instance,var_component.name)))
+    #reading data
+    data = pyo.DataPortal()
+    if df['HOURS'].iloc[0] != 1:
+        lista = df['HOURS'].tolist()
+        lista.insert(0,df['HOURS'].iloc[0]-1)
+        data['HOURS'] = lista
+        print('\n-------------------Lista:')
+        print(lista)
     else:
-        for var in var_component.values():
-            variable_names_time_dependent.append(var.name)
+        data['HOURS'] = df['HOURS'].tolist()
 
-for i in range(len(variable_names_time_dependent)):
-    # Find the index of '['
-    index = variable_names_time_dependent[i].find('[') 
-    # Remove the text after '[' including '['
-    variable_names_time_dependent[i] = variable_names_time_dependent[i][:index]
+    df = pd.concat([df_input_series.iloc[df['HOURS'].iloc[0]-1 : df['HOURS'].iloc[0]], df], ignore_index = True)
 
-variable_names_time_dependent = list(set(variable_names_time_dependent))
+    data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
 
-# Create an empty DataFrame to store the variable values
-df_time_dependent_variable_values = pd.DataFrame(columns=['TimeStep'] + variable_names_time_dependent)
+    #getting list with all needed PARAMETERS and SERIES of created classes and reading data, or getting default values from classes
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        class_type = df_aux['type'].iloc[i]
+        list_parameters_series = list(vars(globals()[element]).keys())
+        list_parameters_series = [s for s in list_parameters_series if 'param_' in s]
+        # print('\n>>>>>>>>>>>>'+element)
+        # print(list_parameters_series)
+        for j in list_parameters_series:
+            if isinstance(getattr(globals()[element],j),list):
+                try:
+                    data[j] = df.set_index('HOURS')[j].to_dict()
+                except Exception:
+                    df_temp = pd.DataFrame({'HOURS': data['HOURS'],j : getattr(globals()[element],j)})
+                    data[j] = df_temp.set_index('HOURS')[j].to_dict()
+            else:
+                try:
+                    data[j] = {None:df_input_other.loc[df_input_other['Parameter'] == j, 'Value'].values[0]}
+                except Exception:
+                    value = getattr(globals()[element],j)
+                    data[j] = {None: value}
 
-# Iterate over the time steps and extract the variable values
-for t in instance.HOURS:
-    row = {'TimeStep': t}
-    for var_name in variable_names_time_dependent:
-        var_value = getattr(instance, var_name)
-        row[var_name] = pyo.value(var_value[t])
-    df_time_dependent_variable_values = df_time_dependent_variable_values.append(row, ignore_index = True)
 
-# Organize and export the DataFrame with the variable values
-df_time_dependent_variable_values = utils.organize_output_columns(df_time_dependent_variable_values,df_aux)
-df_time_dependent_variable_values.to_excel(path_output + 'df_time_dependent_variable_values.xlsx',index = False)
+    # endregion
+    # ---------------------------------------------------------------------------------------------------------------------
+    # region starting model
 
-df_scalar_variable_values = pd.DataFrame([variable_values_scalar], columns = variable_names_scalar).T
-df_scalar_variable_values.columns = ['value']
-df_scalar_variable_values.to_excel(path_output + 'df_scalar_variable_values.xlsx')
+    #generating instance
+    instance = model.create_instance(data)
 
-utils.write_to_financial_model(df_time_dependent_variable_values, path_output, False)
+    #printing constriants to check (uncomment to see all contraints)
+    # print("Constraint Expressions:")
+    # for constraint in instance.component_objects(pyo.Constraint):
+    #     for index in constraint:
+    #         print(f"{constraint}[{index}]: {constraint[index].body}")
 
-#endregion
+    #solving the model
+    optimizer = pyo.SolverFactory('cplex')
+    results = optimizer.solve(instance)
+
+    # # Displaying the results
+    # instance.pprint()
+    # instance.display()
+
+    # endregion
+    # ---------------------------------------------------------------------------------------------------------------------
+    # region exporting results
+
+    # separating time dependend and time independent variables to be exported
+    variable_names_time_dependent = []
+    variable_names_scalar = []
+    variable_values_scalar = []
+    for var_component in instance.component_objects(pyo.Var):
+        # print(var_component)
+        # print(len(var_component))
+        if len(var_component) == 1:
+            variable_names_scalar.append(var_component.name)
+            variable_values_scalar.append(pyo.value(getattr(instance,var_component.name)))
+        else:
+            for var in var_component.values():
+                variable_names_time_dependent.append(var.name)
+    for i in range(len(variable_names_time_dependent)):
+        # Find the index of '['
+        index = variable_names_time_dependent[i].find('[') 
+        # Remove the text after '[' including '['
+        variable_names_time_dependent[i] = variable_names_time_dependent[i][:index]
+
+    variable_names_time_dependent = list(set(variable_names_time_dependent))
+
+    # Create an empty DataFrame to store the variable values
+    df_time_dependent_variable_values = pd.DataFrame(columns=['TimeStep'] + variable_names_time_dependent)
+
+    # Iterate over the time steps and extract the variable values
+    for t in instance.HOURS:
+        row = {'TimeStep': t}
+        for var_name in variable_names_time_dependent:
+            var_value = getattr(instance, var_name)
+            row[var_name] = pyo.value(var_value[t])
+        df_time_dependent_variable_values = df_time_dependent_variable_values.append(row, ignore_index = True)
+
+    # Organize and export the DataFrame with the variable values
+    df_time_dependent_variable_values = utils.organize_output_columns(df_time_dependent_variable_values,df_aux)
+    df_time_dependent_variable_values.to_excel(path_output +'/time dependant variables/'+ 'df_time_dependent_variable_values' + str(k) + '.xlsx',index = False)
+
+    df_final = df_final.append(df_time_dependent_variable_values.iloc[0:control.saved_position], ignore_index = True)
+
+    utils.write_to_financial_model(df_time_dependent_variable_values, path_output, False)
+
+    #getting values of VARIABLES from last time step in order to start the next horizon.
+    columns = df_final.columns
+    list_values_last_time_step = []
+    for i in columns:
+        list_values_last_time_step.append(df_final.loc[len(df_final)-1,i])
+
+    if df['HOURS'].iloc[0] != 1:
+        for var_name, value in zip(columns, list_values_last_time_step):
+            if var_name != 'TimeStep':
+                print(var_name)
+                # print('entrou!')
+                # Access the existing variable and set its value at time step 
+                # text = 'model.' + var_name + '= pyo.Var(model.HOURS, within = pyo.NonNegativeReals)'
+                # exec(text) 
+                text = 'instance.' + var_name + '[' + str(int(df_final['TimeStep'].iloc[len(df_final)-1])) + '].fix(' + str(value) + ')'
+                exec(text)
+                # variable = getattr(model, var_name)
+                # variable[model.HOURS[df_final['TimeStep'].iloc[len(df_final)-1]]].value = value    
+
+if control.receding_horizon == 'yes':
+    df_scalar_variable_values = pd.DataFrame([variable_values_scalar], columns = variable_names_scalar).T
+    df_scalar_variable_values.columns = ['value']
+    df_scalar_variable_values.to_excel(path_output + 'df_scalar_variable_values.xlsx')
+
+df_final.to_excel(path_output + 'df_final.xlsx',index = False)
+
+    #endregion 

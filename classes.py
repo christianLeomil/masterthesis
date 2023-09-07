@@ -12,6 +12,9 @@ class control:
 
         self.time_span = self.df.loc['time_span','value']
         self.opt_objective = self.df.loc['opt_objective','value']
+        self.receding_horizon = self.df.loc['receding_horizon','value']
+        self.horizon = self.df.loc['horizon','value']
+        self.saved_position = self.df.loc['saved_position','value']
 
         if self.df.loc['objective','value'] == 'emissions':
             self.opt_equation = 'emission_objective'
@@ -27,7 +30,16 @@ class control:
                 print('==========ERROR==========')
                 print('It is not possible to do a size optimization and receiding horizon simultaneously, Please choose one of the two.')
                 sys.exit()
-
+            elif self.horizon > self.time_span:
+                print('==========ERROR==========')
+                print('horizon cannot be bigger than time_span')
+                sys.exit()
+            elif self.saved_position > self.horizon:
+                print('==========ERROR==========')
+                print('number of saved lines cannot be bigger than the horizon')
+                sys.exit()
+                
+        
 class pv:
     def __init__(self,name_of_instance,time_span):
         self.name_of_instance = name_of_instance
