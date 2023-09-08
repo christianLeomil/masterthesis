@@ -363,8 +363,28 @@ else:
 
 df_final = pd.DataFrame()
 for k,df in enumerate(list_split):
-    print('Iteraction is ' + str(k))
+    print('K iteraction is ' + str(k))
     df.to_excel(path_output +'teste/df_split'+str(k)+'.xlsx')
+
+    if k != 0:
+        last_time_step_index = df['HOURS'].iloc[0]
+        print('--- the last time_step_is:'+ str(last_time_step_index))
+        df_input_other.loc[df_input_other['Parameter'] == 'param_starting_index','Value'] = last_time_step_index
+        list_columns = df_time_dependent_variable_values.columns
+        # list_columns = [s + '_starting_index' for s in list_columns]
+        list_values = []
+
+        for i in list_columns:
+            
+            list_values.append(df_time_dependent_variable_values.loc[df_time_dependent_variable_values['TimeStep'] == last_time_step_index,i].values[0])
+
+        list_columns = ['param_' + s + '_starting_index' for s in list_columns]
+        df_variables_last_time_step = pd.DataFrame({'Parameter': list_columns,
+                                                    'Value': list_values})
+        
+        df_variables_last_time_step.to_excel(path_output + '/teste/df_variables_last_time_step'+str(k)+'.xlsx',index = False)        
+        
+        df_input_other = utils.save_variables_last_time_step(df_input_other,df_variables_last_time_step)
 
     # endregion
     # ---------------------------------------------------------------------------------------------------------------------

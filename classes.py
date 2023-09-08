@@ -206,6 +206,12 @@ class bat:
         self.param_bat_cycles = 9000 # full cycles before final SoH is reached and battery is replaced
         self.param_bat_aging = (self.param_bat_E_max_initial * (1 -self.param_bat_final_SoH)) / (self.param_bat_cycles * 2 * self.param_bat_E_max_initial) / self.param_bat_E_max_initial
         self.param_bat_inv_per_capacity = 650 # EURO per kWh capacity
+        self.param_starting_index = 0
+
+        self.param_bat_SOC_starting_index = 1
+        self.param_bat_cumulated_aging_starting_index = 1
+        self.param_bat_inv_cost_starting_index = 1
+        
         if receding_horizon == 'yes':
             self.param_receding_horizon = 1
         else:
@@ -231,8 +237,10 @@ class bat:
         if t == 1:
             return model.bat_cumulated_aging[t] == (model.P_from_bat[t] + 
                                                     model.P_to_bat[t]) * model.time_step * model.param_bat_aging
-        elif t % 4 == 0 and model.param_receding_horizon == 1:
-            return model.bat_cumulated_aging[t] == 0.1
+        
+        elif t == model.param_starting_index and model.param_receding_horizon == 1:
+            return model.bat_cumulated_aging[t] == model.param_bat_cumulated_aging_starting_index
+        
         else:
             return model.bat_cumulated_aging[t] == model.bat_cumulated_aging[t-1] + (model.P_from_bat[t] + 
                                                                                      model.P_to_bat[t]) * model.time_step * model.param_bat_aging
@@ -259,8 +267,9 @@ class bat:
             if t == 1:
                 return model.bat_SOC[t] == model.param_bat_starting_SOC + (model.P_to_bat[t] * model.param_bat_ch_eff 
                                                                  - model.P_from_bat[t]/model.param_bat_dis_eff) * model.time_step / model.param_bat_E_max_initial
-            elif t % 4 == 0 and model.param_receding_horizon == 1:
-                return model.bat_SOC[t] == 0.5
+            
+            elif t == model.param_starting_index and model.param_receding_horizon == 1:
+                return model.bat_SOC[t] == model.param_bat_SOC_starting_index
             
             else:
                 return model.bat_SOC[t] == model.bat_SOC[t-1] + (model.P_to_bat[t] * model.param_bat_ch_eff 
@@ -285,8 +294,8 @@ class bat:
         if t == 1:
             return model.bat_inv_cost[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity
         
-        elif t % 4 == 0 and model.param_receding_horizon == 1:
-            return model.bat_inv_cost[t] == 0.5
+        elif t == model.param_starting_index and model.param_receding_horizon == 1:
+            return model.bat_inv_cost[t] == model.param_bat_inv_cost_starting_index
 
         else:
             return model.bat_inv_cost[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity * (model.bat_integer[t] - model.bat_integer[t-1])

@@ -255,4 +255,13 @@ def breaking_dataframe(df,horizon,saved_position):
         # print(list_split[-1])
     return list_split
 
+def save_variables_last_time_step(df_input_others,df_variables_last_time_step):
+    for j in df_variables_last_time_step.index:
+        if df_variables_last_time_step['Parameter'].iloc[j] in df_input_others['Parameter'].tolist():
+            df_input_others.loc[df_input_others['Parameter']==df_variables_last_time_step['Parameter'].iloc[j], 'Value'] = df_variables_last_time_step['Value'].iloc[j]
+        else:
+            row_to_append = df_variables_last_time_step.loc[j]
+            df_input_others = df_input_others.append(row_to_append, ignore_index = True)
+            
+    return df_input_others
 
