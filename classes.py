@@ -211,12 +211,12 @@ class bat:
         self.param_bat_SOC_starting_index = 1
         self.param_bat_cumulated_aging_starting_index = 1
         self.param_bat_inv_cost_starting_index = 1
+        self.param_bat_integer_starting_index = 1
         
         if receding_horizon == 'yes':
             self.param_receding_horizon = 1
         else:
             self.param_receding_horizon = 0
-        # self.param_receding_horizon = receding_horizon
 
         #defining energy type to build connections with other componets correctly
         self.energy_type = {'electric':'yes',
@@ -247,13 +247,15 @@ class bat:
         
     def constraint_upper_integer_rule(model,t):
         if t == 1:
-            return model.bat_integer[t] == 0
+            return model.bat_integer[t] == 0 
         else:
             return model.bat_integer[t] <= model.bat_cumulated_aging[t] / (1-model.param_bat_final_SoH)
     
     def constraint_lower_integer_rule(model,t):
         if t == 1:
-            return model.bat_integer[t] == 0 
+            return model.bat_integer[t] == 0
+        elif t == model.param_starting_index and model.param_receding_horizon == 1:
+            return model.bat_integer[t] == model.param_bat_integer_starting_index
         else:
             return model.bat_integer[t] >= model.bat_cumulated_aging[t] / (1-model.param_bat_final_SoH) - 1
      
@@ -264,16 +266,14 @@ class bat:
             return model.bat_SOC_max[t] == 1 - model.bat_cumulated_aging[t] + model.bat_integer[t] * (1 - model.param_bat_final_SoH)
     
     def constraint_function_rule(model,t):
-            if t == 1:
-                return model.bat_SOC[t] == model.param_bat_starting_SOC + (model.P_to_bat[t] * model.param_bat_ch_eff 
-                                                                 - model.P_from_bat[t]/model.param_bat_dis_eff) * model.time_step / model.param_bat_E_max_initial
-            
-            elif t == model.param_starting_index and model.param_receding_horizon == 1:
-                return model.bat_SOC[t] == model.param_bat_SOC_starting_index
-            
-            else:
-                return model.bat_SOC[t] == model.bat_SOC[t-1] + (model.P_to_bat[t] * model.param_bat_ch_eff 
-                                                                 - model.P_from_bat[t]/model.param_bat_dis_eff) * model.time_step / model.param_bat_E_max_initial
+        if t == 1:
+            return model.bat_SOC[t] == model.param_bat_starting_SOC + (model.P_to_bat[t] * model.param_bat_ch_eff 
+                                                                - model.P_from_bat[t]/model.param_bat_dis_eff) * model.time_step / model.param_bat_E_max_initial
+        elif t == model.param_starting_index and model.param_receding_horizon == 1:
+            return model.bat_SOC[t] == model.param_bat_SOC_starting_index
+        else:
+            return model.bat_SOC[t] == model.bat_SOC[t-1] + (model.P_to_bat[t] * model.param_bat_ch_eff 
+                                                                - model.P_from_bat[t]/model.param_bat_dis_eff) * model.time_step / model.param_bat_E_max_initial
 
     def constraint_charge_limit(model,t):
         return model.P_to_bat[t] <= model.param_bat_E_max_initial * model.bat_K_ch[t] * model.param_bat_c_rate_ch
@@ -293,16 +293,14 @@ class bat:
     def constraint_investment_costs(model,t):
         if t == 1:
             return model.bat_inv_cost[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity
-        
         elif t == model.param_starting_index and model.param_receding_horizon == 1:
             return model.bat_inv_cost[t] == model.param_bat_inv_cost_starting_index
-
         else:
             return model.bat_inv_cost[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity * (model.bat_integer[t] - model.bat_integer[t-1])
 
 
 class solar_th:
-    def __init__(self,name_of_instance,time_span):
+    def __init__(self,name_of_instance,time_span,receding_horizon):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['solar_th_op_cost','solar_th_emissions','solar_th_inv_cost'] #no powers
@@ -346,7 +344,7 @@ class solar_th:
         
 
 class pvt:
-    def __init__(self,name_of_instance,time_span):
+    def __init__(self,name_of_instance,time_span,receding_horizon):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['pvt_op_cost','pvt_emissions','pvt_inv_cost'] #no powers
@@ -393,7 +391,7 @@ class pvt:
             return model.pvt_inv_cost[t] == 0
         
 class CHP:
-    def __init__(self,name_of_instance,time_span):
+    def __init__(self,name_of_instance,time_span,receding_horizon):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['CHP_fuel_cons','CHP_op_cost','CHP_emissions','CHP_inv_cost'] #no powers
@@ -445,7 +443,7 @@ class CHP:
 
 class charging_station:
 
-    def __init__(self,name_of_instance,time_span):
+    def __init__(self,name_of_instance,time_span,receding_horizon):
         self.name_of_instance = name_of_instance
 
         #default values in case of no input
@@ -686,7 +684,7 @@ class charging_station:
     
 
 class heat_pump:
-    def __init__(self, name_of_instance,time_step):
+    def __init__(self, name_of_instance,time_step,receding_horizon):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['heat_pump_emissions','heat_pump_inv_cost','heat_pump_op_cost'] #no powers

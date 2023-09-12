@@ -5,7 +5,9 @@ import utils
 import inspect
 import textwrap
 import warnings
+import time
 
+start_time = time.time()
 warnings.filterwarnings("ignore", '.*')
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -34,7 +36,7 @@ df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 # writing dataframes on inputfile to input 
 # utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
 # utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
-# input("Please insert the connection between elements of energy system and press enter to continue...")
+# input("\nPlease insert the connection between elements of energy system and press enter to continue...")
 
 #reading inputs for the connections between elements of the energy system written in the input file
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
@@ -66,7 +68,7 @@ model.HOURS = pyo.Set()
 # region creating instances of selected elements of the energy system
 
 for i in df_aux.index:
-    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i],control.time_span - 1,control.receding_horizon)
+    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i], control.time_span - 1, control.receding_horizon)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -138,9 +140,9 @@ if control.df.loc['size_optimization','value'] == 'yes':
     df_size_optimization['upper bound'] = 0
 
     #writes to input file in order
-    # with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
-    #     df_size_optimization.to_excel(writer,sheet_name = 'parameters to variables',index = False)
-    # input('Please select parameters that are going to be optimized and press enter...')
+    with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
+        df_size_optimization.to_excel(writer,sheet_name = 'parameters to variables',index = False)
+    input('Please select parameters that are going to be optimized and press enter...')
 
     df_size_optimization = pd.read_excel(path_input + 'df_input.xlsx',sheet_name = 'parameters to variables', index_col = 0)
     df_size_optimization.index.title = None
@@ -382,7 +384,7 @@ for k,df in enumerate(list_split):
         df_variables_last_time_step = pd.DataFrame({'Parameter': list_columns,
                                                     'Value': list_values})
         
-        df_variables_last_time_step.to_excel(path_output + '/teste/df_variables_last_time_step'+str(k)+'.xlsx',index = False)        
+        df_variables_last_time_step.to_excel(path_output + '/teste/df_variables_last_time_step'+str(k)+'.xlsx',index = False) 
         
         df_input_other = utils.save_variables_last_time_step(df_input_other,df_variables_last_time_step)
 
@@ -416,45 +418,6 @@ for k,df in enumerate(list_split):
                 except Exception:
                     value = getattr(globals()[element],j)
                     data[j] = {None: value}
-
-    # endregion
-    # ---------------------------------------------------------------------------------------------------------------------
-    # region creating extra constraints for fixing values of VARIABLES with conection with previous time step
-
-
-
-    # if k != 0:
-
-    #     print('\n============= Creating extra constraints for variables with connection with previous time step =============')
-
-    #     index = df['HOURS'].iloc[0]
-    #     value1 = df_time_dependent_variable_values['bat1_SOC'].iloc[index]
-    #     value2 = df_time_dependent_variable_values['bat1_cumulated_aging'].iloc[index]
-    #     value3 = df_time_dependent_variable_values['bat1_integer'].iloc[index]
-
-    #     def constraint_extra_1(model,t):
-    #         model.bat1_SOC[index] == value1
-    #     model.constraintExtra1 = pyo.Constraint(model.HOURS,rule= constraint_extra_1)
-
-    #     def constraint_extra_2(model,t):
-    #         model.bat1_cumulated_aging[index] == value2
-    #     model.constraintExtra2 = pyo.Constraint(model.HOURS,rule= constraint_extra_2)
-
-    #     def constraint_extra_3(model,t):
-    #         model.bat1_integer[index] == value3
-    #     model.constraintExtra3 = pyo.Constraint(model.HOURS,rule= constraint_extra_3)
-
-    # constraint_num = 1
-    # for i in df_aux.index:
-    #     element = df_aux['element'].iloc[i]
-    #     methods = inspect.getmembers(globals()[element],inspect.isfunction)
-    #     print('------------' + element)
-    #     for method_name,method in methods:
-    #         if not method_name.startswith('__'):
-    #             method = getattr(globals()[element],method_name)
-    #             model.add_component('Constraint_con_var_'+ str(constraint_num), pyo.Constraint(model.HOURS, rule = method))
-    #             print('-' + str(constraint_num) + '-' + method_name)
-    #             constraint_num += 1
 
 
     # endregion
@@ -519,11 +482,28 @@ for k,df in enumerate(list_split):
     df_time_dependent_variable_values = utils.organize_output_columns(df_time_dependent_variable_values,df_aux)
     df_time_dependent_variable_values.to_excel(path_output +'/time dependant variables/'+ 'df_time_dependent_variable_values' + str(k) + '.xlsx',index = False)
 
-    utils.write_to_financial_model(df_time_dependent_variable_values, path_output, False) ######################## CORRIGIR AQUI DEPOIS
+    if control.receding_horizon == 'yes':
+        if k == 0:
+            df_final = pd.concat([df_final, df_time_dependent_variable_values.loc[0 : control.saved_position-1]], ignore_index = True)
+        else:
+            df_final = pd.concat([df_final, df_time_dependent_variable_values.loc[1 : control.saved_position]], ignore_index = True)
+    else:
+        df_final = df_time_dependent_variable_values.copy()
+
+    utils.write_to_financial_model(df_time_dependent_variable_values, path_output, False) ######################## CORRIGIR Financial model AQUI DEPOIS
 
 if control.receding_horizon == 'no':
     df_scalar_variable_values = pd.DataFrame([variable_values_scalar], columns = variable_names_scalar).T
     df_scalar_variable_values.columns = ['value']
     df_scalar_variable_values.to_excel(path_output + 'df_scalar_variable_values.xlsx')
 
-    #endregion 
+df_final.to_excel(path_output + 'df_final.xlsx',index = False)
+
+#endregion 
+
+# Record the end time
+end_time = time.time()
+
+# Calculate and print the elapsed time
+elapsed_time = end_time - start_time
+print(f"Elapsed time: {elapsed_time} seconds")
