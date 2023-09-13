@@ -3,8 +3,11 @@ import pyomo.environ as pyo
 
 
 class Generator:
-    def __init__(self,id) -> None:
-        self.id = id
+    def __init__(self) -> None:
+        self.new_method()
+
+    def new_method(self):
+        pass
     # def __init__(self,type_,model, id,eff,E_in,op_cost,inv_cost,emission):
     # # def __init__(self, model, id):
     #     self.class_type = 'generator'
@@ -25,7 +28,7 @@ class Generator:
     
 
 class Pv(Generator):
-    type = 'pv'
+    # type = 'pv'
     # def __init__(self,eff,E_in,op_cost,inv_cost,emission):
     #     # super().__init__('pv',id_number,eff,E_in,op_cost,inv_cost,emission)
     # # def __init__(self):
@@ -84,12 +87,6 @@ class Pv(Generator):
     #     return self.model.P_solar[t] * self.model.pv_eff[n] == self.model.P_pv[t,n]
     # def pv_rule(self,t,n):
     #     return self.model.P_pv[t,n] == self.model.P_pv_bat[t,n] + self.model.P_pv_net[t,n] + self.model.P_pv_demand[t,n]
-
-class Net(Generator):
-    def Demand(model):
-        model.P_net_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-
-
     
 class Batteries:
     pass
