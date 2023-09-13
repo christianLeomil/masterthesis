@@ -3,8 +3,16 @@ import pyomo.environ as pyo
 
 
 class Generator:
+<<<<<<< HEAD
+    def __init__(self) -> None:
+        self.new_method()
+
+    def new_method(self):
+        pass
+=======
     def __init__(self,id) -> None:
         self.id = id
+>>>>>>> b84b25036dd974f68e72fe27e1783896b92019db
     # def __init__(self,type_,model, id,eff,E_in,op_cost,inv_cost,emission):
     # # def __init__(self, model, id):
     #     self.class_type = 'generator'
@@ -25,7 +33,11 @@ class Generator:
     
 
 class Pv(Generator):
+<<<<<<< HEAD
+    # type = 'pv'
+=======
     type = 'pv'
+>>>>>>> b84b25036dd974f68e72fe27e1783896b92019db
     # def __init__(self,eff,E_in,op_cost,inv_cost,emission):
     #     # super().__init__('pv',id_number,eff,E_in,op_cost,inv_cost,emission)
     # # def __init__(self):
@@ -34,6 +46,8 @@ class Pv(Generator):
     #     self.inv_cost = inv_cost
     #     self.op_cost = op_cost
     #     self.emission = emission
+<<<<<<< HEAD
+=======
     def Set(model):
         model.PV = pyo.Set() # this will return a set
     
@@ -61,6 +75,7 @@ class Pv(Generator):
         model.P_pv_demand = pyo.Var(model.HOURS, model.PV,within = pyo.NonNegativeReals)
 
 
+>>>>>>> b84b25036dd974f68e72fe27e1783896b92019db
 
     # def create_Sets(self):
     #     self.model.PV = pyo.Set() # model.PV
@@ -84,13 +99,10 @@ class Pv(Generator):
     #     return self.model.P_solar[t] * self.model.pv_eff[n] == self.model.P_pv[t,n]
     # def pv_rule(self,t,n):
     #     return self.model.P_pv[t,n] == self.model.P_pv_bat[t,n] + self.model.P_pv_net[t,n] + self.model.P_pv_demand[t,n]
-
-class Net(Generator):
-    def Demand(model):
-        model.P_net_demand = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-
-
     
+<<<<<<< HEAD
+class Bat:
+=======
 class Batteries:
     pass
 
@@ -104,6 +116,7 @@ class House_Batterie(Batteries):
         model.c_rate_dis = pyo.Param() #maximal discharging power (max discharging power = c_rate * E_bat_max)
 
 
+>>>>>>> b84b25036dd974f68e72fe27e1783896b92019db
     # def __init__(self,model, quantity):
     #     self.model = model
     #     self.quantity = quantity
