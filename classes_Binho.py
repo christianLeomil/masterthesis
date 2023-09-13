@@ -3,11 +3,16 @@ import pyomo.environ as pyo
 
 
 class Generator:
+<<<<<<< HEAD
     def __init__(self) -> None:
         self.new_method()
 
     def new_method(self):
         pass
+=======
+    def __init__(self,id) -> None:
+        self.id = id
+>>>>>>> b84b25036dd974f68e72fe27e1783896b92019db
     # def __init__(self,type_,model, id,eff,E_in,op_cost,inv_cost,emission):
     # # def __init__(self, model, id):
     #     self.class_type = 'generator'
@@ -22,7 +27,11 @@ class Generator:
     
 
 class Pv(Generator):
+<<<<<<< HEAD
     # type = 'pv'
+=======
+    type = 'pv'
+>>>>>>> b84b25036dd974f68e72fe27e1783896b92019db
     # def __init__(self,eff,E_in,op_cost,inv_cost,emission):
     #     # super().__init__('pv',id_number,eff,E_in,op_cost,inv_cost,emission)
     # # def __init__(self):
@@ -31,6 +40,36 @@ class Pv(Generator):
     #     self.inv_cost = inv_cost
     #     self.op_cost = op_cost
     #     self.emission = emission
+<<<<<<< HEAD
+=======
+    def Set(model):
+        model.PV = pyo.Set() # this will return a set
+    
+    def Parameters(model, Set, Hours):
+        model.pv_eff = pyo.Param(Set) #this returns efficiency to each PV
+        model.Sollar_Power = pyo.Param(Hours)  # this returns sower power for each hour in our model
+    # def Efficiency(Set):
+    #     return pyo.Param(Set) #this returns efficiency to each PV
+    
+    # def Sollar_Power(Hours):
+    #     return pyo.Param(Hours) # this returns sower power for each hour in our model
+
+    def Power(model,t,n):
+        model.P_PV = pyo.Var(model.HOURS, model.PV, within = pyo.NonNegativeReals)
+        return (model.Sollar_Power[t] * model.pv_eff[n] == model.P_pv[t,n])
+    
+    def Net(model):
+        model.P_pv_net = pyo.Var(model.HOURS, model.PV, within = pyo.NonNegativeReals)
+# --------------------------------------- Important searche which baterry it wants to charge
+    def Batteries(model):
+        model.P_pv_bat = pyo.Var(model.HOURS,model.PV, within = pyo.NonNegativeReals)
+# ----------------------------------------
+
+    def Demand(model):
+        model.P_pv_demand = pyo.Var(model.HOURS, model.PV,within = pyo.NonNegativeReals)
+
+
+>>>>>>> b84b25036dd974f68e72fe27e1783896b92019db
 
     # def create_Sets(self):
     #     self.model.PV = pyo.Set() # model.PV
@@ -55,7 +94,23 @@ class Pv(Generator):
     # def pv_rule(self,t,n):
     #     return self.model.P_pv[t,n] == self.model.P_pv_bat[t,n] + self.model.P_pv_net[t,n] + self.model.P_pv_demand[t,n]
     
+<<<<<<< HEAD
 class Bat:
+=======
+class Batteries:
+    pass
+
+class House_Batterie(Batteries):
+    def Parameters(model):
+        model.starting_SOC = pyo.Param()
+        model.E_bat_max = pyo.Param() #capacity of battery
+        model.bat_ch_eff = pyo.Param() #charging efficiency of battery
+        model.bat_dis_eff = pyo.Param() #discharging efficiency of battery
+        model.c_rate_ch = pyo.Param() #maximal charging power (max charging power = c_rate * E_bat_max)
+        model.c_rate_dis = pyo.Param() #maximal discharging power (max discharging power = c_rate * E_bat_max)
+
+
+>>>>>>> b84b25036dd974f68e72fe27e1783896b92019db
     # def __init__(self,model, quantity):
     #     self.model = model
     #     self.quantity = quantity
