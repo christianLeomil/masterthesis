@@ -467,12 +467,14 @@ class charging_station:
         self.param_charging_station_selling_price = 0.60
         self.param_charging_station_spec_emissions = 0.05
 
+        self.time_span = time_span 
+
         #defining paramenters for functions that are not constraints, includiing default values:
         self.dict_parameters  = {'list_sheets':['other','other','other','other'],
                                  'charging_station_mult': 1.2,
                                  'reference_date':datetime(2023,10,1),
-                                 'number_hours': time_span + 1,
-                                 'number_days': math.ceil((time_span + 1)/24)}
+                                 'number_hours': self.time_span + 1,
+                                 'number_days': math.ceil((self.time_span + 1)/24)}
         
         self.dict_series = {'list_sheets':['mix and capacity','mix and capacity','mix and capacity','mix SoC','mix SoC','mix SoC',
                                            'data_charging_station','data_charging_station','data_charging_station'],
@@ -524,11 +526,24 @@ class charging_station:
         
         self.param_P_to_charging_station = self.charging_demand_calculation()
 
+        self.write_P_to_charging_station()
+
+    def write_P_to_charging_station(self):
+        df_power = pd.DataFrame({self.name_of_instance:self.param_P_to_charging_station})
+        df_input_series = pd.read_excel(self.path_input + 'df_input.xlsx', sheet_name = 'series',nrows = self.time_span)
+        df_input_series = pd.concat([df_input_series,df_power],axis = 1)
+        with pd.ExcelWriter(self.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists='replace') as writer:
+            df_input_series.to_excel(writer,sheet_name = 'series', index = False)
+
+    
     def read_parameters(self, parameters):
+        print('-------printing parameters-------')
         count = 0
         list_sheets = parameters['list_sheets']
         del parameters['list_sheets']
         for name, default_value in parameters.items():
+            print(name)
+            print(default_value)
             df_others = pd.read_excel(self.path_input + self.name_file, index_col=0, sheet_name = list_sheets[count])
             df_others.index.name = None
             try:
@@ -536,12 +551,15 @@ class charging_station:
             except KeyError:
                 pass
             count += 1
-
+    
     def read_series(self, series):
+        print('-------printing series-------')
         count = 0 
         list_sheets = series['list_sheets']
         del series['list_sheets']
         for name, default_value in series.items():
+            print(name)
+            print(default_value)
             df_series = pd.read_excel(self.path_input + self.name_file, sheet_name = list_sheets[count])
             try:
                 series[name] = df_series[name].tolist()
@@ -585,10 +603,13 @@ class charging_station:
         list_days_models = []
         list_hours = []
         list_initial_SoC = []
-        list_final_SoC = []
+        list_final_SoC = []        
 
+        print('----------------')
+        print(self.dict_parameters['number_days'])
+        print('----------------')
 
-        for i in range(0,self.dict_parameters['number_days']):
+        for i in range(0,int(self.dict_parameters['number_days'])):
             for j in self.df_data_distribution.index:
 
                 mean = self.df_data_distribution.loc[j,'hours of peak']

@@ -21,16 +21,12 @@ name_file = 'df_input.xlsx'
 # creating instance of class that contains infos of how optimization is going to be
 control = classes.control(path_input,name_file)
 
-#reading series data of input file and inputs for scalar data
-df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'series', nrows = control.time_span - 1)
-df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
-
 #getting list of elements of energy system
 df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements')
 df_elements.index.name = None
 
 #preparing data on elements of the energy system for the rest of the file
-[df_con_electric, df_con_thermal,df_aux] = utils.aux_creator(df_elements,control.time_span,control.receding_horizon)
+[df_con_electric, df_con_thermal,df_aux] = utils.aux_creator(df_elements, control.time_span, control.receding_horizon)
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # writing dataframes on inputfile to input 
@@ -347,6 +343,15 @@ if control.opt_equation == 'cost_objective':
 else:
     model.costObjective.deactivate()
     print('cost objective deactivated')
+
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region reading SERIES data of input file and PARAMETER data for scalar inputs
+
+#reading series data of input file and inputs for scalar data
+df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'series', nrows = control.time_span - 1)
+df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
+
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
