@@ -18,6 +18,12 @@ class Generator:
     #     self.emission = emission
     
 
+    # Isso aqui é um teste
+
+
+
+    
+
 class Pv(Generator):
     type = 'pv'
     # def __init__(self,eff,E_in,op_cost,inv_cost,emission):
