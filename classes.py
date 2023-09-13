@@ -467,12 +467,14 @@ class charging_station:
         self.param_charging_station_selling_price = 0.60
         self.param_charging_station_spec_emissions = 0.05
 
+        self.time_span = time_span
+
         #defining paramenters for functions that are not constraints, includiing default values:
         self.dict_parameters  = {'list_sheets':['other','other','other','other'],
                                  'charging_station_mult': 1.2,
                                  'reference_date':datetime(2023,10,1),
-                                 'number_hours': time_span + 1,
-                                 'number_days': math.ceil((time_span + 1)/24)}
+                                 'number_hours': self.time_span + 1,
+                                 'number_days': math.ceil((self.time_span + 1)/24)}
         
         self.dict_series = {'list_sheets':['mix and capacity','mix and capacity','mix and capacity','mix SoC','mix SoC','mix SoC',
                                            'data_charging_station','data_charging_station','data_charging_station'],
@@ -587,6 +589,9 @@ class charging_station:
         list_initial_SoC = []
         list_final_SoC = []
 
+        print('------------------')
+        print(self.dict_parameters['number_days'])
+        print('------------------')
 
         for i in range(0,self.dict_parameters['number_days']):
             for j in self.df_data_distribution.index:
