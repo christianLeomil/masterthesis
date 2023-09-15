@@ -46,10 +46,9 @@ df_con_thermal.index.name = None
 df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
 df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
-print('Acho que chega ate aqui')
 # creating constriants that will turn into the objevtive functions
 list_objective_constraints = utils.objective_constraint_creator(df_aux,control.time_span,control.receding_horizon)
-print('Acho que chega ate aqui')
+
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -382,14 +381,10 @@ for k,df in enumerate(list_split):
         
         # model.starting_index = pyo.Param(initialize = last_time_step_index)
         df_input_other.loc[df_input_other['Parameter'] == 'starting_index','Value'] = last_time_step_index
-        data['starting_index'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'starting_index', 'Value'].values[0]}
-        print(data['starting_index'])
         list_columns = df_time_dependent_variable_values.columns
-        # list_columns = [s + '_starting_index' for s in list_columns]
         list_values = []
 
         for i in list_columns:
-            
             list_values.append(df_time_dependent_variable_values.loc[df_time_dependent_variable_values['TimeStep'] == last_time_step_index,i].values[0])
 
         list_columns = ['param_' + s + '_starting_index' for s in list_columns]
@@ -397,7 +392,6 @@ for k,df in enumerate(list_split):
                                                     'Value': list_values})
         
         df_variables_last_time_step.to_excel(path_output + '/teste/df_variables_last_time_step'+str(k)+'.xlsx',index = False) 
-        
         df_input_other = utils.save_variables_last_time_step(df_input_other,df_variables_last_time_step)
 
     # endregion
@@ -408,6 +402,7 @@ for k,df in enumerate(list_split):
     data = pyo.DataPortal()
     data['HOURS'] = df['HOURS'].tolist()
     # data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
+    data['starting_index'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'starting_index', 'Value'].values[0]}
 
     #getting list with all needed PARAMETERS and SERIES of created classes and reading data, or getting default values from classes
     for i in df_aux.index:
