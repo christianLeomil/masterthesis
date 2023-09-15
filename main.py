@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore", '.*')
 # ---------------------------------------------------------------------------------------------------------------------
 # region reading data, creating connections variables, connections constraints, and objevtive constriants
 
-# paths and name of input file
+# paths and name of input filexz
 path_input = './input/'
 path_output = './output/'
 name_file = 'df_input.xlsx'
@@ -21,12 +21,8 @@ name_file = 'df_input.xlsx'
 # creating instance of class that contains infos of how optimization is going to be
 control = classes.control(path_input,name_file)
 
-#reading series data of input file and inputs for scalar data
-df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'series', nrows = control.time_span - 1)
-df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
-
 #getting list of elements of energy system
-df_elements = pd.read_excel(path_input + name_file,index_col=0,sheet_name = 'elements')
+df_elements = pd.read_excel(path_input + name_file, index_col=0, sheet_name = 'elements')
 df_elements.index.name = None
 
 #preparing data on elements of the energy system for the rest of the file
@@ -50,8 +46,10 @@ df_con_thermal.index.name = None
 df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
 df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
+print('Acho que chega ate aqui')
 # creating constriants that will turn into the objevtive functions
 list_objective_constraints = utils.objective_constraint_creator(df_aux,control.time_span,control.receding_horizon)
+print('Acho que chega ate aqui')
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -62,13 +60,15 @@ model = pyo.AbstractModel()
 
 #sets
 model.HOURS = pyo.Set()
+model.starting_index = pyo.Param(initialize = 0)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region creating instances of selected elements of the energy system
 
 for i in df_aux.index:
-    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i], control.time_span - 1, control.receding_horizon)
+    # globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i], control.time_span - 1, control.receding_horizon)
+    globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i], control)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -264,7 +264,7 @@ for i in df_aux.index:
 # ---------------------------------------------------------------------------------------------------------------------
 # region creating extra series and variables
 
-model.time_step = pyo.Param()
+model.time_step = pyo.Param(initialize = 1)
 
 model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals) # variable contained in objective constraints
 model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
@@ -286,7 +286,9 @@ for i in df_aux.index:
         if not method_name.startswith('__'):
             method = getattr(globals()[element],method_name)
             model.add_component('Constraint_class_'+ str(constraint_num), pyo.Constraint(model.HOURS, rule = method))
-            print('-' + str(constraint_num) + '-' + method_name)
+            print('-' + str(constraint_num) + '-' + method_name + ' ----> ' + 'Constraint_class_'+ str(constraint_num))
+            # if 'Constraint_class_'+ str(constraint_num) == 'Constraint_class_43':
+            #     print(inspect.getsource(method))
             constraint_num += 1
 
 # endregion
@@ -350,6 +352,13 @@ else:
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
+# region reading series and parameters
+
+df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'series', nrows = control.time_span - 1)
+df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
+
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
 # region checking if simulation will have receiding horizon and then splitting input_series if it does.
 
 if control.receding_horizon == 'yes':
@@ -357,7 +366,6 @@ if control.receding_horizon == 'yes':
 else:
     list_split = []
     list_split.append(df_input_series)
-
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -371,7 +379,11 @@ for k,df in enumerate(list_split):
     if k != 0:
         last_time_step_index = df['HOURS'].iloc[0]
         print('--- the last time_step_is:'+ str(last_time_step_index))
-        df_input_other.loc[df_input_other['Parameter'] == 'param_starting_index','Value'] = last_time_step_index
+        
+        # model.starting_index = pyo.Param(initialize = last_time_step_index)
+        df_input_other.loc[df_input_other['Parameter'] == 'starting_index','Value'] = last_time_step_index
+        data['starting_index'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'starting_index', 'Value'].values[0]}
+        print(data['starting_index'])
         list_columns = df_time_dependent_variable_values.columns
         # list_columns = [s + '_starting_index' for s in list_columns]
         list_values = []
@@ -395,7 +407,7 @@ for k,df in enumerate(list_split):
     #reading data
     data = pyo.DataPortal()
     data['HOURS'] = df['HOURS'].tolist()
-    data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
+    # data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
 
     #getting list with all needed PARAMETERS and SERIES of created classes and reading data, or getting default values from classes
     for i in df_aux.index:
@@ -427,7 +439,7 @@ for k,df in enumerate(list_split):
     #generating instance
     instance = model.create_instance(data)
 
-    #printing constriants to check (uncomment to see all contraints)
+    # printing constriants to check (uncomment to see all contraints)
     # print("Constraint Expressions:")
     # for constraint in instance.component_objects(pyo.Constraint):
     #     for index in constraint:
