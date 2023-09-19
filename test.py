@@ -1,9 +1,5 @@
-from classes import pv
+from class_test.file_class import ClasseTese
 
-# Access the energy_type attribute without creating an instance
-energy_type_value = pv.energy_type
-constraint_rule = pv.constraint_generation_rule
+classTest = ClasseTese()
 
-# Now you can use energy_type_value in your main.py code
-print(energy_type_value)
-print(constraint_rule)
+print(classTest.method_1())
