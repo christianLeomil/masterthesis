@@ -15,6 +15,8 @@ class control:
         self.receding_horizon = self.df.loc['receding_horizon','value']
         self.horizon = self.df.loc['horizon','value']
         self.saved_position = self.df.loc['saved_position','value']
+        self.path_input = self.df.loc['path_input','value']
+        self.path_output = self.df.loc['path_output','value']
 
         if self.df.loc['objective','value'] == 'emissions':
             self.opt_equation = 'emission_objective'
@@ -38,10 +40,16 @@ class control:
                 print('==========ERROR==========')
                 print('number of saved lines cannot be bigger than the horizon')
                 sys.exit()
+        else:
+            self.horizon = self.time_span
                 
         
 class pv:
-    def __init__(self,name_of_instance,time_span,receding_horizon):
+    #defining energy type to build connections with other componets correctly
+    energy_type = {'electric':'yes','thermal':'no'}
+    super_class = 'generator'
+
+    def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['pv_op_cost','pv_emissions','pv_inv_cost'] #no connection powers
@@ -65,13 +73,22 @@ class pv:
         self.param_pv_life_time = 30 #lifetime of panels in years
         self.param_pv_spec_em = 0.50 #kgCO2eq/kWh generated
 
-        #default series
-        self.param_E_pv_solar = [0.12] * time_span # kWh/m^2 series for solar irradiation input, in case none is given
+        #Setting up default values for series if none are given in input file:
+        self.param_E_pv_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
+
+        self.write_E_pv_solar(control)
+
+    def write_E_pv_solar(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        if 'param_E_' + self.name_of_instance + '_solar' in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_E_' + self.name_of_instance + '_solar': self.param_E_pv_solar})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
         #defining energy type to build connections with other componets correctly
-        self.energy_type = {'electric':'yes',
-                            'thermal':'no'}
-        self.super_class = 'generator'
 
     def constraint_generation_rule(model,t):
         return model.P_from_pv[t] == (model.param_E_pv_solar[t] / model.time_step) * model.param_pv_eff * model.param_pv_area 
@@ -89,7 +106,11 @@ class pv:
             return model.pv_inv_cost[t] == 0
         
 class demand:
-    def __init__(self,name_of_instance,time_span,receding_horizon):
+    #defining energy type to build connections with other componets correctly
+    energy_type = {'electric':'yes','thermal':'yes'}
+    super_class = 'demand'
+
+    def __init__(self, name_of_instance, control):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['demand_inv_cost','demand_op_cost'] #no powers
@@ -98,15 +119,32 @@ class demand:
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        #default values in case of no input
-        self.param_P_to_demand = [500] * time_span # this is tranformed into a series in case user does not give input
-        self.param_Q_to_demand = [1000] * time_span # this is tranformed into a series in case user does not give input
+        #Setting up default values for series if none are given in input file:
+        self.param_P_to_demand = [500] * control.time_span # this is tranformed into a series in case user does not give input
+        self.param_Q_to_demand = [1000] * control.time_span # this is tranformed into a series in case user does not give input
 
-        #defining energy type to build connections with other componets correctly
-        self.energy_type = {'electric':'yes',
-                            'thermal':'yes'}
-        
-        self.super_class = 'demand'
+        self.write_P_to_demand(control)
+        self.write_Q_to_demand(control)
+
+    def write_P_to_demand(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        if 'param_P_to_' + self.name_of_instance in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_P_to_' + self.name_of_instance: self.param_P_to_demand})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'series', index = False)
+
+    def write_Q_to_demand(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        if 'param_Q_to_' + self.name_of_instance in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_Q_to_' + self.name_of_instance: self.param_Q_to_demand})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
     def constraint_investment_costs(model,t):
         return model.demand_inv_cost[t] == 0
@@ -115,7 +153,11 @@ class demand:
         return model.demand_op_cost[t] == 0
     
 class net:
-    def __init__(self,name_of_instance,time_span,receding_horizon):
+    #defining energy type to build connections with other componets correctly
+    energy_type = {'electric':'yes','thermal':'yes'}
+    super_class = 'external net'
+
+    def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['net_sell_electric','net_buy_electric','net_sell_thermal','net_buy_thermal'
@@ -129,19 +171,60 @@ class net:
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        #default values in case of no input
-        self.param_net_cost_buy_electric = [0.4] * time_span
-        self.param_net_cost_sell_electric = [0.3] * time_span
-        self.param_net_cost_buy_thermal = [0.2] * time_span
-        self.param_net_cost_sell_thermal = [0.1] * time_span
+        #Setting up default values for series if none are given in input file:
+        self.param_net_cost_buy_electric = [0.4] * control.time_span
+        self.param_net_cost_sell_electric = [0.3] * control.time_span
+        self.param_net_cost_buy_thermal = [0.2] * control.time_span
+        self.param_net_cost_sell_thermal = [0.1] * control.time_span
+
+        self.write_net_cost_buy_electric(control)
+        self.write_net_cost_sell_electric(control)
+        self.write_net_cost_buy_thermal(control)
+        self.write_net_cost_sell_thermal(control)
+
+    def write_net_cost_buy_electric(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        if 'param_' + self.name_of_instance + '_cost_buy_electric' in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_' + self.name_of_instance + '_cost_buy_electric': self.param_net_cost_buy_electric})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'series', index = False)
+
+    def write_net_cost_sell_electric(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        if 'param_' + self.name_of_instance + '_cost_sell_electric' in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_' + self.name_of_instance + '_cost_sell_electric': self.param_net_cost_sell_electric})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'series', index = False)
+
+    def write_net_cost_buy_thermal(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        if 'param_' + self.name_of_instance + '_cost_buy_thermal' in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_' + self.name_of_instance + '_cost_buy_thermal': self.param_net_cost_buy_thermal})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'series', index = False)
+
+    def write_net_cost_sell_thermal(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        if 'param_' + self.name_of_instance + '_cost_sell_thermal' in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_' + self.name_of_instance + '_cost_sell_thermal': self.param_net_cost_sell_thermal})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'series', index = False)
+
+
         self.param_net_spec_em_P = 0.56 # kg of CO2 per kWh
         self.param_net_spec_em_Q = 0.24 # kg of CO2 per kWh
-
-        #defining energy type to build connections with other componets correctly
-        self.energy_type = {'electric':'yes',
-                            'thermal':'yes'}
-        
-        self.super_class = 'external net'
         
     def constraint_sell_energy_electric(model,t):
         return model.net_sell_electric[t] == model.P_to_net[t] * model.time_step * model.param_net_cost_sell_electric[t]
@@ -171,13 +254,15 @@ class objective:
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        #default values in case of no input
-
         #defining energy type to build connections with other componets correctly
         self.super_class = 'objective'
 
 class bat:
-    def __init__(self,name_of_instance,time_step,receding_horizon):
+    #defining energy type to build connections with other componets correctly
+    energy_type = {'electric':'yes','thermal':'no'}
+    super_class = 'transformer'
+
+    def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost','bat_emissions','bat_SOC_max',
@@ -206,23 +291,18 @@ class bat:
         self.param_bat_cycles = 9000 # full cycles before final SoH is reached and battery is replaced
         self.param_bat_aging = (self.param_bat_E_max_initial * (1 -self.param_bat_final_SoH)) / (self.param_bat_cycles * 2 * self.param_bat_E_max_initial) / self.param_bat_E_max_initial
         self.param_bat_inv_per_capacity = 650 # EURO per kWh capacity
-        self.param_starting_index = 0
 
         self.param_bat_SOC_starting_index = 1
         self.param_bat_cumulated_aging_starting_index = 1
-        self.param_bat_inv_cost_starting_index = 1
+        self.param_bat_inv_cost_starting_index = 1 
         self.param_bat_integer_starting_index = 1
         
-        if receding_horizon == 'yes':
-            self.param_receding_horizon = 1
+        if control.receding_horizon == 'yes':
+            self.param_bat_receding_horizon = 1
         else:
-            self.param_receding_horizon = 0
+            self.param_bat_receding_horizon = 0
 
         #defining energy type to build connections with other componets correctly
-        self.energy_type = {'electric':'yes',
-                            'thermal':'no'}
-        
-        self.super_class = 'transformer'
 
     def constraint_depth_of_discharge(model,t):
         return model.bat_SOC[t] >= (1 - model.param_bat_DoD)
@@ -238,7 +318,8 @@ class bat:
             return model.bat_cumulated_aging[t] == (model.P_from_bat[t] + 
                                                     model.P_to_bat[t]) * model.time_step * model.param_bat_aging
         
-        elif t == model.param_starting_index and model.param_receding_horizon == 1:
+        elif t == model.starting_index and model.param_bat_receding_horizon == 1:
+
             return model.bat_cumulated_aging[t] == model.param_bat_cumulated_aging_starting_index
         
         else:
@@ -254,8 +335,10 @@ class bat:
     def constraint_lower_integer_rule(model,t):
         if t == 1:
             return model.bat_integer[t] == 0
-        elif t == model.param_starting_index and model.param_receding_horizon == 1:
+        
+        elif t == model.starting_index and model.param_bat_receding_horizon == 1:
             return model.bat_integer[t] == model.param_bat_integer_starting_index
+        
         else:
             return model.bat_integer[t] >= model.bat_cumulated_aging[t] / (1-model.param_bat_final_SoH) - 1
      
@@ -269,7 +352,7 @@ class bat:
         if t == 1:
             return model.bat_SOC[t] == model.param_bat_starting_SOC + (model.P_to_bat[t] * model.param_bat_ch_eff 
                                                                 - model.P_from_bat[t]/model.param_bat_dis_eff) * model.time_step / model.param_bat_E_max_initial
-        elif t == model.param_starting_index and model.param_receding_horizon == 1:
+        elif t == model.starting_index and model.param_bat_receding_horizon == 1:
             return model.bat_SOC[t] == model.param_bat_SOC_starting_index
         else:
             return model.bat_SOC[t] == model.bat_SOC[t-1] + (model.P_to_bat[t] * model.param_bat_ch_eff 
@@ -293,14 +376,18 @@ class bat:
     def constraint_investment_costs(model,t):
         if t == 1:
             return model.bat_inv_cost[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity
-        elif t == model.param_starting_index and model.param_receding_horizon == 1:
+        elif t == model.starting_index and model.param_bat_receding_horizon == 1:
             return model.bat_inv_cost[t] == model.param_bat_inv_cost_starting_index
         else:
             return model.bat_inv_cost[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity * (model.bat_integer[t] - model.bat_integer[t-1])
 
 
 class solar_th:
-    def __init__(self,name_of_instance,time_span,receding_horizon):
+    #defining energy type to build connections with other componets correctly
+    energy_type = {'electric':'no','thermal':'yes'}
+    super_class = 'generator'
+
+    def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['solar_th_op_cost','solar_th_emissions','solar_th_inv_cost'] #no powers
@@ -319,13 +406,19 @@ class solar_th:
         self.param_solar_th_inv_per_area = 700 #EURO per m2 aperture
 
         #default series
-        self.param_E_solar_th_solar = [0.12] * time_span # kWh/m^2 series for solar irradiation input, in case none is given
+        self.param_E_solar_th_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
 
-        #defining energy type to build connections with other componets correctly
-        self.energy_type = {'electric':'no',
-                            'thermal':'yes'}
-        
-        self.super_class = 'generator'
+        self.write_E_solar_th_solar(control)
+
+    def write_E_solar_th_solar(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        if 'param_E_' + self.name_of_instance + '_solar' in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_E_' + self.name_of_instance + '_solar': self.param_E_solar_th_solar})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'series', index = False)
         
     def constraint_generation_rule(model,t):
         return model.Q_from_solar_th[t] == (model.param_E_solar_th_solar[t] * model.time_step) * model.param_solar_th_area * model.param_solar_th_eff
@@ -344,7 +437,11 @@ class solar_th:
         
 
 class pvt:
-    def __init__(self,name_of_instance,time_span,receding_horizon):
+    #defining energy type to build connections with other componets correctly
+    energy_type = {'electric':'yes','thermal':'yes'}        
+    super_class = 'generator'
+
+    def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['pvt_op_cost','pvt_emissions','pvt_inv_cost'] #no powers
@@ -364,13 +461,19 @@ class pvt:
         self.param_pvt_inv_per_area = 850 # EURO per m2 aperture
 
         #default series
-        self.param_E_pvt_solar = [0.12] * time_span # kWh/m^2 series for solar irradiation input, in case none is given
+        self.param_E_pvt_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
 
-        #defining energy type to build connections with other componets correctly
-        self.energy_type = {'electric':'yes',
-                            'thermal':'yes'}
-        
-        self.super_class = 'generator'
+        self.write_E_pvt_solar(control)
+
+    def write_E_pvt_solar(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        if 'param_E_' + self.name_of_instance + '_solar' in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_E_' + self.name_of_instance + '_solar': self.param_E_pvt_solar})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'series', index = False)
         
     def constraint_generation_rule(model,t):
         return model.P_from_pvt[t] == (model.param_E_pvt_solar[t] * model.time_step) * model.param_pvt_area * model.param_pvt_eff
@@ -391,7 +494,11 @@ class pvt:
             return model.pvt_inv_cost[t] == 0
         
 class CHP:
-    def __init__(self,name_of_instance,time_span,receding_horizon):
+    #defining energy type to build connections with other componets correctly
+    energy_type = {'electric':'yes','thermal':'yes'}
+    super_class = 'generator'
+
+    def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['CHP_fuel_cons','CHP_op_cost','CHP_emissions','CHP_inv_cost'] #no powers
@@ -410,12 +517,6 @@ class CHP:
         self.param_CHP_spec_em = 2.3 # kg of CO2 emitted per dm3 of fuel (gasoline)
         self.param_CHP_inv_cost_per_power = 1700 # EURO per kW power
 
-        #defining energy type to build connections with other componets correctly
-        self.energy_type = {'electric':'yes',
-                            'thermal':'yes'}
-        
-        self.super_class = 'generator'
-    
     def constraint_min_generation(model,t):
         return model.P_from_CHP[t] >= model.param_P_CHP_min
 
@@ -443,7 +544,11 @@ class CHP:
 
 class charging_station:
 
-    def __init__(self,name_of_instance,time_span,receding_horizon):
+    #defining energy type to build connections with other componets correctly
+    energy_type = {'electric':'yes','thermal':'no'}
+    super_class = 'demand'
+
+    def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
         #default values in case of no input
@@ -453,26 +558,17 @@ class charging_station:
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        #defining energy type to build connections with other componets correctly
-        self.energy_type = {'electric':'yes',
-                            'thermal':'no'}
-        
-        self.super_class = 'demand'
-
-        self.path_input = './input/'
-        self.path_output = './output/'
-        self.name_file = 'df_input.xlsx'
-
         self.param_charging_station_inv_specific_costs = 200000
         self.param_charging_station_selling_price = 0.60
         self.param_charging_station_spec_emissions = 0.05
 
-        self.time_span = time_span 
+        self.time_span = control.time_span
+        self.name_file = 'df_input.xlsx'
 
         #defining paramenters for functions that are not constraints, includiing default values:
         self.dict_parameters  = {'list_sheets':['other','other','other','other'],
                                  'charging_station_mult': 1.2,
-                                 'reference_date':datetime(2023,10,1),
+                                 'reference_date': datetime(2023,10,1),
                                  'number_hours': self.time_span + 1,
                                  'number_days': math.ceil((self.time_span + 1)/24)}
         
@@ -508,8 +604,8 @@ class charging_station:
         
         
         # calling functions to try and read parameter values as soon as class is created
-        self.read_parameters(self.dict_parameters)
-        self.read_series(self.dict_series)
+        self.read_parameters(self.dict_parameters,control)
+        self.read_series(self.dict_series,control)
 
         # creating dataframes that are going to be used in non-constraint function
         self.df_mix_capacity = pd.DataFrame({'Model': self.dict_series['list_models'],
@@ -524,43 +620,41 @@ class charging_station:
                                                   'std of each peak': self.dict_series[f"{self.name_of_instance}_list_std"],
                                                   'number of cars in each peak': self.dict_series[f"{self.name_of_instance}_list_size"]})
         
-        self.param_P_to_charging_station = self.charging_demand_calculation()
+        self.param_P_to_charging_station = self.charging_demand_calculation(control)
 
-        self.write_P_to_charging_station()
+        self.write_P_to_charging_station(control)
 
-    def write_P_to_charging_station(self):
-        df_power = pd.DataFrame({self.name_of_instance:self.param_P_to_charging_station})
-        df_input_series = pd.read_excel(self.path_input + 'df_input.xlsx', sheet_name = 'series',nrows = self.time_span)
-        df_input_series = pd.concat([df_input_series,df_power],axis = 1)
-        with pd.ExcelWriter(self.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists='replace') as writer:
-            df_input_series.to_excel(writer,sheet_name = 'series', index = False)
+    def write_P_to_charging_station(self,control):
+        df_power = pd.DataFrame({'param_P_to_'+self.name_of_instance : self.param_P_to_charging_station})
+        df_input_series = pd.read_excel(control.path_input + self.name_file ,sheet_name = 'series')
+        
+        if 'param_P_to_' + self.name_of_instance in df_input_series.columns:
+            df_input_series = df_input_series.drop('param_P_to_' + self.name_of_instance, axis = 1)
+        
+        df_input_series = pd.concat([df_input_series, df_power], axis = 1)
 
-    
-    def read_parameters(self, parameters):
-        print('-------printing parameters-------')
+        with pd.ExcelWriter(control.path_input + self.name_file, mode = 'a',engine = 'openpyxl', if_sheet_exists = 'replace') as writer:
+            df_input_series.to_excel(writer,sheet_name = 'series', index = False) 
+
+    def read_parameters(self, parameters,control):
         count = 0
         list_sheets = parameters['list_sheets']
         del parameters['list_sheets']
         for name, default_value in parameters.items():
-            print(name)
-            print(default_value)
-            df_others = pd.read_excel(self.path_input + self.name_file, index_col=0, sheet_name = list_sheets[count])
+            df_others = pd.read_excel(control.path_input + self.name_file, index_col=0, sheet_name = list_sheets[count])
             df_others.index.name = None
             try:
                 parameters[name] = df_others.loc[name, 'Value']
             except KeyError:
                 pass
             count += 1
-    
-    def read_series(self, series):
-        print('-------printing series-------')
+
+    def read_series(self, series, control):
         count = 0 
         list_sheets = series['list_sheets']
         del series['list_sheets']
         for name, default_value in series.items():
-            print(name)
-            print(default_value)
-            df_series = pd.read_excel(self.path_input + self.name_file, sheet_name = list_sheets[count])
+            df_series = pd.read_excel(control.path_input + self.name_file, sheet_name = list_sheets[count])
             try:
                 series[name] = df_series[name].tolist()
             except KeyError:
@@ -581,7 +675,7 @@ class charging_station:
         samples = np.random.normal(mean, standard_deviation, size)
         return samples
 
-    def charging_demand_calculation(self):
+    def charging_demand_calculation(self,control):
         #creating list of car models with mix of EVs in germany
         list_models = []
         for i in self.df_mix_capacity.index:
@@ -603,13 +697,9 @@ class charging_station:
         list_days_models = []
         list_hours = []
         list_initial_SoC = []
-        list_final_SoC = []        
+        list_final_SoC = []
 
-        print('----------------')
-        print(self.dict_parameters['number_days'])
-        print('----------------')
-
-        for i in range(0,int(self.dict_parameters['number_days'])):
+        for i in range(0,self.dict_parameters['number_days']):
             for j in self.df_data_distribution.index:
 
                 mean = self.df_data_distribution.loc[j,'hours of peak']
@@ -637,8 +727,7 @@ class charging_station:
                                     'initial SoC':list_initial_SoC,
                                     'final SoC':list_final_SoC})
 
-        # path_output = 'G:/My Drive/02. Mestrado/TU Darmstadt/Energy Science and Engineering/5. Sommersemester 2023/Masterarbeit/5. Thesis/3. Python Routine/masterthesis/output/'
-        df_schedule.to_excel(self.path_output + 'df_schedule.xlsx',index = False)
+        df_schedule.to_excel(control.path_output + 'df_schedule_' + self.name_of_instance + '.xlsx',index = False)
 
         list_time = []
 
@@ -664,7 +753,6 @@ class charging_station:
                                     'start SoC':list_start_SoC,
                                     'end SoC':list_end_SoC})
 
-        # df_structured.to_excel(path_output + 'df_structured.xlsx',index = False)
         list_power = []
         list_total_power = []
         for i in df_structured.index:
@@ -685,7 +773,7 @@ class charging_station:
 
         df_structured['power'] = list_power
         df_structured['total power'] = list_total_power
-        df_structured.to_excel(self.path_output + 'df_structured.xlsx', index = False)
+        df_structured.to_excel(control.path_output + 'df_structured_' + self.name_of_instance + '.xlsx', index = False)
 
         lista = df_structured['total power'].tolist()
 
@@ -705,7 +793,11 @@ class charging_station:
     
 
 class heat_pump:
-    def __init__(self, name_of_instance,time_step,receding_horizon):
+    #defining energy type to build connections with other componets correctly
+    energy_type = {'electric':'yes','thermal':'yes'}
+    super_class = 'transformer'
+
+    def __init__(self, name_of_instance,control):
         self.name_of_instance = name_of_instance
 
         self.list_var = ['heat_pump_emissions','heat_pump_inv_cost','heat_pump_op_cost'] #no powers
@@ -723,11 +815,6 @@ class heat_pump:
         self.param_heat_pump_inv_specific_costs = 10000 # VERIFICAR
         self.param_heat_pump_spec_op_cost = 1875 * 2 / 8760 * self.param_P_heat_pump_max # EURO per h operation and kW max power
 
-        #defining energy type to build connections with other componets correctly
-        self.energy_type = {'electric':'yes',
-                            'thermal':'yes'}
-        
-        self.super_class = 'transformer'
 
     def constraint_generation_rule(model,t):
         return model.Q_from_heat_pump[t] == model.P_to_heat_pump[t] * model.param_heat_pump_COP
