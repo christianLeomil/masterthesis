@@ -1,21 +1,41 @@
-import pandas as pd
+from pyomo.environ import *
 
-df1 = pd.DataFrame({'Parameter':['String 1','String 2','String 3'],
-                    'Value':[1,2,4,]})
+# Create an MILP model
+model = ConcreteModel()
 
-df2 = pd.DataFrame({'Parameter':['String 1','String 2','String 3'],
-                    'Value':[1,2,4,]})
+# Define decision variables
+model.x1 = Var(within=Reals)
+model.x2 = Var(within=Reals)
+model.x3 = Var(within=Reals)
+a = 2.0  # Set a constant value for 'a'
 
-df3 = pd.DataFrame()
+# Define binary variables for piecewise approximation
+N = 10  # Number of pieces in the approximation
+model.y = Var(range(N), within=Binary)
 
-# for i in df1.index:
-#     df3.append(df1.loc[i],ignore_index = True)
-# df3 = df3.append(df1.loc[1],ignore_index = True)
-df3 = pd.concat([df3, df2.loc[0:1]], ignore_index = True)
+# Define variable bounds for piecewise approximation
+x3_min = 0.001  # Minimum allowed value for x3
+x3_max = 10.0   # Maximum allowed value for x3
 
-df4 = pd.DataFrame({'Value':['String 2','String 1','String 3'],
-                    'Parameter':[10,20,40,]})
+# Define the objective (for demonstration purposes)
+model.obj = Objective(expr=model.x1 + model.x2, sense=minimize)
 
-df3 = pd.concat([df3, df4.loc[0:3]], ignore_index = True)
+# Define the piecewise linear approximation constraints
+def piecewise_linearization_rule(model, i):
+    x3_range = (x3_max - x3_min) / N
+    x3_i_min = x3_min + i * x3_range
+    x3_i_max = x3_min + (i + 1) * x3_range
+    
+    return model.x1 <= (model.x2 / (x3_i_min * a)) + (model.y[i] * (x3_i_max * a - x3_i_min * a))
+model.piecewise_linearization_constraint = Constraint(range(N), rule=piecewise_linearization_rule)
 
-print(df3)
+# Solve the MILP
+solver = SolverFactory('cplex')
+solver.solve(model)
+
+# Display the results
+print("Solution:")
+print("x1 =", value(model.x1))
+print("x2 =", value(model.x2))
+print("x3 =", value(model.x3))
+print("y =", [value(model.y[i]) for i in range(N)])

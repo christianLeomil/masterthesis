@@ -265,13 +265,33 @@ class bat:
     def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
-        self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost','bat_emissions','bat_SOC_max',
-                         'bat_integer','bat_cumulated_aging','bat_inv_cost'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals, bounds=(0, 1)',
-                              'domain = pyo.Binary','domain = pyo.Binary',
-                              'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
-                              'within = pyo.NonNegativeReals, bounds=(0, 1)',
-                              'within = pyo.Integers', 'within = pyo.NonNegativeReals',
+        # self.list_var = ['bat_SOC','bat_K_ch','bat_K_dis','bat_op_cost','bat_emissions','bat_SOC_max',
+        #                  'bat_integer','bat_cumulated_aging','bat_inv_cost'] #no powers
+        # self.list_text_var = ['within = pyo.NonNegativeReals, bounds=(0, 1)',
+        #                       'domain = pyo.Binary','domain = pyo.Binary',
+        #                       'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
+        #                       'within = pyo.NonNegativeReals, bounds=(0, 1)',
+        #                       'within = pyo.Integers', 'within = pyo.NonNegativeReals',
+        #                       'within = pyo.NonNegativeReals']
+        
+        self.list_var = ['bat_energy',
+                         'bat_K_ch',
+                         'bat_K_dis',
+                         'bat_op_cost',
+                         'bat_emissions',
+                         'bat_energy_max',
+                         'bat_integer',
+                         'bat_cumulated_aging',
+                         'bat_inv_cost'] #no powers
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'domain = pyo.Binary',
+                              'domain = pyo.Binary',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.Integers', 
+                              'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals']
 
         self.list_altered_var = []
@@ -289,7 +309,8 @@ class bat:
         self.param_bat_DoD = 0.7
         self.param_bat_final_SoH = 0.7
         self.param_bat_cycles = 9000 # full cycles before final SoH is reached and battery is replaced
-        self.param_bat_aging = (self.param_bat_E_max_initial * (1 -self.param_bat_final_SoH)) / (self.param_bat_cycles * 2 * self.param_bat_E_max_initial) / self.param_bat_E_max_initial
+        # self.param_bat_aging = (self.param_bat_E_max_initial * (1 -self.param_bat_final_SoH)) / (self.param_bat_cycles * 2 * self.param_bat_E_max_initial) / self.param_bat_E_max_initial
+        self.param_bat_aging = (self.param_bat_E_max_initial * (1 -self.param_bat_final_SoH)) / (self.param_bat_cycles * 2 * self.param_bat_E_max_initial)
         self.param_bat_inv_per_capacity = 650 # EURO per kWh capacity
 
         self.param_bat_SOC_starting_index = 1
@@ -304,14 +325,23 @@ class bat:
 
         #defining energy type to build connections with other componets correctly
 
-    def constraint_depth_of_discharge(model,t):
-        return model.bat_SOC[t] >= (1 - model.param_bat_DoD)
+    # def constraint_depth_of_discharge(model,t):
+    #     return model.bat_SOC[t] >= (1 - model.param_bat_DoD)
     
+    def constraint_depth_of_discharge(model,t):
+        return model.bat_energy[t] >= (1 - model.param_bat_DoD) * model.param_bat_E_max_initial
+    
+    # def constraint_max_state_of_charge(model,t):
+    #     if t == 1:
+    #         return model.bat_SOC[t] <= 1
+    #     else:
+    #         return model.bat_SOC[t] <= model.bat_SOC_max[t]
+        
     def constraint_max_state_of_charge(model,t):
         if t == 1:
-            return model.bat_SOC[t] <= 1
+            return model.bat_energy[t] <= model.param_bat_E_max_initial
         else:
-            return model.bat_SOC[t] <= model.bat_SOC_max[t]
+            return model.bat_energy[t] <= model.bat_energy_max[t]
     
     def constraint_cumulated_aging(model,t):
         if t == 1:
@@ -326,11 +356,12 @@ class bat:
             return model.bat_cumulated_aging[t] == model.bat_cumulated_aging[t-1] + (model.P_from_bat[t] + 
                                                                                      model.P_to_bat[t]) * model.time_step * model.param_bat_aging
         
+        ############################# PAREI AQUI
     def constraint_upper_integer_rule(model,t):
         if t == 1:
             return model.bat_integer[t] == 0 
         else:
-            return model.bat_integer[t] <= model.bat_cumulated_aging[t] / (1-model.param_bat_final_SoH)
+            return model.bat_integer[t] <= model.bat_cumulated_aging[t] / (1-model.param_bat_final_SoH) # Vai dar merda aqui
     
     def constraint_lower_integer_rule(model,t):
         if t == 1:
