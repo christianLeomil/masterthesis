@@ -16,6 +16,13 @@ class MyClass:
       
       def first_rule(model,t):
             return model.demand[t] == model.quant_x[t] + model.quant_z[t]
+      
+      def conditional_rule(model,t):
+            if t == 1:
+                  return model.quant_y[t] >= 4
+            
+            elif model.quant_z[t] <= model.upper_limit:
+                  return model.quant_y[t] >= 6
 
 # class MyClass:
 #       def first_constraint(model,t,var_1,var_2,var_3):
