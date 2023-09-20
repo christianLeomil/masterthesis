@@ -372,12 +372,12 @@ else:
 
 df_final = pd.DataFrame()
 for k,df in enumerate(list_split):
-    print('K iteraction is ' + str(k))
-    df.to_excel(path_output +'teste/df_split'+str(k)+'.xlsx')
+    # print('K iteraction is ' + str(k))
+    # df.to_excel(path_output +'teste/df_split'+str(k)+'.xlsx')
 
     if k != 0:
         last_time_step_index = df['HOURS'].iloc[0]
-        print('--- the last time_step_is:'+ str(last_time_step_index))
+        # print('--- the last time_step_is:'+ str(last_time_step_index))
         
         # model.starting_index = pyo.Param(initialize = last_time_step_index)
         df_input_other.loc[df_input_other['Parameter'] == 'starting_index','Value'] = last_time_step_index
@@ -391,7 +391,7 @@ for k,df in enumerate(list_split):
         df_variables_last_time_step = pd.DataFrame({'Parameter': list_columns,
                                                     'Value': list_values})
         
-        df_variables_last_time_step.to_excel(path_output + '/teste/df_variables_last_time_step'+str(k)+'.xlsx',index = False) 
+        # df_variables_last_time_step.to_excel(path_output + '/teste/df_variables_last_time_step'+str(k)+'.xlsx',index = False) 
         df_input_other = utils.save_variables_last_time_step(df_input_other,df_variables_last_time_step)
 
     # endregion
@@ -487,7 +487,7 @@ for k,df in enumerate(list_split):
 
     # Organize and export the DataFrame with the variable values
     df_time_dependent_variable_values = utils.organize_output_columns(df_time_dependent_variable_values,df_aux)
-    df_time_dependent_variable_values.to_excel(path_output +'/time dependant variables/'+ 'df_time_dependent_variable_values' + str(k) + '.xlsx',index = False)
+    # df_time_dependent_variable_values.to_excel(path_output +'/time dependant variables/'+ 'df_time_dependent_variable_values' + str(k) + '.xlsx',index = False)
 
     if control.receding_horizon == 'yes':
         if k == 0:

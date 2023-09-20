@@ -270,11 +270,15 @@ class bat:
                          'bat_K_dis',
                          'bat_op_cost',
                          'bat_emissions',
-                         'bat_inv_cost'] #no powers
+                         'bat_inv_cost',
+                         'bat_z1',
+                         'bat_z2'] #no powers
         
         self.list_text_var = ['within = pyo.NonNegativeReals',
                               'domain = pyo.Binary',
                               'domain = pyo.Binary',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals']
@@ -299,6 +303,9 @@ class bat:
         self.param_bat_cumulated_aging_starting_index = 1
         self.param_bat_inv_cost_starting_index = 1 
 
+        self.param_bat_M1 = 10000
+        self.param_bat_M2 = 10000
+
         if control.receding_horizon == 'yes':
             self.param_bat_receding_horizon = 1
         else:
@@ -322,11 +329,44 @@ class bat:
             return model.bat_energy[t] == model.bat_energy[t-1] + (model.P_to_bat[t] * model.param_bat_ch_eff 
                                                                 - model.P_from_bat[t] / model.param_bat_dis_eff) * model.time_step
         
-    def constraint_charge_limit(model,t):
-        return model.P_to_bat[t] <= model.param_bat_E_max_initial * model.bat_K_ch[t] * model.param_bat_c_rate_ch
 
-    def constraint_discharge_limit(model,t):
-        return model.P_from_bat[t] <= model.param_bat_E_max_initial *  model.bat_K_dis[t] * model.param_bat_c_rate_dis
+    # def constraint_charge_limit(model,t):
+    #     return model.P_to_bat[t] <= model.param_bat_E_max_initial * model.bat_K_ch[t] * model.param_bat_c_rate_ch
+        
+    def constraint_charge_limit1(model,t):
+        return model.P_to_bat[t] <= model.param_bat_c_rate_ch * model.bat_z1[t]
+
+    def constraint_charge_limit2(model,t):
+        return model.bat_z1[t] <= model.param_bat_M1 * model.bat_K_ch[t]
+
+    def constraint_charge_limit3(model,t):
+        return model.bat_z1[t] <= model.param_bat_E_max_initial
+
+    def constraint_charge_limit4(model,t):
+        return model.bat_z1[t] >= model.param_bat_E_max_initial - (1 - model.bat_K_ch[t]) * model.param_bat_M1
+    
+    def constraint_charge_limit5(model,t):
+        return model.bat_z1[t] >= 0 
+    
+
+    # def constraint_discharge_limit(model,t):
+    #     return model.P_from_bat[t] <= model.param_bat_E_max_initial *  model.bat_K_dis[t] * model.param_bat_c_rate_dis
+    
+    def constraint_discharge_limit1(model,t):
+        return model.P_from_bat[t] <= model.param_bat_c_rate_dis * model.bat_z2[t] 
+
+    def constraint_discharge_limit2(model,t):
+        return model.bat_z2[t] <= model.param_bat_M2 * model.bat_K_dis[t]
+
+    def constraint_discharge_limit3(model,t):
+        return model.bat_z2[t] <= model.param_bat_E_max_initial
+
+    def constraint_discharge_limit4(model,t):
+        return model.bat_z2[t] >= model.param_bat_E_max_initial - (1 - model.bat_K_dis[t]) * model.param_bat_M2
+    
+    def constraint_discharge_limit5(model,t):
+        return model.bat_z2[t] >= 0
+    
     
     def constraint_keys_rule(model,t):
         return model.bat_K_ch[t] + model.bat_K_dis[t] <= 1
