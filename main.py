@@ -11,7 +11,7 @@ start_time = time.time()
 warnings.filterwarnings("ignore", '.*')
 
 # ---------------------------------------------------------------------------------------------------------------------
-# region reading data, creating connections variables, connections constraints, and objevtive constriants
+# region reading data, creating connections variables, connections constraints, and objevtive constriants\
 
 # paths and name of input filexz
 path_input = './input/'
@@ -372,12 +372,12 @@ else:
 
 df_final = pd.DataFrame()
 for k,df in enumerate(list_split):
-    # print('K iteraction is ' + str(k))
+    print('K iteraction is ' + str(k))
     # df.to_excel(path_output +'teste/df_split'+str(k)+'.xlsx')
 
     if k != 0:
         last_time_step_index = df['HOURS'].iloc[0]
-        # print('--- the last time_step_is:'+ str(last_time_step_index))
+        print('--- the last time_step_is:'+ str(last_time_step_index))
         
         # model.starting_index = pyo.Param(initialize = last_time_step_index)
         df_input_other.loc[df_input_other['Parameter'] == 'starting_index','Value'] = last_time_step_index
