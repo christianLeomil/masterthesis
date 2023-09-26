@@ -42,11 +42,14 @@ class control:
                 sys.exit()
         else:
             self.horizon = self.time_span
-                
-        
+                 
 class pv:
     #defining energy type to build connections with other componets correctly
-    energy_type = {'electric':'yes','thermal':'no'}
+    component_type = {'electric_load':'no',
+                      'electric_source':'yes',
+                      'thermal_load':'no',
+                      'thermal_source':'no'}
+        
     super_class = 'generator'
 
     def __init__(self,name_of_instance,control):
@@ -55,11 +58,6 @@ class pv:
         self.list_var = ['pv_op_cost','pv_emissions','pv_inv_cost'] #no connection powers
         self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals']
-        
-        # super().__init__()
-        # separar cada classe em um .py ou geradores todos em um. 
-        # nome de classe maiusculo e maior.
-        # https://pyomo.readthedocs.io/en/stable/working_models.html#changing-the-model-or-data-and-re-solving
         
         self.list_altered_var = []
         self.list_text_altered_var =[]
@@ -107,8 +105,10 @@ class pv:
         
 class demand:
     #defining energy type to build connections with other componets correctly
-    energy_type = {'electric':'yes','thermal':'yes'}
-    super_class = 'demand'
+    component_type = {'electric_load':'yes',
+                   'electric_source':'no',
+                   'thermal_load':'yes',
+                   'thermal_source':'no'}
 
     def __init__(self, name_of_instance, control):
         self.name_of_instance = name_of_instance
@@ -154,7 +154,11 @@ class demand:
     
 class net:
     #defining energy type to build connections with other componets correctly
-    energy_type = {'electric':'yes','thermal':'yes'}
+    component_type = {'electric_load':'yes',
+                   'electric_source':'yes',
+                   'thermal_load':'yes',
+                   'thermal_source':'yes'}
+    
     super_class = 'external net'
 
     def __init__(self,name_of_instance,control):
@@ -259,7 +263,11 @@ class objective:
 
 class bat:
     #defining energy type to build connections with other componets correctly
-    energy_type = {'electric':'yes','thermal':'no'}
+    component_type = {'electric_load':'yes',
+                   'electric_source':'yes',
+                   'thermal_load':'no',
+                   'thermal_source':'no'}
+    
     super_class = 'transformer'
 
     def __init__(self,name_of_instance,control):
@@ -383,10 +391,13 @@ class bat:
         else:
             return model.bat_inv_cost[t] == 0
 
-
 class solar_th:
     #defining energy type to build connections with other componets correctly
-    energy_type = {'electric':'no','thermal':'yes'}
+    component_type = {'electric_load':'no',
+                   'electric_source':'no',
+                   'thermal_load':'no',
+                   'thermal_source':'yes'}
+    
     super_class = 'generator'
 
     def __init__(self,name_of_instance,control):
@@ -437,10 +448,13 @@ class solar_th:
         else:
             return model.solar_th_inv_cost[t] == 0
         
-
 class pvt:
     #defining energy type to build connections with other componets correctly
-    energy_type = {'electric':'yes','thermal':'yes'}        
+    component_type = {'electric_load':'no',
+                   'electric_source':'yes',
+                   'thermal_load':'no',
+                   'thermal_source':'yes'}
+         
     super_class = 'generator'
 
     def __init__(self,name_of_instance,control):
@@ -497,7 +511,11 @@ class pvt:
         
 class CHP:
     #defining energy type to build connections with other componets correctly
-    energy_type = {'electric':'yes','thermal':'yes'}
+    component_type = {'electric_load':'no',
+                   'electric_source':'yes',
+                   'thermal_load':'no',
+                   'thermal_source':'yes'}
+    
     super_class = 'generator'
 
     def __init__(self,name_of_instance,control):
@@ -543,11 +561,14 @@ class CHP:
         else:
             return model.CHP_inv_cost[t] == 0
         
-
 class charging_station:
 
     #defining energy type to build connections with other componets correctly
-    energy_type = {'electric':'yes','thermal':'no'}
+    component_type = {'electric_load':'yes',
+                   'electric_source':'no',
+                   'thermal_load':'no',
+                   'thermal_source':'no'}
+    
     super_class = 'demand'
 
     def __init__(self,name_of_instance,control):
@@ -793,10 +814,13 @@ class charging_station:
     def constraint_emissions(model,t):
         return model.charging_station_emissions[t] == model.param_P_to_charging_station[t] * model.param_charging_station_spec_emissions
     
-
 class heat_pump:
     #defining energy type to build connections with other componets correctly
-    energy_type = {'electric':'yes','thermal':'yes'}
+    component_type = {'electric_load':'yes',
+                      'electric_source':'no',
+                      'thermal_load':'no',
+                      'thermal_source':'yes'}
+    
     super_class = 'transformer'
 
     def __init__(self, name_of_instance,control):

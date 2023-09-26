@@ -32,8 +32,8 @@ def write_to_financial_model(df_variable_values, path_output, boolean):
     write_excel(df_cost,path_output,'df_cost','df_financial_data.xlsx',boolean)
     write_excel(df_investment,path_output,'df_investment','df_financial_data.xlsx',boolean)
     write_excel(df_variable_values,path_output,'input data','df_financial_data.xlsx',boolean)
-    
-def aux_creator(df_elements,time_span,receding_horizon):
+
+def aux_creator(df_elements):
     list_elements = []
     list_type = []
     for i in df_elements.index:
@@ -43,36 +43,33 @@ def aux_creator(df_elements,time_span,receding_horizon):
             list_elements.append(name_element)
     df_aux = pd.DataFrame({'element': list_elements,
                            'type':list_type})
-
-    list_to_con_electric = []
-    list_from_con_electric = []
-    list_to_con_thermal = []
-    list_from_con_thermal = []
+    
+    list_electric_load = []
+    list_electric_source = []
+    list_thermal_load = []
+    list_thermal_source = []    
 
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
         
         myClass = getattr(classes,element_type)
-        energy_type = getattr(myClass,'energy_type')
-        super_class = getattr(myClass,'super_class')
+        component_type = getattr(myClass,'component_type')
 
-        if energy_type['electric'] == 'yes':
-            if super_class != 'generator':
-                list_to_con_electric.append(element)
-            if super_class != 'demand':
-                list_from_con_electric.append(element)
-        if energy_type['thermal'] == 'yes':
-            if super_class != 'generator':
-                list_to_con_thermal.append(element)
-            if super_class != 'demand':
-                list_from_con_thermal.append(element)
+        if component_type['electric_load'] == 'yes':
+            list_electric_load.append(element)
+        if component_type['electric_source'] == 'yes':
+            list_electric_source.append(element)
+        if component_type['thermal_load'] == 'yes':
+            list_thermal_load.append(element)
+        if component_type['thermal_source'] == 'yes':
+            list_thermal_source.append(element)
 
-    df_con_electric = pd.DataFrame(0,columns = list_from_con_electric, index = list_to_con_electric)
-    df_con_thermal = pd.DataFrame(0,columns = list_from_con_thermal, index = list_to_con_thermal)
+    df_con_electric = pd.DataFrame(0,columns = list_electric_source, index = list_electric_load)
+    df_con_thermal = pd.DataFrame(0,columns = list_thermal_source, index = list_thermal_load)
 
     return  df_con_electric, df_con_thermal, df_aux
-
+        
 def write_excel(df,path, name_sheet, name_file, boolean):
     with pd.ExcelWriter(path + name_file,mode = 'a',engine = 'openpyxl', if_sheet_exists='replace') as writer:
         df.to_excel(writer,sheet_name = name_sheet, index = boolean)
@@ -85,7 +82,7 @@ def connection_creator(df_con_electric, df_con_thermal):
     list_attr_classes = list_attr_classes + df_con_thermal.index.to_list()
     list_attr_classes = list_attr_classes + df_con_thermal.columns.to_list()
 
-    #changing names of variables P_to_demand and Q_to_demand, values usually given as input , so they are 
+    #changing names of variables P_to_demand and Q_to_demand, values usually given as input, turning them into parameters
     list_attr_classes = [s.replace('P_to_demand','param_P_to_demand') for s in list_attr_classes]
     list_attr_classes = [s.replace('Q_to_demand','param_Q_to_demand') for s in list_attr_classes]
 
@@ -93,13 +90,23 @@ def connection_creator(df_con_electric, df_con_thermal):
     for i in df_con_electric.index: 
         for j in df_con_electric.columns:
             if df_con_electric.loc[i,j] != 0:
-                df_con_electric.loc[i,j] = 'P_' + j + '_' + i
+                if i == j:
+                    print('==========ERROR==========')
+                    print('Energy cannot be transferred from ' + i + ' to ' + j)
+                    sys.exit()
+                else:
+                    df_con_electric.loc[i,j] = 'P_' + j + '_' + i
 
     #building variable names inside connection matrix THERMAL
     for i in df_con_thermal.index: 
         for j in df_con_thermal.columns:
             if df_con_thermal.loc[i,j] != 0:
-                df_con_thermal.loc[i,j] = 'Q_' + j + '_' + i
+                if i == j:
+                    print('==========ERROR==========')
+                    print('Energy cannot be transferred from ' + i + ' to ' + j)
+                    sys.exit()
+                else:
+                    df_con_thermal.loc[i,j] = 'Q_' + j + '_' + i
 
     #creating variable names derived from columns of conection matrix
     list_sub = ['P_from_' + i for i in df_con_electric.columns]
@@ -173,7 +180,6 @@ def connection_creator(df_con_electric, df_con_thermal):
     list_con_variables = list(set(list_con_variables))
 
     return df_con_thermal, df_con_electric, list_expressions, list_con_variables, list_attr_classes
-
 
 def objective_constraint_creator(df_aux,time_span,receding_horizon): # this function creates the constraints for the objective function to work
     list_buy_constraint = ['model.total_buy[t] == '] 
