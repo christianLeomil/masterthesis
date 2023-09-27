@@ -377,7 +377,7 @@ for k,df in enumerate(list_split):
 
     if k != 0:
         last_time_step_index = df['HOURS'].iloc[0]
-        print('--- the last time_step_is:'+ str(last_time_step_index))
+        print('--- the last time_step_is: '+ str(last_time_step_index))
         
         # model.starting_index = pyo.Param(initialize = last_time_step_index)
         df_input_other.loc[df_input_other['Parameter'] == 'starting_index','Value'] = last_time_step_index
@@ -499,7 +499,7 @@ for k,df in enumerate(list_split):
 
     utils.write_to_financial_model(df_time_dependent_variable_values, path_output, False) ######################## CORRIGIR Financial model AQUI DEPOIS
 
-if control.receding_horizon == 'no':
+if control.size_optimization == 'yes':
     df_scalar_variable_values = pd.DataFrame([variable_values_scalar], columns = variable_names_scalar).T
     df_scalar_variable_values.columns = ['value']
     df_scalar_variable_values.to_excel(path_output + 'df_scalar_variable_values.xlsx')
