@@ -908,19 +908,31 @@ class net:
                    'electric_source':'yes',
                    'thermal_load':'yes',
                    'thermal_source':'yes'}
-    
-    super_class = 'external net'
 
     def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
-        self.list_var = ['net_sell_electric','net_buy_electric','net_sell_thermal','net_buy_thermal'
-                         ,'net_emissions','net_inv_cost'] #no powers
+        self.list_var = ['net_sell_electric',
+                         'net_buy_electric',
+                         'net_sell_thermal',
+                         'net_buy_thermal',
+                         'net_emissions',
+                         'net_inv_cost',
+                         'P_nominal_from_net',
+                         'Q_nominal_from_net',
+                         'P_extra_from_net',
+                         'Q_extra_from_net'] #no powers
         
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
-                              ,'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
-                              ,'within = pyo.NonNegativeReals'
-                              ,'within = pyo.NonNegativeReals']
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
         
         self.list_altered_var = []
         self.list_text_altered_var =[]
@@ -935,6 +947,21 @@ class net:
         self.write_net_cost_sell_electric(control)
         self.write_net_cost_buy_thermal(control)
         self.write_net_cost_sell_thermal(control)
+
+        self.param_net_spec_em_P = 0.56 # kg of CO2 per kWh
+        self.param_net_spec_em_Q = 0.24 # kg of CO2 per kWh
+
+        # NOVO
+        self.param_net_max_P = 1000
+        self.param_net_max_Q = 1000
+
+        # NOVO
+        self.param_P_net_cost_extra = 1000
+        self.param_Q_net_cost_extra = 1000
+
+        # NOVO
+        self.param_net_spec_em_P_extra = 1000
+        self.param_net_spec_em_Q_extra = 1000
 
     def write_net_cost_buy_electric(self,control):
         df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
@@ -976,24 +1003,50 @@ class net:
             with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
+    # NOVO
+    def constraint_max_P(model,t):
+        return model.P_nominal_from_net[t] <= model.param_net_max_P
+    
+    # NOVO
+    def constraint_max_Q(model,t):
+        return model.Q_nominal_from_net[t] <= model.param_net_max_Q
 
-        self.param_net_spec_em_P = 0.56 # kg of CO2 per kWh
-        self.param_net_spec_em_Q = 0.24 # kg of CO2 per kWh
-        
+    # NOVO
+    def constraint_extra_P(model,t):
+        return model.P_extra_from_net[t] >= 0 
+    
+    # NOVO
+    def constraint_extra_Q(model,t):
+        return model.Q_extra_from_net[t] >= 0 
+    
+    # NOVO
+    def constraint_total_P_from(model,t):
+        return model.P_from_net[t] == model.P_nominal_from_net[t] + model.P_extra_from_net[t]
+    
+    # NOVO
+    def constraint_total_Q_from(model,t):
+        return model.Q_from_net[t] == model.Q_nominal_from_net[t] + model.Q_extra_from_net[t]
+    
+    
     def constraint_sell_energy_electric(model,t):
         return model.net_sell_electric[t] == model.P_to_net[t] * model.time_step * model.param_net_cost_sell_electric[t]
     
     def constraint_buy_energy_electric(model,t):
-        return model.net_buy_electric[t] == model.P_from_net[t] * model.time_step * model.param_net_cost_buy_electric[t]
+        return model.net_buy_electric[t] == (model.P_nominal_from_net[t] * model.time_step * model.param_net_cost_buy_electric[t] + 
+                                             model.P_extra_from_net[t] * model.time_step * model.param_P_net_cost_extra) # NOVO
     
     def constraint_sell_energy_thermal(model,t):
         return model.net_sell_thermal[t] == model.Q_to_net[t] * model.time_step * model.param_net_cost_sell_thermal[t]
     
     def constraint_buy_energy_thermal(model,t):
-        return model.net_buy_thermal[t] == model.Q_from_net[t] * model.time_step * model.param_net_cost_buy_thermal[t]
+        return model.net_buy_thermal[t] == (model.Q_nominal_from_net[t] * model.time_step * model.param_net_cost_buy_thermal[t] +
+                                            model.Q_extra_from_net[t] * model.time_step * model.param_Q_net_cost_extra) # NOVO
     
     def constraint_emissions(model,t):
-        return model.net_emissions[t] == model.P_from_net[t] * model.param_net_spec_em_P + model.Q_from_net[t] * model.param_net_spec_em_Q
+        return model.net_emissions[t] == (model.P_nominal_from_net[t] * model.param_net_spec_em_P + 
+                                          model.Q_nominal_from_net[t] * model.param_net_spec_em_Q +
+                                          model.P_extra_from_net[t] * model.param_net_spec_em_P_extra + 
+                                          model.Q_extra_from_net[t] * model.param_net_spec_em_Q_extra) # NOVO
     
     def constraint_investment_costs(model,t):
         return model.net_inv_cost[t] == 0

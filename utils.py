@@ -75,12 +75,14 @@ def write_excel(df,path, name_sheet, name_file, boolean):
         df.to_excel(writer,sheet_name = name_sheet, index = boolean)
 
 def connection_creator(df_con_electric, df_con_thermal):
+
     list_attr_classes = []
     list_attr_classes = list_attr_classes + df_con_electric.index.to_list()
     list_attr_classes = list_attr_classes + df_con_electric.columns.to_list()
 
     list_attr_classes = list_attr_classes + df_con_thermal.index.to_list()
     list_attr_classes = list_attr_classes + df_con_thermal.columns.to_list()
+
 
     #changing names of variables P_to_demand and Q_to_demand, values usually given as input, turning them into parameters
     list_attr_classes = [s.replace('P_to_demand','param_P_to_demand') for s in list_attr_classes]
@@ -118,14 +120,20 @@ def connection_creator(df_con_electric, df_con_thermal):
     list_sub = ['P_to_' + i for i in df_con_electric.index]
     list_sub = [s.replace('P_to_demand','param_P_to_demand') for s in list_sub]
     list_sub = [s.replace('P_to_charging_station','param_P_to_charging_station') for s in list_sub]
+
     print('\n->->->->->-list_sub_electric')
     print(list_sub)
+
     df_con_electric.index = list_sub
+
     list_sub = ['Q_to_' + i for i in df_con_thermal.index]
     list_sub = [s.replace('Q_to_demand','param_Q_to_demand') for s in list_sub]
+
     print('\n->->->->->-list_sub_thermal')
     print(list_sub)
+
     df_con_thermal.index = list_sub
+
 
     # creating equations in the 'to' direction ELECTRIC
     list_expressions = []
@@ -182,8 +190,11 @@ def connection_creator(df_con_electric, df_con_thermal):
     return df_con_thermal, df_con_electric, list_expressions, list_con_variables, list_attr_classes
 
 def objective_constraint_creator(df_aux,time_span,receding_horizon): # this function creates the constraints for the objective function to work
+
+    # creating constraints to calculate bouhgt and sold energy from the grid.
     list_buy_constraint = ['model.total_buy[t] == '] 
     list_sell_constraint = ['model.total_sell[t] == ']
+
     df_temp = df_aux[df_aux['type'] == 'net' ].reset_index(drop = True)
     for i in df_temp.index:
         element = df_temp['element'].iloc[i]
