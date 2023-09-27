@@ -849,8 +849,7 @@ class charging_station(Consumer):
         return model.charging_station_emissions[t] == model.param_P_to_charging_station[t] * model.param_charging_station_spec_emissions
     
 
-
-# other classes
+# other classes 
 class control:
     def __init__(self,path_input,name_file):
         self.df = pd.read_excel(path_input + name_file, sheet_name = 'control', index_col = 0)
