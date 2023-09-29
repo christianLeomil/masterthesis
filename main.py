@@ -8,7 +8,7 @@ import warnings
 import time
 
 start_time = time.time()
-warnings.filterwarnings("ignore", '.*')
+warnings.filterwarnings("ignore", '.*') 
 
 # ---------------------------------------------------------------------------------------------------------------------
 # region reading data, creating connections variables, connections constraints, and objevtive constriants\
@@ -497,14 +497,13 @@ for k,df in enumerate(list_split):
     else:
         df_final = df_time_dependent_variable_values.copy()
 
-    utils.write_to_financial_model(df_time_dependent_variable_values, path_output, False) ######################## CORRIGIR Financial model AQUI DEPOIS
-
 if control.size_optimization == 'yes':
     df_scalar_variable_values = pd.DataFrame([variable_values_scalar], columns = variable_names_scalar).T
     df_scalar_variable_values.columns = ['value']
     df_scalar_variable_values.to_excel(path_output + 'df_scalar_variable_values.xlsx')
 
 df_final.to_excel(path_output + 'df_final.xlsx',index = False)
+utils.financial_analysis(control)
 
 #endregion 
 
