@@ -11,7 +11,8 @@ start_time = time.time()
 warnings.filterwarnings("ignore", '.*') 
 
 # ---------------------------------------------------------------------------------------------------------------------
-# region reading data, creating connections variables, connections constraints, and objevtive constriants\
+# region reading data, creating list with connection variables, list with string of connection constraint, and list with objective constraints
+
 
 # paths and name of input filexz
 path_input = './input/'
@@ -30,9 +31,9 @@ df_elements.index.name = None
 df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # writing dataframes on inputfile to input 
-# utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
-# utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
-# input("\nPlease insert the connection between elements of energy system and press enter to continue...")
+utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
+utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
+input("\nPlease insert the connection between elements of energy system and press enter to continue...")
 
 #reading inputs for the connections between elements of the energy system written in the input file
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
@@ -47,12 +48,12 @@ df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
 df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 # creating constriants that will turn into the objevtive functions
-list_objective_constraints = utils.objective_constraint_creator(df_aux,control.time_span,control.receding_horizon)
+list_objective_constraints = utils.objective_constraint_creator(df_aux)
 
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region creating abstract model and creating temportal set
+# region creating abstract model and creating temporal set
 
 #model
 model = pyo.AbstractModel()
@@ -60,13 +61,13 @@ model = pyo.AbstractModel()
 #sets
 model.HOURS = pyo.Set()
 model.starting_index = pyo.Param(initialize = 0)
+model.time_step = pyo.Param(initialize = 1)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region creating instances of selected elements of the energy system
 
 for i in df_aux.index:
-    # globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i], control.time_span - 1, control.receding_horizon)
     globals()[df_aux['element'].iloc[i]] = getattr(classes,df_aux['type'].iloc[i])(df_aux['element'].iloc[i], control)
 
 # endregion
@@ -263,8 +264,6 @@ for i in df_aux.index:
 # ---------------------------------------------------------------------------------------------------------------------
 # region creating extra series and variables
 
-model.time_step = pyo.Param(initialize = 1)
-
 model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals) # variable contained in objective constraints
 model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
 model.total_operation_cost = pyo.Var(model.HOURS, within = pyo.Reals) # variable contained in objective constraints
@@ -361,7 +360,7 @@ df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
 # region checking if simulation will have receiding horizon and then splitting input_series if it does.
 
 if control.receding_horizon == 'yes':
-    list_split = utils.breaking_dataframe(df_input_series,control.horizon,control.saved_position)
+    list_split = utils.breaking_dataframe(df_input_series, control.optimization_horizon, control.control_horizon)
 else:
     list_split = []
     list_split.append(df_input_series)
@@ -401,7 +400,7 @@ for k,df in enumerate(list_split):
     #reading data
     data = pyo.DataPortal()
     data['HOURS'] = df['HOURS'].tolist()
-    # data['time_step'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'time_step', 'Value'].values[0]}
+    # data['starting_index'] = {None:control.starting_index}
     data['starting_index'] = {None:df_input_other.loc[df_input_other['Parameter'] == 'starting_index', 'Value'].values[0]}
 
     #getting list with all needed PARAMETERS and SERIES of created classes and reading data, or getting default values from classes
@@ -491,9 +490,9 @@ for k,df in enumerate(list_split):
 
     if control.receding_horizon == 'yes':
         if k == 0:
-            df_final = pd.concat([df_final, df_time_dependent_variable_values.loc[0 : control.saved_position-1]], ignore_index = True)
+            df_final = pd.concat([df_final, df_time_dependent_variable_values.loc[0 : control.control_horizon-1]], ignore_index = True)
         else:
-            df_final = pd.concat([df_final, df_time_dependent_variable_values.loc[1 : control.saved_position]], ignore_index = True)
+            df_final = pd.concat([df_final, df_time_dependent_variable_values.loc[1 : control.control_horizon]], ignore_index = True)
     else:
         df_final = df_time_dependent_variable_values.copy()
 
@@ -504,6 +503,7 @@ if control.size_optimization == 'yes':
 
 df_final.to_excel(path_output + 'df_final.xlsx',index = False)
 utils.financial_analysis(control)
+utils.emissions_analysis(control)
 
 #endregion 
 

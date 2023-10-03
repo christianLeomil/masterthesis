@@ -18,44 +18,52 @@ class Generator:
         #e.g. P_from_gen, or P_gen_bat. These variables are generated automatically when connections are constructed. 
         self.list_var = ['gen_op_cost',
                          'gen_emissions',
-                         'gen_inv_cost']
+                         'gen_inv_cost'] # this ist contains variables that appear in the constraints of this class. Conection variables
+                                         # should not be mentioned here.
         
         self.list_text_var = ['within = pyo.NonNegativeReals',
                                'within = pyo.NonNegativeReals',
-                               'within = pyo.NonNegativeReals']
+                               'within = pyo.NonNegativeReals'] # this list contains the type of variable that has to be created.
+                                                                # 
 
         #these lists are used when transforming parameters into variables, when selecting size_optimization This list should stay empty 
         self.list_altered_var = []
         self.list_text_altered_var = []
 
         #All parameters that are used in the methods of this class must be given am default value
-        self.param_gen_eff = 0.10
-        self.param_gen_size = 50
-        self.param_gen_spec_op_cost = 0.05
-        self.param_gen_spec_em = 0.3
-        self.param_gen_series = [10] * control.time_span
-        self.param_gen_spec_inv = 100
+        self.param_gen_eff = 0.10 # unitless
+        self.param_gen_size = 50 # size of the generation device. Units can be m2, kW etc. 
+        self.param_gen_spec_op_cost = 0.05 # specific operation costs, unit is defined by the rule of accounting costs
+        self.param_gen_spec_em = 0.3 # specific emissions, unit is defined by the rule of accounting emissions
+        self.param_gen_series = [10] * control.time_span # Units in kWh by default, can be altered if desired
+        self.param_gen_spec_inv = 100 # specific emissions, unit is defined by the rule of accounting emissions
+        self.param_gen_lifetime = 20 * 8760 # lifetime of the device in hours. After one lifetime, investment cost are repeated
 
-        self.write_gen_series(control)
+        self.write_gen_series(control) 
 
     #Every method with a name that start with 'contraint_' will be turned into a constraint of the pyomo model.
     
-    #constraint_generation should contain the rule for the generation ef energy of the generation unit. The method below is an example
+    #constraint_generation should contain the rule for the generation ef energy of the generation unit. The method below is an example.
     def constraint_generation_rule(model,t):
         return model.P_from_gen[t] == (model.param_gen_series[t] / model.time_step) * model.param_gen_eff * model.param_gen_size
     
+    #constraint_operation_costs has the rule for operation cost accounting. The method below is an example.
     def constraint_operation_costs(model,t):
         return model.gen_op_cost[t] == model.param_gen_size * model.param_gen_spec_op_cost 
     
+    #constraint_emissions_costs has the rule for emissions accounting. The method below is an example.
     def constraint_emissions(model,t):
         return model.gen_emissions[t] == model.P_from_gen[t] * model.param_gen_spec_em
     
+    #constraint_investment_costs has the rule for emissions accounting. In this example, investment is accounted in the first time step 
     def constraint_investment_costs(model,t):
         if t == 1:
             return model.gen_inv_cost[t] == model.param_gen_size * model.param_gen_spec_inv
         else:
             return model.gen_inv_cost[t] == 0
-        
+    
+    #write_gen_series is a function that insert the time series for param_gen_series. This will be later used as input for the optimization
+    #If input sheet "series" already contains data for param_gen_series, the default value is ignored.
     def write_gen_series(self,control):
         df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
         if 'param_' + self.name_of_instance + '_series' in df_input_series.columns:
@@ -67,7 +75,7 @@ class Generator:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
 class pv(Generator):
-        #defining energy type to build connections with other componets correctly
+    #defining energy type to build connections with other componets correctly
     component_type = {'electric_load':'no',
                       'electric_source':'yes',
                       'thermal_load':'no',
@@ -76,27 +84,32 @@ class pv(Generator):
     def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
-        self.list_var = ['pv_op_cost','pv_emissions','pv_inv_cost'] #no connection powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
+        self.list_var = ['pv_op_cost',
+                         'pv_emissions',
+                         'pv_inv_cost'] 
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals']
         
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
         #default values in case of no input
-        self.param_pv_eff = 0.15 # aproximate overall efficiency of pv cells 
-        self.param_pv_area = 100 # m^2
-        self.param_pv_spec_op_cost = 0.01 # cost per hour per m^2 area of pv installed
-        self.param_pv_kWp_per_area  = 0.12 # kWP per m2 of PV
-        self.param_pv_inv_per_kWp = 1000 # EURO per kWp
-        self.param_pv_life_time = 30 #lifetime of panels in years
-        self.param_pv_spec_em = 0.50 #kgCO2eq/kWh generated
+        self.param_pv_eff = 0.15 # aproximate overall efficiency of pv cells [-] https://www.eon.de/de/pk/solar/kwp-bedeutung-umrechnung.html
+        self.param_pv_area = 100 # total size of pv device [m^2]
+        self.param_pv_maintenance = 5 # maintenance costs per kWp and year [€/kWp/yr] (IEP)
+        self.param_pv_repair = 10 # repair costs per kWp and year [€/kWp/yr] (IEP)
+        self.param_pv_kWp_per_area  = 0.12 # max power of pv device [kWP/m^2]
+        self.param_pv_inv_per_kWp = 1000 # invesment cost per kWp of generation [€/kWp] (IEP)
+        self.param_pv_lifetime = 25 * 8760 # lifetime of panels in hours [hs]
+        self.param_pv_spec_em = 0 # specifc emissions per kWh generated [kgCO2eq/kWh]
 
-        #Setting up default values for series if none are given in input file:
-        self.param_E_pv_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
+        self.param_E_pv_solar = [0.12] * control.time_span # [kWh/m^2] series for solar radiation input, in case no data is given in "series" sheet of input file
 
         self.write_E_pv_solar(control)
 
+    # write_E_pv_solar writes default solar radiaton to input file in case none is given
     def write_E_pv_solar(self,control):
         df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
         if 'param_E_' + self.name_of_instance + '_solar' in df_input_series.columns:
@@ -107,13 +120,11 @@ class pv(Generator):
             with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
-        #defining energy type to build connections with other componets correctly
-
     def constraint_generation_rule(model,t):
         return model.P_from_pv[t] == (model.param_E_pv_solar[t] / model.time_step) * model.param_pv_eff * model.param_pv_area 
-    
+
     def constraint_operation_costs(model,t):
-        return model.pv_op_cost[t] == model.param_pv_area * model.param_pv_spec_op_cost 
+        return model.pv_op_cost[t] == model.param_pv_area * model.param_pv_kWp_per_area * (model.param_pv_maintenance + model.param_pv_repair) / (365 * 24 / model.time_step)
     
     def constraint_emissions(model,t):
         return model.pv_emissions[t] == model.P_from_pv[t] * model.param_pv_spec_em
@@ -121,6 +132,10 @@ class pv(Generator):
     def constraint_investment_costs(model,t):
         if t == 1:
             return model.pv_inv_cost[t] == model.param_pv_area * model.param_pv_kWp_per_area * model.param_pv_inv_per_kWp
+        
+        elif t % int(model.param_pv_lifetime) == 0:
+            return model.pv_inv_cost[t] == model.param_pv_area * model.param_pv_kWp_per_area * model.param_pv_inv_per_kWp
+        
         else:
             return model.pv_inv_cost[t] == 0
 
@@ -136,26 +151,32 @@ class solar_th(Generator):
     def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
-        self.list_var = ['solar_th_op_cost','solar_th_emissions','solar_th_inv_cost'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
+        self.list_var = ['solar_th_op_cost',
+                         'solar_th_emissions',
+                         'solar_th_inv_cost']
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        #default values in case of no input
-        self.param_solar_th_eff = 0.20 # aproximate overall efficiency of pv cells 
-        self.param_solar_th_area = 50 # m^2
-        self.param_solar_th_spec_op_cost = 0.02 # cost per hour per m^2 area of pv installed
-        self.param_solar_th_spec_em = 0.50 #kgCO2eq/kWh, same value assumed as for PV
-        self.param_solar_th_life_time = 15 #lifetime of panels in years
-        self.param_solar_th_inv_per_area = 700 #EURO per m2 aperture
+        #default values in case of no input 
+        self.param_solar_th_eff = 0.30 # aproximate overall efficiency of solar_th cells https://www.solaranlagen-portal.com/solarthermie/kollektoren/flachkollektor (Flachkollektor)
+        self.param_solar_th_area = 50 # total size of solar thermal device [m^2] 
+        self.param_solar_th_maintenance = 7 # maintenance costs per year and area of installed device [€/m^2] (IEP)
+        self.param_solar_th_repair = 3.5 # repair costs per year and per area of installed device [€/m^2] (IEP)
+        self.param_solar_th_spec_em = 0 # specifc emissions per kWh generated [kgCO2eq/kWh]
+        self.param_solar_th_lifetime = 20 * 8760  # lifetime of panels in years [yrs]
+        self.param_solar_th_inv_per_area = 700 # # invesment cost per m^2 of installed device [€/m^2] (IEP)
 
         #default series
         self.param_E_solar_th_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
 
         self.write_E_solar_th_solar(control)
 
+    # write_E_solar_th_solar writes default solar radiaton to input file in case none is given
     def write_E_solar_th_solar(self,control):
         df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
         if 'param_E_' + self.name_of_instance + '_solar' in df_input_series.columns:
@@ -170,7 +191,7 @@ class solar_th(Generator):
         return model.Q_from_solar_th[t] == (model.param_E_solar_th_solar[t] * model.time_step) * model.param_solar_th_area * model.param_solar_th_eff
         
     def constraint_operation_costs(model,t):
-        return model.solar_th_op_cost[t] == model.param_solar_th_area * model.param_solar_th_spec_op_cost
+        return model.solar_th_op_cost[t] == model.param_solar_th_area * (model.param_solar_th_maintenance + model.param_solar_th_repair) / (365 * 24 / model.time_step)
         
     def constraint_emissions(model,t):
         return model.solar_th_emissions[t] == model.Q_from_solar_th[t] * model.param_solar_th_spec_em
@@ -178,34 +199,46 @@ class solar_th(Generator):
     def constraint_investment_costs(model,t):
         if t == 1:
             return model.solar_th_inv_cost[t] == model.param_solar_th_area * model.param_solar_th_inv_per_area
+        
+        elif t % int(model.param_solar_th_lifetime) == 0:
+            return model.solar_th_inv_cost[t] == model.param_solar_th_area * model.param_solar_th_inv_per_area
+        
         else:
             return model.solar_th_inv_cost[t] == 0
 
 class pvt(Generator):
     #defining energy type to build connections with other componets correctly
     component_type = {'electric_load':'no',
-                   'electric_source':'yes',
-                   'thermal_load':'no',
-                   'thermal_source':'yes'}
+                      'electric_source':'yes',
+                      'thermal_load':'no',
+                      'thermal_source':'yes'}
 
     def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
-        self.list_var = ['pvt_op_cost','pvt_emissions','pvt_inv_cost'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
+        self.list_var = ['pvt_op_cost',
+                         'pvt_emissions',
+                         'pvt_inv_cost'] 
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
         #default values in case of no input
-        self.param_pvt_eff = 0.20 # aproximate overall efficiency of pv cells 
+        self.param_pvt_P_eff = 0.20 # approximate overall efficiency of pvt cells for electricity generation [-] https://www.solarserver.de/wissen/basiswissen/hocheffizientes-heizsystem-pvt-kollektor-und-waermepumpe/
+        self.param_pvt_Q_eff = 0.40 # approximate overall efficiency of pvt cells for thermal energy generation [-] https://www.solarserver.de/wissen/basiswissen/hocheffizientes-heizsystem-pvt-kollektor-und-waermepumpe/
         self.param_pvt_area = 50 # m^2
-        self.param_pvt_spec_op_cost = 0.02 # cost per hour per m^2 area of pv installed
-        self.param_pvt_spec_em = 0.50 #kgCO2eq/kWh, same value assumed as for PV
-        self.param_pvt_life_time = 30 #lifetime of panels in years, same as PV
-        self.param_pvt_Q_to_P_ratio = 1.3 #proportion between power and generated heat
-        self.param_pvt_inv_per_area = 850 # EURO per m2 aperture
+
+        self.param_pvt_maintenace = 8.5 # maintenance costs per m^2 of installed device per year [€/m^2/yr] (IEP)
+        self.param_pvt_repair = 4.25 # repair costs per m^2 of installed device per year [€/m^2/yr] (IEP)
+
+        self.param_pvt_spec_em = 0 # specific emission values [kgCO2eq/kWh] 
+        self.param_pvt_life_time = 20 * 8760 # lifetime of panels in years, same as PV [yr]
+
+        self.param_pvt_inv_per_area = 850 # investments costs in relation to total area of installed device  [€/m^2] (IEP)
 
         #default series
         self.param_E_pvt_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
@@ -223,63 +256,80 @@ class pvt(Generator):
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
         
     def constraint_generation_rule(model,t):
-        return model.P_from_pvt[t] == (model.param_E_pvt_solar[t] * model.time_step) * model.param_pvt_area * model.param_pvt_eff
+        return model.P_from_pvt[t] == (model.param_E_pvt_solar[t] * model.time_step) * model.param_pvt_area * model.param_pvt_P_eff
     
-    def constraint_thermal_energy_rule(model,t):
-        return model.Q_from_pvt[t] == model.P_from_pvt[t] * model.param_pvt_Q_to_P_ratio
+    def constraint_generation_rule_thermal(model,t):
+        return model.Q_from_pvt[t] == (model.param_E_pvt_solar[t] * model.time_step) * model.param_pvt_area * model.param_pvt_Q_eff
         
     def constraint_operation_costs(model,t):
-        return model.pvt_op_cost[t] == model.param_pvt_area * model.param_pvt_spec_op_cost
+        return model.pvt_op_cost[t] == model.param_pvt_area * (model.param_pvt_maintenace + model.param_pvt_repair) / (365 * 24 /  model.time_step)
         
     def constraint_emissions(model,t):
-        return model.pvt_emissions[t] == model.Q_from_pvt[t] * model.param_pvt_spec_em
+        return model.pvt_emissions[t] == (model.Q_from_pvt[t] + model.P_from_pvt[t]) * model.param_pvt_spec_em
 
     def constraint_investment_costs(model,t):
         if t == 1:
             return model.pvt_inv_cost[t] == model.param_pvt_area * model.param_pvt_inv_per_area
+        
+        elif t % int(model.param_pvt_life_time) == 0:
+            return model.pvt_inv_cost[t] == model.param_pvt_area * model.param_pvt_inv_per_area
+        
         else:
             return model.pvt_inv_cost[t] == 0
         
 class CHP(Generator):
     #defining energy type to build connections with other componets correctly
     component_type = {'electric_load':'no',
-                   'electric_source':'yes',
-                   'thermal_load':'no',
-                   'thermal_source':'yes'}
+                      'electric_source':'yes',
+                      'thermal_load':'no',
+                      'thermal_source':'yes'}
 
     def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
 
-        self.list_var = ['CHP_fuel_cons','CHP_op_cost','CHP_emissions','CHP_inv_cost'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals','within = pyo.NonNegativeReals'
-                              ,'within = pyo.NonNegativeReals']
+        self.list_var = ['CHP_op_cost',
+                         'CHP_emissions',
+                         'CHP_inv_cost',
+                         'CHP_fuel_cons',
+                         'CHP_K']
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.Binary']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
         #default values in case of no input
-        self.param_P_CHP_max = 20 #W electric
-        self.param_P_CHP_min = 0
-        self.param_CHP_P_to_Q_ratio = 0.5 
-        self.param_CHP_fuel_cons_ratio = 0.105 #dm3 per kWh of P_from_CHP
-        self.param_CHP_fuel_price = 5 # EUROS/dm3 of fuel 
-        self.param_CHP_spec_em = 2.3 # kg of CO2 emitted per dm3 of fuel (gasoline)
-        self.param_CHP_inv_cost_per_power = 1700 # EURO per kW power
+        self.param_P_CHP_max = 20 # max power of CHP device [kW]
+        self.param_P_CHP_min = 5 # min operation power of CHP [kW]
+        self.param_CHP_P_to_Q_ratio = 0.5 # In german, Stromkennzahl, relation Pel/Pth, [-] https://www.energieatlas.bayern.de/thema_energie/kwk/anlagentypen
+        self.param_CHP_eff = 0.8 # Overall efficiency of CHP [-] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden.
+        self.param_CHP_fuel_price = 0.09463 # cost per kWh of fuel consumed [€/kWh] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden
+        self.param_CHP_spec_em = 0.200 # emissions due to burning of 1 kWh of the fuel [kgCO2eq/kWh] https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=20008075
+        self.param_CHP_inv_cost_per_power = 1700 # investments costs per electric power https://www.heizungsfinder.de/bhkw/kosten-preise/anschaffungskosten
+        self.param_CHP_maintenance_costs = 0.04 # costs of maintenance per generated kWh https://partner.mvv.de/blog/welche-bhkw-kosten-fallen-in-der-anschaffung-und-beim-betrieb-an-bhkw#:~:text=Wartung%20und%20Bedienung,75%20Cent%20pro%20kWh%20rechnen.
+        self.param_CHP_bonus = 0.09 # KWK-Bonus, compensation for energy from CHP sold to net [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3
+        self.param_CHP_not_used_energy_compensation = 0.01 #  compensaton for decentralised energy generation [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3
+        #VERIFICAR SE ESSE DE CIMA REALMENTE EXISTE, OU SE EH PRA TODOS
+        self.param_CHP_lifetime = 20 * 8760 # total lifespan of device in hours [hs]
 
     def constraint_min_generation(model,t):
-        return model.P_from_CHP[t] >= model.param_P_CHP_min
+        return model.P_from_CHP[t] >= model.param_P_CHP_min * model.CHP_K[t]
 
     def constraint_max_generation(model,t):
-        return model.P_from_CHP[t] <= model.param_P_CHP_max 
+        return model.P_from_CHP[t] <= model.param_P_CHP_max * model.CHP_K[t]
 
     def constraint_generation_rule(model,t):
-        return model.P_from_CHP[t] == model.Q_from_CHP[t] * model.param_CHP_P_to_Q_ratio
-
+        return model.P_from_CHP[t] == model.Q_from_CHP[t] * model.param_CHP_P_to_Q_ratio 
+    
     def constraint_fuel_consumption(model,t):
-        return model.CHP_fuel_cons[t] == model.P_from_CHP[t] * model.time_step * model.param_CHP_fuel_cons_ratio 
-
+        return model.CHP_fuel_cons[t] == (model.P_from_CHP[t] + model.Q_from_CHP[t]) / model.param_CHP_eff
+    
     def constraint_operation_costs(model,t):
-        return model.CHP_op_cost[t] == model.CHP_fuel_cons[t] * model.param_CHP_fuel_price
+        return model.CHP_op_cost[t] == model.CHP_fuel_cons[t] * model.param_CHP_fuel_price + model.CHP_fuel_cons[t] * model.param_CHP_eff * model.param_CHP_maintenance_costs
     
     def constraint_emissions(model,t):
         return model.CHP_emissions[t] == model.CHP_fuel_cons[t] * model.param_CHP_spec_em
@@ -287,17 +337,85 @@ class CHP(Generator):
     def constraint_investment_costs(model,t):
         if t == 1:
             return model.CHP_inv_cost[t] == model.param_P_CHP_max * model.param_CHP_inv_cost_per_power
+        
+        elif t % int(model.param_CHP_lifetime) == 0:
+            return model.CHP_inv_cost[t] == model.param_P_CHP_max * model.param_CHP_inv_cost_per_power
+        
         else:
             return model.CHP_inv_cost[t] == 0
+
+class gas_boiler(Generator):
+    #defining energy type to build connections with other componets correctly
+    component_type = {'electric_load':'no',
+                   'electric_source':'no',
+                   'thermal_load':'no',
+                   'thermal_source':'yes'}
+
+    def __init__(self,name_of_instance,control):
+        self.name_of_instance = name_of_instance
+
+        self.list_var = ['gas_boiler_fuel_cons',
+                         'gas_boiler_op_cost',
+                         'gas_boiler_emissions',
+                         'gas_boiler_inv_cost'] 
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
+
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
+
+        #default values in case of no input
+        self.param_Q_gas_boiler_max = 20 # max power that can be generated with this device [kW]
+        self.param_Q_gas_boiler_min = 2 # min power limitation when this device is in operation [kW]
+        self.param_gas_boiler_eff = 0.95 # efficency when converting fuel into thermal energy [-] 
+        self.param_gas_boiler_fuel_cons_ratio = 0.105 #dm3 per kWh of P_from_CHP
+        self.param_gas_boiler_fuel_price = 0.09463 # cost per kWh of fuel consumed [€/kWh] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden
+        self.param_gas_boiler_spec_em = 0.200 # emissions due to burning of 1 kWh of the fuel [kgCO2eq/kWh] https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=20008075
+        self.param_gas_boiler_maintenance = 1875 #maintenace costs per kW of installed capacity per  year [€/kW/yr] (IEP)
+        self.param_gas_boiler_repair = 1875 #repair costs per kW of installed capacity per  year [€/kW/yr] (IEP)
+        self.param_gas_boiler_inv_cost_per_power = 125 # investment costs per max kW of installed device [€/kW]
+        self.param_gas_boiler_lifetime = 20 * 8760 # total life span of the device [hs]
+
+    def constraint_min_generation(model,t):
+        return model.Q_from_gas_boiler[t] >= model.param_Q_gas_boiler_min
+
+    def constraint_max_generation(model,t):
+        return model.Q_from_gas_boiler[t] <= model.param_Q_gas_boiler_max 
+
+    def constraint_generation_rule(model,t):
+        return model.gas_boiler_fuel_cons[t] == model.Q_from_gas_boiler[t] * model.time_step * model.param_gas_boiler_fuel_cons_ratio
+    
+    def constraint_generation_rule(model,t):
+        return model.Q_from_gas_boiler[t] == model.gas_boiler_fuel_cons[t] * model.param_gas_boiler_eff
+
+    def constraint_operation_costs(model,t):
+        return model.gas_boiler_op_cost[t] == (model.gas_boiler_fuel_cons[t] * model.param_gas_boiler_fuel_price +
+                                               model.param_Q_gas_boiler_max * (model.param_gas_boiler_maintenance + model.param_gas_boiler_repair) / (365 * 24 / model.time_step))
+    
+    def constraint_emissions(model,t):
+        return model.gas_boiler_emissions[t] == model.gas_boiler_fuel_cons[t] * model.param_gas_boiler_spec_em
+    
+    def constraint_investment_costs(model,t):
+        if t == 1:
+            return model.gas_boiler_inv_cost[t] == model.param_Q_gas_boiler_max * model.param_gas_boiler_inv_cost_per_power
+        
+        elif t % int(model.param_gas_boiler_lifetime) == 0:
+            return model.gas_boiler_inv_cost[t] == model.param_Q_gas_boiler_max * model.param_gas_boiler_inv_cost_per_power
+        
+        else:
+            return model.gas_boiler_inv_cost[t] == 0
 
 
 
 class Transformer:
     #defining energy type to build connections with other componets correctly
     component_type = {'electric_load':'yes',
-                    'electric_source':'no',
-                    'thermal_load':'no',
-                    'thermal_source':'yes'}
+                      'electric_source':'no',
+                      'thermal_load':'no',
+                      'thermal_source':'yes'}
     
     def __init__(self, name_of_instance,control):
         self.name_of_instance = name_of_instance
@@ -308,7 +426,7 @@ class Transformer:
         
         self.list_text_var = ['within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
-                              'within = pyo.NonNegativeReals',]
+                              'within = pyo.NonNegativeReals']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
@@ -332,7 +450,7 @@ class Transformer:
 
     def constraint_emissions(model,t): 
         return model.trans_emissions[t] == model.P_to_trans[t] * model.param_trans_spec_em
-
+    
 class heat_pump(Transformer):
     #defining energy type to build connections with other componets correctly
     component_type = {'electric_load':'yes',
@@ -343,34 +461,50 @@ class heat_pump(Transformer):
     def __init__(self, name_of_instance,control):
         self.name_of_instance = name_of_instance
 
-        self.list_var = ['heat_pump_emissions','heat_pump_inv_cost','heat_pump_op_cost'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
-                              'within = pyo.NonNegativeReals',]
+        self.list_var = ['heat_pump_emissions',
+                         'heat_pump_inv_cost',
+                         'heat_pump_op_cost',
+                         'heat_pump_K']
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.Binary']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
         #default values in case of no input
-        self.param_P_heat_pump_max = 20 #kW electric
-        self.param_P_heat_pump_min = 0.3 * self.param_P_heat_pump_max #kW electric
-        self.param_heat_pump_COP = 4 #value assumed to be constant 
-        self.param_heat_pump_spec_em = 0.138 # kgCO2eq/kWh 
-        self.param_heat_pump_inv_specific_costs = 10000 # VERIFICAR
-        self.param_heat_pump_spec_op_cost = 1875 * 2 / 8760 * self.param_P_heat_pump_max # EURO per h operation and kW max power
+        self.param_P_heat_pump_max = 20 # max possible electric power consumption [kW]
+        self.param_P_heat_pump_min = 0.2 * self.param_P_heat_pump_max # minimum power consumption for device while in operation [kW] 
+        self.param_heat_pump_COP = 4 # overall average coefficent of performance, Pth/Pel [-] https://www.heizungsfinder.de/waermepumpe/wirtschaftlichkeit/cop-wert
+        self.param_heat_pump_spec_em = 0 # specific emissions per consumed kWh of electricity [kgCO2eq/kWh] https://gshp.org.uk/gshps/what-are-gshps/#:~:text=element%20of%20a%20ground%20source,life%20of%20over%20100%20years.&text=Unlike%20burning%20oil%2C%20gas%2C%20LPG,is%20used%20to%20power%20them).
+        self.param_heat_pump_inv_specific_costs = 733 # investment costs per kW of installed capacity (IEP)
+        self.param_heat_pump_maintenance = 11 # maintenance costs per installed kW capacity and year [€/kW] (IEP)
+        self.param_heat_pump_repair = 11 # repair costs per installed kW capacity and year [€/kW] (IEP)
+        self.param_heat_pump_operation = 12 # operation costs per installed kW capacity and year [€/kW] (IEP)
+        self.param_heat_pump_lifetime = 20 * 8760 # total lifespan of device [hs]
 
 
     def constraint_function_rule(model,t):
         return model.Q_from_heat_pump[t] == model.P_to_heat_pump[t] * model.param_heat_pump_COP
     
     def constraint_max_power(model,t):
-        return model.P_to_heat_pump[t] <= model.param_P_heat_pump_max
+        return model.P_to_heat_pump[t] <= model.param_P_heat_pump_max * model.heat_pump_K[t]
+    
+    def constraint_min_power(model,t):
+        return model.P_to_heat_pump[t] >= model.param_P_heat_pump_min * model.heat_pump_K[t]
     
     def constraint_operation_costs(model,t):
-        return model.heat_pump_op_cost[t] == model.param_heat_pump_spec_op_cost * model.time_step
+        return model.heat_pump_op_cost[t] == model.param_P_heat_pump_max * (model.param_heat_pump_maintenance + model.param_heat_pump_operation + model.param_heat_pump_repair) / (365 * 24 / model.time_step)
 
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.heat_pump_inv_cost[t] == model.param_heat_pump_inv_specific_costs
+            return model.heat_pump_inv_cost[t] == model.param_heat_pump_inv_specific_costs * model.param_P_heat_pump_max
+        
+        elif t % int(model.param_heat_pump_lifetime) == 0:
+            return model.heat_pump_inv_cost[t] == model.param_heat_pump_inv_specific_costs * model.param_P_heat_pump_max
+
         else:
             return model.heat_pump_inv_cost[t] == 0
 
@@ -380,9 +514,9 @@ class heat_pump(Transformer):
 class bat(Transformer):
     #defining energy type to build connections with other componets correctly
     component_type = {'electric_load':'yes',
-                   'electric_source':'yes',
-                   'thermal_load':'no',
-                   'thermal_source':'no'}
+                      'electric_source':'yes',
+                      'thermal_load':'no',
+                      'thermal_source':'no'}
 
     def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
@@ -409,24 +543,25 @@ class bat(Transformer):
         self.list_text_altered_var =[]
         
         #default values in case of no input
-        self.param_bat_E_max_initial = 100
-        self.param_bat_starting_SOC = 0.5
-        self.param_bat_ch_eff = 0.95
-        self.param_bat_dis_eff = 0.95
-        self.param_bat_c_rate_ch = 1
-        self.param_bat_c_rate_dis = 1
-        self.param_bat_spec_op_cost = 0.01
-        self.param_bat_spec_em = 50 # kgCO2eq/kWh capacity of the battery in EU
-        self.param_bat_DoD = 0.7
-        self.param_bat_inv_per_capacity = 650 # EURO per kWh capacity
-        self.param_bat_cycles = 9000
+        self.param_bat_E_max_initial = 100 #max energy capacity of the battery [kWh]
+        self.param_bat_starting_SOC = 0.5 # starting state of charge of the battery [-]
+        self.param_bat_ch_eff = 0.95 # efficiency for charging the battery [-]
+        self.param_bat_dis_eff = 0.95 # efficiency for discharging the battery [-]
+        self.param_bat_c_rate_ch = 1 # c-rate of the battery for charging. Specifices the max power of charging in relation to its capacity [1/hr]
+        self.param_bat_c_rate_dis = 1 # c-rate of the battery for discharging. Specifices the max power of discharging in relation to its capacity [1/hr]
+        self.param_bat_spec_op_cost = 0 # specifies the operation cost of the battery per kWh flow in the battery [€/kWh]
+        self.param_bat_spec_em = 50 # embodied emission per kWh capacity of the battery in EU. file: 1-s2.0-S0921344922004402-main [kgCO2eq/kWh]
+        self.param_bat_DoD = 0.7 # maximum depth of discharge of the battery [-]
+        self.param_bat_inv_per_capacity = 650 # investment costs per installed kWh of capacity. [€/kWh]
+        self.param_bat_cycles = 9000 # max number of full cyces before battery is worn out beyond operation [# cycles]
+        self.param_bat_lifetime = 10 * 8760 # total lifespan of the device in hours [hs]
 
-        self.param_bat_energy_starting_index = 1
-        self.param_bat_cumulated_aging_starting_index = 1
-        self.param_bat_inv_cost_starting_index = 1 
+        self.param_bat_energy_starting_index = 1 # parameter created to connect energy of the battery with previous optimization horizon when using receding horizon optimization
+        # self.param_bat_cumulated_aging_starting_index = 1 # parameter created to connect accumulated aging with previous optimization horizon when using receding horizon optimization
+        self.param_bat_inv_cost_starting_index = 1 # parameter created to connect investment costs with previous optimization horizon when using receding horizon optimization
 
-        self.param_bat_M1 = 10000
-        self.param_bat_M2 = 10000
+        self.param_bat_M1 = 10000 # parameter created for linearization using Big M method.
+        self.param_bat_M2 = 10000 # parameter created for linearization using Big M method.
 
         if control.receding_horizon == 'yes':
             self.param_bat_receding_horizon = 1
@@ -452,9 +587,7 @@ class bat(Transformer):
                                                                 - model.P_from_bat[t] / model.param_bat_dis_eff) * model.time_step
         
 
-    # def constraint_charge_limit(model,t):
-    #     return model.P_to_bat[t] <= model.param_bat_E_max_initial * model.bat_K_ch[t] * model.param_bat_c_rate_ch
-        
+    # linearized equations to define charging power limit. Original equation was: model.P_to_bat[t] <= model.param_bat_E_max_initial * model.bat_K_ch[t] * model.param_bat_c_rate_ch
     def constraint_charge_limit1(model,t):
         return model.P_to_bat[t] <= model.param_bat_c_rate_ch * model.bat_z1[t]
 
@@ -469,11 +602,10 @@ class bat(Transformer):
     
     def constraint_charge_limit5(model,t):
         return model.bat_z1[t] >= 0 
-    
 
-    # def constraint_discharge_limit(model,t):
-    #     return model.P_from_bat[t] <= model.param_bat_E_max_initial *  model.bat_K_dis[t] * model.param_bat_c_rate_dis
-    
+
+    # linearized equations to define discharging power limit. Original equation was: model.P_from_bat[t] <= model.param_bat_E_max_initial *  model.bat_K_dis[t] * model.param_bat_c_rate_dis  
+
     def constraint_discharge_limit1(model,t):
         return model.P_from_bat[t] <= model.param_bat_c_rate_dis * model.bat_z2[t] 
 
@@ -489,21 +621,163 @@ class bat(Transformer):
     def constraint_discharge_limit5(model,t):
         return model.bat_z2[t] >= 0
     
-    
+
+    # constraint_keys_rule prevents battery from charging and discharging in the same time step
     def constraint_keys_rule(model,t):
         return model.bat_K_ch[t] + model.bat_K_dis[t] <= 1
 
     def constraint_operation_costs(model,t):
-        return model.bat_op_cost[t] == model.param_bat_E_max_initial * model.param_bat_spec_op_cost
+        return model.bat_op_cost[t] == (model.P_to_bat[t] + model.P_from_bat[t]) * model.param_bat_spec_op_cost
     
+    #emissions equation accounts for battery embodied CO2 emissions 
     def constraint_emissions(model,t):
         return model.bat_emissions[t] == (model.P_from_bat[t] + model.P_to_bat[t]) * model.param_bat_spec_em / (model.param_bat_cycles*2)
     
     def constraint_investment_costs(model,t):
         if t == 1:
             return model.bat_inv_cost[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity
+        
+        elif t % int(model.param_bat_lifetime) == 0:
+            return model.bat_inv_cost[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity
+        
         else:
             return model.bat_inv_cost[t] == 0
+
+class bat_with_aging(Transformer):
+    #defining energy type to build connections with other componets correctly
+    component_type = {'electric_load':'yes',
+                      'electric_source':'yes',
+                      'thermal_load':'no',
+                      'thermal_source':'no'}
+
+    def __init__(self,name_of_instance,control):
+        self.name_of_instance = name_of_instance
+
+        self.list_var = ['bat_with_aging_SOC',
+                         'bat_with_aging_K_ch',
+                         'bat_with_aging_K_dis',
+                         'bat_with_aging_op_cost',
+                         'bat_with_aging_emissions',
+                         'bat_with_aging_SOC_max',
+                         'bat_with_aging_integer',
+                         'bat_with_aging_cumulated_aging',
+                         'bat_with_aging_inv_cost'] 
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals, bounds=(0, 1)',
+                              'domain = pyo.Binary','domain = pyo.Binary',
+                              'within = pyo.NonNegativeReals','within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals, bounds=(0, 1)',
+                              'within = pyo.Integers', 'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
+
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
+
+        #default values in case of no input
+        self.param_bat_with_aging_E_max_initial = 100
+        self.param_bat_with_aging_starting_SOC = 0.5
+        self.param_bat_with_aging_ch_eff = 0.95
+        self.param_bat_with_aging_dis_eff = 0.95
+        self.param_bat_with_aging_c_rate_ch = 1
+        self.param_bat_with_aging_c_rate_dis = 1
+        self.param_bat_with_aging_spec_op_cost = 0.01
+        self.param_bat_with_aging_spec_em = 50 # kgCO2eq/kWh capacity of the battery in EU
+        self.param_bat_with_aging_DoD = 0.7
+        self.param_bat_with_aging_final_SoH = 0.7
+        self.param_bat_with_aging_cycles = 9000 # full cycles before final SoH is reached and battery is replaced
+        self.param_bat_with_aging_aging = (self.param_bat_with_aging_E_max_initial * (1 -self.param_bat_with_aging_final_SoH)) / (self.param_bat_with_aging_cycles * 2 * self.param_bat_with_aging_E_max_initial) / self.param_bat_with_aging_E_max_initial
+        self.param_bat_with_aging_inv_per_capacity = 650 # EURO per kWh capacity
+
+        self.param_bat_with_aging_SOC_starting_index = 1
+        self.param_bat_with_aging_cumulated_aging_starting_index = 1
+        self.param_bat_with_aging_inv_cost_starting_index = 1 
+        self.param_bat_with_aging_integer_starting_index = 1
+        
+        if control.receding_horizon == 'yes':
+            self.param_bat_with_aging_receding_horizon = 1
+        else:
+            self.param_bat_with_aging_receding_horizon = 0
+
+        #defining energy type to build connections with other componets correctly
+
+    def constraint_depth_of_discharge(model,t):
+        return model.bat_with_aging_SOC[t] >= (1 - model.param_bat_with_aging_DoD)
+    
+    def constraint_max_state_of_charge(model,t):
+        if t == 1:
+            return model.bat_with_aging_SOC[t] <= 1
+        else:
+            return model.bat_with_aging_SOC[t] <= model.bat_with_aging_SOC_max[t]
+    
+    def constraint_cumulated_aging(model,t):
+        if t == 1:
+            return model.bat_with_aging_cumulated_aging[t] == (model.P_from_bat_with_aging[t] + 
+                                                    model.P_to_bat_with_aging[t]) * model.time_step * model.param_bat_with_aging_aging
+        
+        elif t == model.starting_index and model.param_bat_with_aging_receding_horizon == 1:
+
+            return model.bat_with_aging_cumulated_aging[t] == model.param_bat_with_aging_cumulated_aging_starting_index
+        
+        else:
+            return model.bat_with_aging_cumulated_aging[t] == model.bat_with_aging_cumulated_aging[t-1] + (model.P_from_bat_with_aging[t] + 
+                                                                                     model.P_to_bat_with_aging[t]) * model.time_step * model.param_bat_with_aging_aging
+        
+    def constraint_upper_integer_rule(model,t):
+        if t == 1:
+            return model.bat_with_aging_integer[t] == 0 
+        else:
+            return model.bat_with_aging_integer[t] <= model.bat_with_aging_cumulated_aging[t] / (1-model.param_bat_with_aging_final_SoH)
+    
+    def constraint_lower_integer_rule(model,t):
+        if t == 1:
+            return model.bat_with_aging_integer[t] == 0
+        
+        elif t == model.starting_index and model.param_bat_with_aging_receding_horizon == 1:
+            return model.bat_with_aging_integer[t] == model.param_bat_with_aging_integer_starting_index
+        
+        else:
+            return model.bat_with_aging_integer[t] >= model.bat_with_aging_cumulated_aging[t] / (1-model.param_bat_with_aging_final_SoH) - 1
+     
+    def constraint_aging(model,t):
+        if t == 1:
+            return model.bat_with_aging_SOC_max[t] == 1
+        else:
+            return model.bat_with_aging_SOC_max[t] == 1 - model.bat_with_aging_cumulated_aging[t] + model.bat_with_aging_integer[t] * (1 - model.param_bat_with_aging_final_SoH)
+    
+    def constraint_function_rule(model,t):
+        if t == 1:
+            return model.bat_with_aging_SOC[t] == model.param_bat_with_aging_starting_SOC + (model.P_to_bat_with_aging[t] * model.param_bat_with_aging_ch_eff 
+                                                                - model.P_from_bat_with_aging[t]/model.param_bat_with_aging_dis_eff) * model.time_step / model.param_bat_with_aging_E_max_initial
+        elif t == model.starting_index and model.param_bat_with_aging_receding_horizon == 1:
+            return model.bat_with_aging_SOC[t] == model.param_bat_with_aging_SOC_starting_index
+        else:
+            return model.bat_with_aging_SOC[t] == model.bat_with_aging_SOC[t-1] + (model.P_to_bat_with_aging[t] * model.param_bat_with_aging_ch_eff 
+                                                                - model.P_from_bat_with_aging[t]/model.param_bat_with_aging_dis_eff) * model.time_step / model.param_bat_with_aging_E_max_initial
+
+    def constraint_charge_limit(model,t):
+        return model.P_to_bat_with_aging[t] <= model.param_bat_with_aging_E_max_initial * model.bat_with_aging_K_ch[t] * model.param_bat_with_aging_c_rate_ch
+
+    def constraint_discharge_limit(model,t):
+        return model.P_from_bat_with_aging[t] <= model.param_bat_with_aging_E_max_initial *  model.bat_with_aging_K_dis[t] * model.param_bat_with_aging_c_rate_dis
+    
+    def constraint_keys_rule(model,t):
+        return model.bat_with_aging_K_ch[t] + model.bat_with_aging_K_dis[t] <= 1
+
+    def constraint_operation_costs(model,t):
+        return model.bat_with_aging_op_cost[t] == model.param_bat_with_aging_E_max_initial * model.param_bat_with_aging_spec_op_cost
+    
+    def constraint_emissions(model,t):
+        return model.bat_with_aging_emissions[t] == (model.P_from_bat_with_aging[t] + model.P_to_bat_with_aging[t]) * model.param_bat_with_aging_spec_em/(model.param_bat_with_aging_cycles*2)
+    
+    def constraint_investment_costs(model,t):
+        if t == 1:
+            return model.bat_with_aging_inv_cost[t] == model.param_bat_with_aging_E_max_initial * model.param_bat_with_aging_inv_per_capacity
+        
+        elif t == model.starting_index and model.param_bat_with_aging_receding_horizon == 1:
+            return model.bat_with_aging_inv_cost[t] == model.param_bat_with_aging_inv_cost_starting_index
+        
+        else:
+            return model.bat_with_aging_inv_cost[t] == model.param_bat_with_aging_E_max_initial * model.param_bat_with_aging_inv_per_capacity * (model.bat_with_aging_integer[t] - model.bat_with_aging_integer[t-1])
 
 
 
@@ -549,15 +823,18 @@ class Consumer:
 class demand(Consumer):
     #defining energy type to build connections with other componets correctly
     component_type = {'electric_load':'yes',
-                   'electric_source':'no',
-                   'thermal_load':'yes',
-                   'thermal_source':'no'}
+                      'electric_source':'no',
+                      'thermal_load':'yes',
+                      'thermal_source':'no'}
 
     def __init__(self, name_of_instance, control):
         self.name_of_instance = name_of_instance
 
-        self.list_var = ['demand_inv_cost','demand_op_cost'] #no powers
-        self.list_text_var = ['within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+        self.list_var = ['demand_inv_cost',
+                         'demand_op_cost']
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
@@ -605,12 +882,17 @@ class charging_station(Consumer):
     
     super_class = 'demand'
 
-    def __init__(self,name_of_instance,control):
+    def __init__(self, name_of_instance, control):
         self.name_of_instance = name_of_instance
 
         #default values in case of no input
-        self.list_var = ['charging_station_op_cost','charging_station_inv_cost','charging_station_emissions'] #no powers
-        self.list_text_var = ['within = pyo.NegativeReals','within = pyo.NonNegativeReals','within = pyo.NonNegativeReals']
+        self.list_var = ['charging_station_op_cost',
+                         'charging_station_inv_cost',
+                         'charging_station_emissions']
+        
+        self.list_text_var = ['within = pyo.NegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
@@ -620,12 +902,13 @@ class charging_station(Consumer):
         self.param_charging_station_spec_emissions = 0.05
 
         self.time_span = control.time_span
+        self.reference_date = control.reference_date
         self.name_file = 'df_input.xlsx'
 
         #defining paramenters for functions that are not constraints, includiing default values:
         self.dict_parameters  = {'list_sheets':['other','other','other','other'],
                                  'charging_station_mult': 1.2,
-                                 'reference_date': control.reference_date,
+                                 'reference_date': self.reference_date,
                                  'number_hours': self.time_span + 1,
                                  'number_days': math.ceil((self.time_span + 1)/24)}
         
@@ -721,7 +1004,7 @@ class charging_station(Consumer):
     #function for transforming timestamp to YYYY-MM_DD hh:mm
     def convert_time_stamp(self, day_integer, float_number):
         seconds_integer = int(float_number * 3600)
-        delta = timedelta(seconds = seconds_integer,days = day_integer)
+        delta = timedelta(seconds = seconds_integer, days = day_integer)
         converted_time_stamp = self.dict_parameters['reference_date'] + delta
         converted_time_stamp = converted_time_stamp.strftime('%Y-%m-%d %H:%M')
         return converted_time_stamp
@@ -858,8 +1141,8 @@ class control:
         self.time_span = self.df.loc['time_span','value']
         self.opt_objective = self.df.loc['opt_objective','value']
         self.receding_horizon = self.df.loc['receding_horizon','value']
-        self.horizon = self.df.loc['horizon','value']
-        self.saved_position = self.df.loc['saved_position','value']
+        self.optimization_horizon = self.df.loc['optimization_horizon','value']
+        self.control_horizon = self.df.loc['control_horizon','value']
         self.path_input = self.df.loc['path_input','value']
         self.path_output = self.df.loc['path_output','value']
         self.size_optimization = self.df.loc['size_optimization','value']
@@ -879,11 +1162,11 @@ class control:
                 print('==========ERROR==========')
                 print('It is not possible to do a size optimization and receiding horizon simultaneously, Please choose one of the two.')
                 sys.exit()
-            elif self.horizon > self.time_span:
+            elif self.optimization_horizon > self.time_span:
                 print('==========ERROR==========')
                 print('horizon cannot be bigger than time_span')
                 sys.exit()
-            elif self.saved_position > self.horizon:
+            elif self.control_horizon > self.optimization_horizon:
                 print('==========ERROR==========')
                 print('number of saved lines cannot be bigger than the horizon')
                 sys.exit()
