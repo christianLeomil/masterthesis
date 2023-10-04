@@ -291,13 +291,17 @@ class CHP(Generator):
                          'CHP_emissions',
                          'CHP_inv_cost',
                          'CHP_fuel_cons',
-                         'CHP_K']
+                         'CHP_K',
+                         'CHP_z1',
+                         'CHP_z2']
         
         self.list_text_var = ['within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
-                              'within = pyo.Binary']
+                              'within = pyo.Binary',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
@@ -316,11 +320,48 @@ class CHP(Generator):
         #VERIFICAR SE ESSE DE CIMA REALMENTE EXISTE, OU SE EH PRA TODOS
         self.param_CHP_lifetime = 20 * 8760 # total lifespan of device in hours [hs]
 
-    def constraint_min_generation(model,t):
-        return model.P_from_CHP[t] >= model.param_P_CHP_min * model.CHP_K[t]
+        self.param_CHP_M1 = 10000
+        self.param_CHP_M2 = 10000
 
-    def constraint_max_generation(model,t):
-        return model.P_from_CHP[t] <= model.param_P_CHP_max * model.CHP_K[t]
+    # def constraint_min_generation(model,t):
+    #     return model.P_from_CHP[t] >= model.param_P_CHP_min * model.CHP_K[t]
+    
+    def constraint_min_generation1(model,t):
+        return model.P_from_CHP[t] >= model.CHP_z1[t]
+    
+    def constraint_min_generation2(model,t):
+        return model.CHP_z1[t] <= model.param_CHP_M1 * model.CHP_K[t]
+    
+    def constraint_min_generation3(model,t):
+        return model.CHP_z1[t] <= model.param_P_CHP_min 
+    
+    def constraint_min_generation4(model,t):
+        return model.CHP_z1[t] >= model.param_P_CHP_min - (1 - model.CHP_K[t]) * model.param_CHP_M1
+    
+    def constraint_min_generation5(model,t):
+        return model.CHP_z1[t] >= 0
+
+
+    # def constraint_max_generation(model,t):
+    #     return model.P_from_CHP[t] <= model.param_P_CHP_max * model.CHP_K[t]
+    
+    def constraint_max_generation1(model,t):
+        return model.P_from_CHP[t] <= model.CHP_z2[t]
+    
+    def constraint_max_generation2(model,t):
+        return model.CHP_z2[t] <= model.param_CHP_M2 * model.CHP_K[t]
+    
+    def constraint_max_generation3(model,t):
+        return model.CHP_z2[t] <= model.param_P_CHP_max 
+    
+    def constraint_max_generation4(model,t):
+        return model.CHP_z2[t] >= model.param_P_CHP_max - (1 - model.CHP_K[t]) * model.param_CHP_M2
+    
+    def constraint_max_generation5(model,t):
+        return model.CHP_z2[t] >= 0
+    
+
+
 
     def constraint_generation_rule(model,t):
         return model.P_from_CHP[t] == model.Q_from_CHP[t] * model.param_CHP_P_to_Q_ratio 
@@ -464,12 +505,16 @@ class heat_pump(Transformer):
         self.list_var = ['heat_pump_emissions',
                          'heat_pump_inv_cost',
                          'heat_pump_op_cost',
-                         'heat_pump_K']
+                         'heat_pump_K',
+                         'heat_pump_z1',
+                         'heat_pump_z2']
         
         self.list_text_var = ['within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
-                              'within = pyo.Binary']
+                              'within = pyo.Binary',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
@@ -485,15 +530,54 @@ class heat_pump(Transformer):
         self.param_heat_pump_operation = 12 # operation costs per installed kW capacity and year [€/kW] (IEP)
         self.param_heat_pump_lifetime = 20 * 8760 # total lifespan of device [hs]
 
+        self.param_heat_pump_M1 = 10000
+        self.param_heat_pump_M2 = 10000
+
 
     def constraint_function_rule(model,t):
         return model.Q_from_heat_pump[t] == model.P_to_heat_pump[t] * model.param_heat_pump_COP
     
-    def constraint_max_power(model,t):
-        return model.P_to_heat_pump[t] <= model.param_P_heat_pump_max * model.heat_pump_K[t]
+    # def constraint_max_power(model,t):
+    #     return model.P_to_heat_pump[t] <= model.param_P_heat_pump_max * model.heat_pump_K[t]
+
+    def constraint_max_power1(model,t):
+        return model.P_to_heat_pump[t] <= model.heat_pump_z1[t]
     
-    def constraint_min_power(model,t):
-        return model.P_to_heat_pump[t] >= model.param_P_heat_pump_min * model.heat_pump_K[t]
+    def constraint_max_power2(model,t):
+        return model.heat_pump_z1[t] <= model.param_heat_pump_M1 * model.heat_pump_K[t]
+    
+    def constraint_max_power3(model,t):
+        return model.heat_pump_z1[t] <= model.param_P_heat_pump_max 
+    
+    def constraint_max_power4(model,t):
+        return model.heat_pump_z1[t] >= model.param_P_heat_pump_max - (1 - model.heat_pump_K[t]) * model.param_heat_pump_M1
+    
+    def constraint_max_power5(model,t):
+        return model.heat_pump_z1[t] >= 0
+
+
+
+    
+    # def constraint_min_power(model,t):
+    #     return model.P_to_heat_pump[t] >= model.param_P_heat_pump_min * model.heat_pump_K[t]
+    
+    def constraint_min_power1(model,t):
+        return model.P_to_heat_pump[t] >= model.heat_pump_z2[t]
+    
+    def constraint_min_power2(model,t):
+        return model.heat_pump_z2[t] <= model.param_heat_pump_M2 * model.heat_pump_K[t]
+    
+    def constraint_min_power3(model,t):
+        return model.heat_pump_z2[t] <= model.param_P_heat_pump_min
+    
+    def constraint_min_power4(model,t):
+        return model.heat_pump_z2[t] >= model.param_P_heat_pump_min - (1 - model.heat_pump_K[t]) * model.param_heat_pump_M2
+    
+    def constraint_min_power5(model,t):
+        return model.heat_pump_z2[t] >= 0
+
+
+
     
     def constraint_operation_costs(model,t):
         return model.heat_pump_op_cost[t] == model.param_P_heat_pump_max * (model.param_heat_pump_maintenance + model.param_heat_pump_operation + model.param_heat_pump_repair) / (365 * 24 / model.time_step)
@@ -586,7 +670,7 @@ class bat(Transformer):
                                                                 - model.P_from_bat[t] / model.param_bat_dis_eff) * model.time_step
         
 
-    # linearized equations to define charging power limit. Original equation was: model.P_to_bat[t] <= model.param_bat_E_max_initial * model.bat_K_ch[t] * model.param_bat_c_rate_ch
+    # linearized equations to define charging power limit. Original equation was: model.P_to_bat[t] <= model.param_bat_E_max_initial * model.bat_K_ch[t] * model.param_bat_c_rate_ch https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
     def constraint_charge_limit1(model,t):
         return model.P_to_bat[t] <= model.param_bat_c_rate_ch * model.bat_z1[t]
 
@@ -603,7 +687,7 @@ class bat(Transformer):
         return model.bat_z1[t] >= 0 
 
 
-    # linearized equations to define discharging power limit. Original equation was: model.P_from_bat[t] <= model.param_bat_E_max_initial *  model.bat_K_dis[t] * model.param_bat_c_rate_dis  
+    # linearized equations to define discharging power limit. Original equation was: model.P_from_bat[t] <= model.param_bat_E_max_initial *  model.bat_K_dis[t] * model.param_bat_c_rate_dis https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
 
     def constraint_discharge_limit1(model,t):
         return model.P_from_bat[t] <= model.param_bat_c_rate_dis * model.bat_z2[t] 

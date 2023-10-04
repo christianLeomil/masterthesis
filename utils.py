@@ -974,6 +974,7 @@ def charts_generator(control,df_aux):
     df_final['Date'] = reference_date + pd.to_timedelta(df_final['TimeStep'], unit = 'h')
     if control.time_span < 100:
         df_final = df_final[:control.time_span]
+    else:
         df_final = df_final[:100]
 
     x_axis = df_final['TimeStep'].tolist()
@@ -1005,7 +1006,7 @@ def charts_generator(control,df_aux):
             plt.ylabel('Power [kW]')
             plt.title(f"Electric power distribution - {element}")
             plt.legend(list_connections_electric)
-            plt.savefig(folder_path + 'P_' + element + '.png')
+            plt.savefig(folder_path + 'P - ' + element + '.png')
             plt.close()
 
 
@@ -1019,7 +1020,7 @@ def charts_generator(control,df_aux):
             plt.ylabel('Power [kW]')
             plt.title(f"Thermal power distribution - {element}")
             plt.legend(list_connections_thermal)
-            plt.savefig(folder_path +'Q_' + element + '.png')
+            plt.savefig(folder_path +'Q - ' + element + '.png')
             plt.close()
 
         if element_type == 'bat':
