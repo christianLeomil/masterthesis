@@ -311,7 +311,7 @@ class CHP(Generator):
         self.param_CHP_spec_em = 0.200 # emissions due to burning of 1 kWh of the fuel [kgCO2eq/kWh] https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=20008075
         self.param_CHP_inv_cost_per_power = 1700 # investments costs per electric power https://www.heizungsfinder.de/bhkw/kosten-preise/anschaffungskosten
         self.param_CHP_maintenance_costs = 0.04 # costs of maintenance per generated kWh https://partner.mvv.de/blog/welche-bhkw-kosten-fallen-in-der-anschaffung-und-beim-betrieb-an-bhkw#:~:text=Wartung%20und%20Bedienung,75%20Cent%20pro%20kWh%20rechnen.
-        self.param_CHP_bonus = 0.09 # KWK-Bonus, compensation for energy from CHP sold to net [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3
+        self.param_CHP_bonus = 0.09 # KWK-Bonus, compensation for energy from CHP sold to net [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3     https://www.bhkw-infozentrum.de/wirtschaftlichkeit-bhkw-kwk/ueblicher_preis_bhkw.html
         self.param_CHP_not_used_energy_compensation = 0.01 #  compensaton for decentralised energy generation [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3
         #VERIFICAR SE ESSE DE CIMA REALMENTE EXISTE, OU SE EH PRA TODOS
         self.param_CHP_lifetime = 20 * 8760 # total lifespan of device in hours [hs]
@@ -557,7 +557,6 @@ class bat(Transformer):
         self.param_bat_lifetime = 10 * 8760 # total lifespan of the device in hours [hs]
 
         self.param_bat_energy_starting_index = 1 # parameter created to connect energy of the battery with previous optimization horizon when using receding horizon optimization
-        # self.param_bat_cumulated_aging_starting_index = 1 # parameter created to connect accumulated aging with previous optimization horizon when using receding horizon optimization
         self.param_bat_inv_cost_starting_index = 1 # parameter created to connect investment costs with previous optimization horizon when using receding horizon optimization
 
         self.param_bat_M1 = 10000 # parameter created for linearization using Big M method.
@@ -674,24 +673,24 @@ class bat_with_aging(Transformer):
         self.list_text_altered_var =[]
 
         #default values in case of no input
-        self.param_bat_with_aging_E_max_initial = 100
-        self.param_bat_with_aging_starting_SOC = 0.5
-        self.param_bat_with_aging_ch_eff = 0.95
-        self.param_bat_with_aging_dis_eff = 0.95
-        self.param_bat_with_aging_c_rate_ch = 1
-        self.param_bat_with_aging_c_rate_dis = 1
-        self.param_bat_with_aging_spec_op_cost = 0.01
-        self.param_bat_with_aging_spec_em = 50 # kgCO2eq/kWh capacity of the battery in EU
-        self.param_bat_with_aging_DoD = 0.7
-        self.param_bat_with_aging_final_SoH = 0.7
-        self.param_bat_with_aging_cycles = 9000 # full cycles before final SoH is reached and battery is replaced
-        self.param_bat_with_aging_aging = (self.param_bat_with_aging_E_max_initial * (1 -self.param_bat_with_aging_final_SoH)) / (self.param_bat_with_aging_cycles * 2 * self.param_bat_with_aging_E_max_initial) / self.param_bat_with_aging_E_max_initial
-        self.param_bat_with_aging_inv_per_capacity = 650 # EURO per kWh capacity
+        self.param_bat_with_aging_E_max_initial = 100 # max stored energy of device at the beginning of lifetime [kWh]
+        self.param_bat_with_aging_starting_SOC = 0.5 # initial default state of charge of device [-]
+        self.param_bat_with_aging_ch_eff = 0.95 # efficiency for charging device [-]
+        self.param_bat_with_aging_dis_eff = 0.95 # efficiency for discharging device [-]
+        self.param_bat_with_aging_c_rate_ch = 1 # c-rate of the battery for charging. Specifices the max power of charging in relation to its capacity [1/hr]
+        self.param_bat_with_aging_c_rate_dis = 1 # c-rate of the battery for discharging. Specifices the max power of discharging in relation to its capacity [1/hr]
+        self.param_bat_with_aging_spec_op_cost = 0.01 # specifies the operation cost of the battery per kWh flow in the battery [€/kWh]
+        self.param_bat_with_aging_spec_em = 50 # embodied emission per kWh capacity of the battery in EU. file: 1-s2.0-S0921344922004402-main [kgCO2eq/kWh]
+        self.param_bat_with_aging_DoD = 0.7 # max depth of discharge of energy without damaging battery [-]
+        self.param_bat_with_aging_final_SoH = 0.7 # max state of charge of battery at the end of lifetime, state of heatlh [-]
+        self.param_bat_with_aging_cycles = 9000 # full cycles before final SoH is reached and battery is replaced [# cycles]
+        self.param_bat_with_aging_aging = (self.param_bat_with_aging_E_max_initial * (1 -self.param_bat_with_aging_final_SoH)) / (self.param_bat_with_aging_cycles * 2 * self.param_bat_with_aging_E_max_initial) / self.param_bat_with_aging_E_max_initial # state of charge lost for kWh going through the battery.
+        self.param_bat_with_aging_inv_per_capacity = 650 # investment costs of battery per kWh of installed capacity [kWh]
 
-        self.param_bat_with_aging_SOC_starting_index = 1
-        self.param_bat_with_aging_cumulated_aging_starting_index = 1
-        self.param_bat_with_aging_inv_cost_starting_index = 1 
-        self.param_bat_with_aging_integer_starting_index = 1
+        self.param_bat_with_aging_SOC_starting_index = 1 # parameter created to connect state of charge of the battery with previous optimization horizon when using receding horizon optimization
+        self.param_bat_with_aging_cumulated_aging_starting_index = 1 # parameter created to connect accumulated aging of the battery with previous optimization horizon when using receding horizon optimization
+        self.param_bat_with_aging_inv_cost_starting_index = 1 # parameter created to connect investment costs of the battery with previous optimization horizon when using receding horizon optimization
+        self.param_bat_with_aging_integer_starting_index = 1 # parameter created to connect logical variable of the battery with previous optimization horizon when using receding horizon optimization
         
         if control.receding_horizon == 'yes':
             self.param_bat_with_aging_receding_horizon = 1
@@ -840,8 +839,8 @@ class demand(Consumer):
         self.list_text_altered_var =[]
 
         #Setting up default values for series if none are given in input file:
-        self.param_P_to_demand = [500] * control.time_span # this is tranformed into a series in case user does not give input
-        self.param_Q_to_demand = [1000] * control.time_span # this is tranformed into a series in case user does not give input
+        self.param_P_to_demand = [500] * control.time_span # default electric power of demand that needs to be covered [kW]
+        self.param_Q_to_demand = [1000] * control.time_span # default thermal power of demand that needs to be covered  [kW]]
 
         self.write_P_to_demand(control)
         self.write_Q_to_demand(control)
@@ -897,9 +896,9 @@ class charging_station(Consumer):
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        self.param_charging_station_inv_specific_costs = 200000
-        self.param_charging_station_selling_price = 0.60
-        self.param_charging_station_spec_emissions = 0.05
+        self.param_charging_station_inv_specific_costs = 200000 # investment costs related to a full operational charging station [€]
+        self.param_charging_station_selling_price = 0.60 # price of selling energy [€/kWh]
+        self.param_charging_station_spec_emissions = 0.05 # specific emissions generated per sold kWh [kgCO2eq/kWh]
 
         self.time_span = control.time_span
         self.reference_date = control.reference_date
@@ -947,7 +946,7 @@ class charging_station(Consumer):
         self.read_parameters(self.dict_parameters,control)
         self.read_series(self.dict_series,control)
 
-        # creating dataframes that are going to be used in non-constraint function
+        # creating dataframes that are going to be used in non-constraint functions
         self.df_mix_capacity = pd.DataFrame({'Model': self.dict_series['list_models'],
                                              'Mix': self.dict_series['list_mix_models'],
                                              'Max Capacity': self.dict_series['list_capacity']})
@@ -1132,6 +1131,7 @@ class charging_station(Consumer):
         return model.charging_station_emissions[t] == model.param_P_to_charging_station[t] * model.param_charging_station_spec_emissions
     
 
+
 # other classes 
 class control:
     def __init__(self,path_input,name_file):
@@ -1147,6 +1147,7 @@ class control:
         self.path_output = self.df.loc['path_output','value']
         self.size_optimization = self.df.loc['size_optimization','value']
         self.reference_date = self.df.loc['reference_date','value']
+        self.path_charts = self.df.loc['path_charts','value']
 
         if self.df.loc['objective','value'] == 'emissions':
             self.opt_equation = 'emission_objective'
@@ -1222,10 +1223,10 @@ class net:
         self.list_text_altered_var =[]
 
         #Setting up default values for series if none are given in input file:
-        self.param_net_cost_buy_electric = [0.4] * control.time_span
-        self.param_net_cost_sell_electric = [0.3] * control.time_span
-        self.param_net_cost_buy_thermal = [0.2] * control.time_span
-        self.param_net_cost_sell_thermal = [0.1] * control.time_span
+        self.param_net_cost_buy_electric = [0.4] * control.time_span # default price of electric energy bought from network [€/kWh]
+        self.param_net_cost_sell_electric = [0.3] * control.time_span # default price of electric energy sold from network [€/kWh]
+        self.param_net_cost_buy_thermal = [0.2] * control.time_span # default price of thermal energy bought from network [€/kWh]
+        self.param_net_cost_sell_thermal = [0.1] * control.time_span # default price of thermal energy sold from network [€/kWh]
 
         self.write_net_cost_buy_electric(control)
         self.write_net_cost_sell_electric(control)
@@ -1235,12 +1236,12 @@ class net:
         self.param_net_spec_em_P = 0.56 # kg of CO2 per kWh
         self.param_net_spec_em_Q = 0.24 # kg of CO2 per kWh
 
-        self.param_net_max_P = 1000
-        self.param_net_max_Q = 1000
-        self.param_P_net_cost_extra = 1000
-        self.param_Q_net_cost_extra = 1000
-        self.param_net_spec_em_P_extra = 1000
-        self.param_net_spec_em_Q_extra = 1000
+        self.param_net_max_P = 1000 # nominal limit of electric power of the network connection [kW] 
+        self.param_net_max_Q = 1000 # nominal limit of thermal power of the network connection [kW] 
+        self.param_P_net_cost_extra = 1000 # costs of energy that exceeds nominal electric power extracted from the net. This value should be high so that otpimizer does not use it [€/kWh]
+        self.param_Q_net_cost_extra = 1000 # costs of energy that exceeds nominal thermal power extracted from the net. This value should be high so that otpimizer does not use it [€/kWh]
+        self.param_net_spec_em_P_extra = 1000 # emissions of energy that exceeds nominal electric power extracted from the net. This value should be high so that otpimizer does not use it [kgCO2eq/kWh]
+        self.param_net_spec_em_Q_extra = 1000 # emissions of energy that exceeds nominal thermal power extracted from the net. This value should be high so that otpimizer does not use it [kgCO2eq/kWh]
 
     def write_net_cost_buy_electric(self,control):
         df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')

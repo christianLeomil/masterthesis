@@ -1,14 +1,14 @@
 import pandas as pd
 import classes
 import sys
-import importlib
 import pandas as pd
 from classes import control
 from openpyxl import Workbook, utils
 from openpyxl.styles import PatternFill, Font, NamedStyle, Alignment
-from datetime import datetime
 import warnings
+import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 path_input ='./input/'
 path_output = './output'
@@ -964,3 +964,89 @@ def emissions_analysis(control):
 
     # Save the Excel file
     wb.save(path_output + "emission_analysis.xlsx")
+
+def charts_generator(control,df_aux):
+    path_output = control.path_output
+    path_charts = control.path_charts
+    reference_date = control.reference_date
+
+    df_final = pd.read_excel(path_output + 'df_final.xlsx')
+    df_final['Date'] = reference_date + pd.to_timedelta(df_final['TimeStep'], unit = 'h')
+    if control.time_span < 100:
+        df_final = df_final[:control.time_span]
+        df_final = df_final[:100]
+
+    x_axis = df_final['TimeStep'].tolist()
+    figure_size = (15,8)
+
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        element_type =  df_aux['type'].iloc[i]
+
+        list_connections_electric = [s for s in df_final.columns if '_' + element + '_' in s and 'P_' in s]
+        list_connections_thermal = [s for s in df_final.columns if '_' + element + '_' in s and 'Q_' in s]
+
+        folder_path = path_charts + '/' + element + '/'
+
+        try:
+            os.mkdir(folder_path)
+        except FileExistsError:
+            print(f"Folder '{element}' already exists at {folder_path}")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+
+        plt.figure(figsize = figure_size)
+        bottom = np.zeros(len(x_axis))
+        if len(list_connections_electric) > 0:
+            for j in list_connections_electric:
+                plt.bar(x_axis, df_final[j],bottom = bottom)
+                bottom += df_final[j]
+            plt.xlabel('Time [hs]')
+            plt.ylabel('Power [kW]')
+            plt.title(f"Electric power distribution - {element}")
+            plt.legend(list_connections_electric)
+            plt.savefig(folder_path + 'P_' + element + '.png')
+            plt.close()
+
+
+        plt.figure(figsize = figure_size)
+        bottom = np.zeros(len(x_axis))
+        if len(list_connections_thermal) > 0:
+            for j in list_connections_thermal:
+                plt.bar(x_axis, df_final[j],bottom = bottom)
+                bottom += df_final[j]
+            plt.xlabel('Time [hs]')
+            plt.ylabel('Power [kW]')
+            plt.title(f"Thermal power distribution - {element}")
+            plt.legend(list_connections_thermal)
+            plt.savefig(folder_path +'Q_' + element + '.png')
+            plt.close()
+
+        if element_type == 'bat':
+            plt.figure(figsize = figure_size)
+            plt.bar(x_axis, df_final[element + '_energy'])
+            plt.xlabel('Time [hs]')
+            plt.ylabel('Energy [kWh]')
+            plt.title(f"Energy level - {element}")
+            plt.legend(element)
+            plt.savefig(folder_path + 'E - ' + element +'.png')
+            plt.close()
+
+        elif element_type == 'bat_with_aging':
+            plt.figure(figsize = figure_size)
+            plt.bar(x_axis, df_final[element + '_SOC'])
+            plt.xlabel('Time [hs]')
+            plt.ylabel('State of charge [-]')
+            plt.title(f"State of charge - {element}")
+            plt.legend(element)
+            plt.savefig(folder_path + 'SoC - ' + element +'.png')
+            plt.close()
+
+            plt.figure(figsize = figure_size)
+            plt.plot(x_axis, df_final[element + '_SOC_max'])
+            plt.xlabel('Time [hs]')
+            plt.ylabel('max state of charge [-]')
+            plt.title(f"Effect of aging on max state of charge - {element}")
+            plt.legend(element)
+            plt.savefig(folder_path + 'max SoC - ' + element +'.png')
+            plt.close()
