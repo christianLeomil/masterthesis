@@ -28,7 +28,7 @@ df_elements.index.name = None
 
 #preparing data on elements of the energy system for the rest of the file
 [df_con_electric, df_con_thermal, df_aux] = utils.aux_creator(df_elements)
-df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
+# df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # writing dataframes on inputfile to input 
 utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
@@ -44,8 +44,8 @@ df_con_thermal.index.name = None
 #creating variables from connections exporting dataframes for check
 [df_con_thermal, df_con_electric, list_expressions, 
  list_con_variables, list_attr_classes] = utils.connection_creator(df_con_electric, df_con_thermal)
-df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
-df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
+# df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
+# df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 # creating constriants that will turn into the objevtive functions
 list_objective_constraints = utils.objective_constraint_creator(df_aux)
@@ -499,7 +499,7 @@ for k,df in enumerate(list_split):
 if control.size_optimization == 'yes':
     df_scalar_variable_values = pd.DataFrame([variable_values_scalar], columns = variable_names_scalar).T
     df_scalar_variable_values.columns = ['value']
-    df_scalar_variable_values.to_excel(path_output + 'df_scalar_variable_values.xlsx')
+    df_scalar_variable_values.to_excel(path_output + 'df_scalar_variables.xlsx')
 
 df_final.to_excel(path_output + 'df_final.xlsx',index = False)
 utils.financial_analysis(control)

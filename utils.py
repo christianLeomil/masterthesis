@@ -10,9 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-path_input ='./input/'
-path_output = './output'
-name_file = 'df_input.xlsx'
 
 def aux_creator(df_elements):
     list_elements = []
@@ -22,6 +19,13 @@ def aux_creator(df_elements):
             list_type.append(i) #entre esses parenteses estava soh i, eu mudei pra class type. pra resolver o problema, tem que mudar substituicao. Solucao mais facil talvez seja renomear parametros da bateria 
             name_element = i + str(j+1)
             list_elements.append(name_element)
+
+    #checking if there is any demand in the inputs, otherwise, print error message
+    if not any('demand' in s for s in list_elements):
+        print('\n==========ERROR==========')
+        print('Model must have a demand in order to run optimization\n')
+        sys.exit()
+
     df_aux = pd.DataFrame({'element': list_elements,
                            'type':list_type})
     
@@ -64,18 +68,13 @@ def connection_creator(df_con_electric, df_con_thermal):
     list_attr_classes = list_attr_classes + df_con_thermal.index.to_list()
     list_attr_classes = list_attr_classes + df_con_thermal.columns.to_list()
 
-
-    #changing names of variables P_to_demand and Q_to_demand, values usually given as input, turning them into parameters
-    list_attr_classes = [s.replace('P_to_demand','param_P_to_demand') for s in list_attr_classes]
-    list_attr_classes = [s.replace('Q_to_demand','param_Q_to_demand') for s in list_attr_classes]
-
     #building variable names inside connection matrix ELECTRIC
     for i in df_con_electric.index: 
         for j in df_con_electric.columns:
             if df_con_electric.loc[i,j] != 0:
                 if i == j:
-                    print('==========ERROR==========')
-                    print('Energy cannot be transferred from ' + i + ' to ' + j)
+                    print('\n==========ERROR==========')
+                    print('Energy cannot be transferred from ' + i + ' to ' + j +'\n')
                     sys.exit()
                 else:
                     df_con_electric.loc[i,j] = 'P_' + j + '_' + i
@@ -85,8 +84,8 @@ def connection_creator(df_con_electric, df_con_thermal):
         for j in df_con_thermal.columns:
             if df_con_thermal.loc[i,j] != 0:
                 if i == j:
-                    print('==========ERROR==========')
-                    print('Energy cannot be transferred from ' + i + ' to ' + j)
+                    print('\n==========ERROR==========')
+                    print('Energy cannot be transferred from ' + i + ' to ' + j +'\n')
                     sys.exit()
                 else:
                     df_con_thermal.loc[i,j] = 'Q_' + j + '_' + i
@@ -102,16 +101,16 @@ def connection_creator(df_con_electric, df_con_thermal):
     list_sub = [s.replace('P_to_demand','param_P_to_demand') for s in list_sub]
     list_sub = [s.replace('P_to_charging_station','param_P_to_charging_station') for s in list_sub]
 
-    print('\n->->->->->-list_sub_electric')
-    print(list_sub)
+    # print('\n->->->->->-list_sub_electric')
+    # print(list_sub)
 
     df_con_electric.index = list_sub
 
     list_sub = ['Q_to_' + i for i in df_con_thermal.index]
     list_sub = [s.replace('Q_to_demand','param_Q_to_demand') for s in list_sub]
 
-    print('\n->->->->->-list_sub_thermal')
-    print(list_sub)
+    # print('\n->->->->->-list_sub_thermal')
+    # print(list_sub)
 
     df_con_thermal.index = list_sub
 
@@ -1008,7 +1007,6 @@ def charts_generator(control,df_aux):
             plt.legend(list_connections_electric)
             plt.savefig(folder_path + 'P - ' + element + '.png')
             plt.close()
-
 
         plt.figure(figsize = figure_size)
         bottom = np.zeros(len(x_axis))

@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import math
 import sys
+import os
 
 class Generator:
     component_type = {'eletric_load':'no',
@@ -323,8 +324,8 @@ class CHP(Generator):
         self.param_CHP_M1 = 10000
         self.param_CHP_M2 = 10000
 
-    # def constraint_min_generation(model,t):
-    #     return model.P_from_CHP[t] >= model.param_P_CHP_min * model.CHP_K[t]
+
+    # linearized equations to define min power limit. Original equation was: model.P_from_CHP[t] >= model.param_P_CHP_min * model.CHP_K[t] https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
     
     def constraint_min_generation1(model,t):
         return model.P_from_CHP[t] >= model.CHP_z1[t]
@@ -342,8 +343,8 @@ class CHP(Generator):
         return model.CHP_z1[t] >= 0
 
 
-    # def constraint_max_generation(model,t):
-    #     return model.P_from_CHP[t] <= model.param_P_CHP_max * model.CHP_K[t]
+
+    # linearized equations to define max power limit. Original equation was: model.P_from_CHP[t] <= model.param_P_CHP_max * model.CHP_K[t] https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
     
     def constraint_max_generation1(model,t):
         return model.P_from_CHP[t] <= model.CHP_z2[t]
@@ -398,12 +399,18 @@ class gas_boiler(Generator):
         self.list_var = ['gas_boiler_fuel_cons',
                          'gas_boiler_op_cost',
                          'gas_boiler_emissions',
-                         'gas_boiler_inv_cost'] 
+                         'gas_boiler_inv_cost',
+                         'gas_boiler_z1',
+                         'gas_boiler_z2',
+                         'gas_boiler_K'] 
         
         self.list_text_var = ['within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
-                              'within = pyo.NonNegativeReals']
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.Binary']
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
@@ -419,12 +426,49 @@ class gas_boiler(Generator):
         self.param_gas_boiler_repair = 1875 #repair costs per kW of installed capacity per  year [€/kW/yr] (IEP)
         self.param_gas_boiler_inv_cost_per_power = 125 # investment costs per max kW of installed device [€/kW]
         self.param_gas_boiler_lifetime = 20 * 8760 # total life span of the device [hs]
+        
+        self.param_gas_boiler_M1 = 10000
+        self.param_gas_boiler_M2 = 10000
+    
 
-    def constraint_min_generation(model,t):
-        return model.Q_from_gas_boiler[t] >= model.param_Q_gas_boiler_min
+    # linearized equations to define min power limit. Original equation was: model.Q_from_gas_boiler[t] >= model.param_Q_gas_boiler_min https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
+    
+    def constraint_min_generation1(model,t):
+        return model.Q_from_gas_boiler[t] >= model.gas_boiler_z1[t]
+    
+    def constraint_min_generation2(model,t):
+        return model.gas_boiler_z1[t] <= model.param_gas_boiler_M1 * model.gas_boiler_K[t]
+    
+    def constraint_min_generation3(model,t):
+        return model.gas_boiler_z1[t] <= model.param_Q_gas_boiler_min 
+    
+    def constraint_min_generation4(model,t):
+        return model.gas_boiler_z1[t] >= model.param_Q_gas_boiler_min - (1 - model.gas_boiler_K[t]) * model.param_gas_boiler_M1
+    
+    def constraint_min_generation5(model,t):
+        return model.gas_boiler_z1[t] >= 0
+    
 
-    def constraint_max_generation(model,t):
-        return model.Q_from_gas_boiler[t] <= model.param_Q_gas_boiler_max 
+
+    # linearized equations to define max power limit. Original equation was: model.Q_from_gas_boiler[t] <= model.param_Q_gas_boiler_max https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
+    
+    def constraint_mmax_generation1(model,t):
+        return model.Q_from_gas_boiler[t] <= model.gas_boiler_z2[t]
+    
+    def constraint_max_generation2(model,t):
+        return model.gas_boiler_z2[t] <= model.param_gas_boiler_M2 * model.gas_boiler_K[t]
+    
+    def constraint_max_generation3(model,t):
+        return model.gas_boiler_z2[t] <= model.param_Q_gas_boiler_max 
+    
+    def constraint_max_generation4(model,t):
+        return model.gas_boiler_z2[t] >= model.param_Q_gas_boiler_max - (1 - model.gas_boiler_K[t]) * model.param_gas_boiler_M2
+    
+    def constraint_max_generation5(model,t):
+        return model.gas_boiler_z2[t] >= 0
+
+
+
 
     def constraint_generation_rule(model,t):
         return model.gas_boiler_fuel_cons[t] == model.Q_from_gas_boiler[t] * model.time_step * model.param_gas_boiler_fuel_cons_ratio
@@ -537,8 +581,9 @@ class heat_pump(Transformer):
     def constraint_function_rule(model,t):
         return model.Q_from_heat_pump[t] == model.P_to_heat_pump[t] * model.param_heat_pump_COP
     
-    # def constraint_max_power(model,t):
-    #     return model.P_to_heat_pump[t] <= model.param_P_heat_pump_max * model.heat_pump_K[t]
+    
+
+    # linearized equations to define max power limit. Original equation was: model.Q_from_heat_pump[t] == model.P_to_heat_pump[t] * model.param_heat_pump_COP https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
 
     def constraint_max_power1(model,t):
         return model.P_to_heat_pump[t] <= model.heat_pump_z1[t]
@@ -556,10 +601,7 @@ class heat_pump(Transformer):
         return model.heat_pump_z1[t] >= 0
 
 
-
-    
-    # def constraint_min_power(model,t):
-    #     return model.P_to_heat_pump[t] >= model.param_P_heat_pump_min * model.heat_pump_K[t]
+    # linearized equations to define min power limit. Original equation was: model.P_to_heat_pump[t] >= model.param_P_heat_pump_min * model.heat_pump_K[t] https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
     
     def constraint_min_power1(model,t):
         return model.P_to_heat_pump[t] >= model.heat_pump_z2[t]
@@ -575,7 +617,6 @@ class heat_pump(Transformer):
     
     def constraint_min_power5(model,t):
         return model.heat_pump_z2[t] >= 0
-
 
 
     
@@ -986,6 +1027,7 @@ class charging_station(Consumer):
 
         self.time_span = control.time_span
         self.reference_date = control.reference_date
+        self.path_charts = control.path_charts
         self.name_file = 'df_input.xlsx'
 
         #defining paramenters for functions that are not constraints, includiing default values:
@@ -1149,8 +1191,16 @@ class charging_station(Consumer):
                                     'time stamp':list_hours,
                                     'initial SoC':list_initial_SoC,
                                     'final SoC':list_final_SoC})
+        
+        folder_path = self.path_charts + '/' + self.name_of_instance + '/'
+        try:
+            os.mkdir(folder_path)
+        except FileExistsError:
+            print(f"Folder '{self.name_of_instance}' already exists at {folder_path}")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
 
-        df_schedule.to_excel(control.path_output + 'df_schedule_' + self.name_of_instance + '.xlsx',index = False)
+        df_schedule.to_excel(folder_path + 'df_schedule_' + self.name_of_instance + '.xlsx',index = False)
 
         list_time = []
 
@@ -1196,7 +1246,7 @@ class charging_station(Consumer):
 
         df_structured['power'] = list_power
         df_structured['total power'] = list_total_power
-        df_structured.to_excel(control.path_output + 'df_structured_' + self.name_of_instance + '.xlsx', index = False)
+        df_structured.to_excel(folder_path + 'df_structured_' + self.name_of_instance + '.xlsx', index = False)
 
         lista = df_structured['total power'].tolist()
 
@@ -1238,22 +1288,22 @@ class control:
         elif self.df.loc['objective','value'] == 'costs':
             self.opt_equation = 'cost_objective'
         else:
-            print('==========ERROR==========')
-            print('Please insert a valid objective for the optimization')
+            print('\n==========ERROR==========')
+            print('Please insert a valid objective for the optimization\n')
             sys.exit()
 
         if self.df.loc['receding_horizon','value'] == 'yes':
             if self.df.loc['size_optimization','value'] == 'yes':
-                print('==========ERROR==========')
-                print('It is not possible to do a size optimization and receiding horizon simultaneously, Please choose one of the two.')
+                print('\n==========ERROR==========')
+                print('It is not possible to do a size optimization and receiding horizon simultaneously, Please choose one of the two.\n')
                 sys.exit()
             elif self.optimization_horizon > self.time_span:
-                print('==========ERROR==========')
-                print('horizon cannot be bigger than time_span')
+                print('\n==========ERROR==========')
+                print('horizon cannot be bigger than time_span\n')
                 sys.exit()
             elif self.control_horizon > self.optimization_horizon:
-                print('==========ERROR==========')
-                print('number of saved lines cannot be bigger than the horizon')
+                print('\n==========ERROR==========')
+                print('number of saved lines cannot be bigger than the horizon\n')
                 sys.exit()
         else:
             self.horizon = self.time_span
