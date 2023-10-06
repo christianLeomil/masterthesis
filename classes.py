@@ -315,9 +315,10 @@ class CHP(Generator):
         self.param_CHP_fuel_price = 0.09463 # cost per kWh of fuel consumed [€/kWh] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden
         self.param_CHP_spec_em = 0.200 # emissions due to burning of 1 kWh of the fuel [kgCO2eq/kWh] https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=20008075
         self.param_CHP_inv_cost_per_power = 1700 # investments costs per electric power https://www.heizungsfinder.de/bhkw/kosten-preise/anschaffungskosten
-        self.param_CHP_maintenance_costs = 0.04 # costs of maintenance per generated kWh https://partner.mvv.de/blog/welche-bhkw-kosten-fallen-in-der-anschaffung-und-beim-betrieb-an-bhkw#:~:text=Wartung%20und%20Bedienung,75%20Cent%20pro%20kWh%20rechnen.
+        self.param_CHP_maintenance_costs = 0.04 # costs of maintenance per generated kWh [€/kWh] https://partner.mvv.de/blog/welche-bhkw-kosten-fallen-in-der-anschaffung-und-beim-betrieb-an-bhkw#:~:text=Wartung%20und%20Bedienung,75%20Cent%20pro%20kWh%20rechnen.
         self.param_CHP_bonus = 0.09 # KWK-Bonus, compensation for energy from CHP sold to net [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3     https://www.bhkw-infozentrum.de/wirtschaftlichkeit-bhkw-kwk/ueblicher_preis_bhkw.html
         self.param_CHP_not_used_energy_compensation = 0.01 #  compensaton for decentralised energy generation [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3
+        self.param_CHP_compensation = self.param_CHP_bonus + self.param_CHP_not_used_energy_compensation # total compensation for sold energy of this device [€/kWh]
         #VERIFICAR SE ESSE DE CIMA REALMENTE EXISTE, OU SE EH PRA TODOS
         self.param_CHP_lifetime = 20 * 8760 # total lifespan of device in hours [hs]
 
@@ -326,7 +327,6 @@ class CHP(Generator):
 
 
     # linearized equations to define min power limit. Original equation was: model.P_from_CHP[t] >= model.param_P_CHP_min * model.CHP_K[t] https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
-    
     def constraint_min_generation1(model,t):
         return model.P_from_CHP[t] >= model.CHP_z1[t]
     
@@ -345,7 +345,6 @@ class CHP(Generator):
 
 
     # linearized equations to define max power limit. Original equation was: model.P_from_CHP[t] <= model.param_P_CHP_max * model.CHP_K[t] https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
-    
     def constraint_max_generation1(model,t):
         return model.P_from_CHP[t] <= model.CHP_z2[t]
     
@@ -361,7 +360,6 @@ class CHP(Generator):
     def constraint_max_generation5(model,t):
         return model.CHP_z2[t] >= 0
     
-
 
 
     def constraint_generation_rule(model,t):
@@ -1582,6 +1580,8 @@ class net:
         return model.net_buy_electric[t] == (model.P_nominal_from_net[t] * model.time_step * model.param_net_cost_buy_electric[t] + 
                                              model.P_extra_from_net[t] * model.time_step * model.param_P_net_cost_extra)
     
+
+
     def constraint_sell_energy_thermal(model,t):
         return model.net_sell_thermal[t] == model.Q_to_net[t] * model.time_step * model.param_net_cost_sell_thermal[t]
     

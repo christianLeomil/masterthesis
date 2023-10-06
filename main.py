@@ -293,7 +293,7 @@ for i in df_aux.index:
 # ---------------------------------------------------------------------------------------------------------------------
 # region creating objective function and deactivating objectives
 
-#adding total cost and total buy constraint to objective class
+# adding total cost, total buy and total emissions to objective constraint
 constraint_num = 1
 objective_class = classes.objective('objective')
 for i in list_objective_constraints:
@@ -306,7 +306,7 @@ for i in list_objective_constraints:
     setattr(objective_class , method_name, method_wrapper)
     constraint_num += 1
 
-#checking content of class objective:
+# checking content of class objective:
 print('\n------------------objective')
 for i in dir(objective_class):
     if not i.startswith('__'):
@@ -315,7 +315,7 @@ for i in dir(objective_class):
             source_code = inspect.getsource(original_method)
             print(i)
 
-#creating constraints from class objective
+# creating constraints from class objective
 method = getattr(objective_class,'constraint_objective_1')  # constraint for calculating bought energy
 model.add_component('Constraint_objective_buy',pyo.Constraint(model.HOURS, rule = method))
 method = getattr(objective_class,'constraint_objective_2') # constraint for calculating sold energy
@@ -325,7 +325,7 @@ model.add_component('Constraint_objective_operation',pyo.Constraint(model.HOURS,
 method = getattr(objective_class,'constraint_objective_4') #constraint for calculating emissions
 model.add_component('Constraint_objective_emissions',pyo.Constraint(model.HOURS, rule = method))
 
-#creating cost objective of abstract model
+# creating cost objective of abstract model
 def cost_objective(model,t):
     return sum(model.total_buy[t] + model.total_operation_cost[t] -  model.total_sell[t] for t in model.HOURS)
 if control.opt_objective == 'minimize':
@@ -333,13 +333,14 @@ if control.opt_objective == 'minimize':
 else:
     model.costObjective = pyo.Objective(rule = cost_objective, sense = pyo.maximize)
 
-#creating emission objective of abstract model
+# creating emission objective of abstract model
 def emission_objective(model,t):
     return sum(model.total_emissions[t] for t in model.HOURS)
 if control.opt_objective == 'minimize':
     model.emissionObjective = pyo.Objective(rule = emission_objective, sense = pyo.minimize)
 else:
     model.emissionObjective = pyo.Objective(rule = emission_objective, sense = pyo.maximize)
+
 
 if control.opt_equation == 'cost_objective':
     model.emissionObjective.deactivate()
