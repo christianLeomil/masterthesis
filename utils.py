@@ -176,6 +176,7 @@ def objective_constraint_creator(df_aux): # this function creates the constraint
     list_sell_constraint = ['model.total_sell[t] == ']
 
     df_temp = df_aux[df_aux['type'] == 'net' ].reset_index(drop = True)
+    
     for i in df_temp.index:
         element = df_temp['element'].iloc[i]
         if i == 0:

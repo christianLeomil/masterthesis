@@ -1003,8 +1003,6 @@ class charging_station(Consumer):
                    'electric_source':'no',
                    'thermal_load':'no',
                    'thermal_source':'no'}
-    
-    super_class = 'demand'
 
     def __init__(self, name_of_instance, control):
         self.name_of_instance = name_of_instance
@@ -1031,11 +1029,14 @@ class charging_station(Consumer):
         self.name_file = 'df_input.xlsx'
 
         #defining paramenters for functions that are not constraints, includiing default values:
-        self.dict_parameters  = {'list_sheets':['other','other','other','other'],
+        self.dict_parameters  = {'list_sheets':['other','other','other','other','other','other','other'],
                                  'charging_station_mult': 1.2,
                                  'reference_date': self.reference_date,
                                  'number_hours': self.time_span + 1,
-                                 'number_days': math.ceil((self.time_span + 1)/24)}
+                                 'number_days': math.ceil((self.time_span + 1)/24),
+                                 'charging_points' : 2, # number of charging points in the charging station model [# number charging points]
+                                 'charging_station_time_step' : 15,
+                                 'charging_station_max_power': 100} # timesteps used for building the power demand per charging station [min]
         
         self.dict_series = {'list_sheets':['mix and capacity','mix and capacity','mix and capacity','mix SoC','mix SoC','mix SoC',
                                            'data_charging_station','data_charging_station','data_charging_station'],
@@ -1177,6 +1178,136 @@ class charging_station(Consumer):
         samples = np.random.normal(mean, standard_deviation, size)
         return samples
 
+    def get_max_power(self,car_model,SoC,final_SoC):
+        closest_SoC = min(self.dict_series['list_SoC'], key = lambda x: abs(x - SoC))
+        closest_index = self.dict_series['list_SoC'].index(closest_SoC)
+        power = self.dict_charging_curves[car_model][closest_index]
+        capacity = self.get_capacity(car_model)
+        energy = power * self.dict_parameters['charging_station_time_step'] / 60
+
+        if (SoC + energy / capacity) > final_SoC:
+            power = (final_SoC - SoC) * capacity / (self.dict_parameters['charging_station_time_step'] / 60)
+
+        return power
+    
+    def get_capacity(self,car_model):
+        capacity = self.dict_series['list_capacity'][self.dict_series['list_models'].index(car_model)]
+        return capacity
+
+    def update_SoC(self,max_power_per_charging_point,max_charging_power,car_model,SoC,final_SoC):
+        capacity = self.get_capacity(car_model)
+        charging_energy = min(max_power_per_charging_point, max_charging_power) * self.dict_parameters['charging_station_time_step'] / 60
+        SoC_after = min(final_SoC, SoC + charging_energy / capacity)
+        actual_power = (SoC_after - SoC) * capacity / (self.dict_parameters['charging_station_time_step'] / 60)
+
+        return SoC_after, actual_power
+    
+    def managing_queue(self, df_schedule):
+        # creating list with time stamps for the power demand calculation if this charging station
+        list_time = []
+        for i in range(0, self.dict_parameters['number_hours'] * int(60 / self.dict_parameters['charging_station_time_step'])):
+            delta = timedelta(minutes = i * self.dict_parameters['charging_station_time_step'])
+            converted_time_stamp = self.dict_parameters['reference_date'] + delta
+            converted_time_stamp = converted_time_stamp.strftime('%Y-%m-%d %H:%M')
+            list_time.append(converted_time_stamp)
+        
+        # building structure dataframe for power demand calculation
+        df_structured = pd.DataFrame({'time_stamp': list_time})
+        for i in range(1,self.dict_parameters['charging_points'] + 1):
+            df_structured[f"charging_point_{i}"] = 0
+            df_structured[f"SoC_{i}"] = 0
+            df_structured[f"initial_SoC_{i}"] = 0
+            df_structured[f"final_SoC_{i}"] = 0
+            df_structured[f"max_charging_power_{i}"] = 0
+            df_structured[f"actual_power_{i}"] = 0
+            df_structured[f"status_{i}"] = 'free'
+        df_structured[f"total_power_demand"] = 0
+
+        # looping through dataframe and calculating power demand calculation
+        for i in range(1, len(df_structured)):
+
+            df_temp = df_schedule[df_schedule['time stamp'].between(list_time[i-1],list_time[i])].reset_index(drop = True)
+
+            # updating of occupation of filled and empty spots
+            for j in range(1, self.dict_parameters['charging_points'] + 1):
+                # updating charging points that are occupied
+                if df_structured[f"status_{j}"].iloc[i-1] == 'occupied':
+
+                    df_structured[f"charging_point_{j}"].iloc[i] = df_structured[f"charging_point_{j}"].iloc[i - 1]
+                    df_structured[f"final_SoC_{j}"].iloc[i] = df_structured[f"final_SoC_{j}"].iloc[i - 1]
+                    df_structured[f"initial_SoC_{j}"].iloc[i] = df_structured[f"initial_SoC_{j}"].iloc[i - 1]
+                    df_structured[f"max_charging_power_{j}"].iloc[i] = self.get_max_power(df_structured[f"charging_point_{j}"].iloc[i],
+                                                                                          df_structured[f"SoC_{j}"].iloc[i - 1],
+                                                                                          df_structured[f"final_SoC_{j}"].iloc[i])
+                    df_structured[f"status_{j}"].iloc[i] = 'occupied'
+                
+                # if there are free charging points, update table with new cars 
+                else:
+                    if len(df_temp) > 0:
+                        df_structured[f"charging_point_{j}"].iloc[i] = df_temp['car models'].iloc[0]
+                        df_structured[f"final_SoC_{j}"].iloc[i] = df_temp['final SoC'].iloc[0]
+                        df_structured[f"initial_SoC_{j}"].iloc[i] = df_temp['initial SoC'].iloc[0]
+                        df_structured[f"max_charging_power_{j}"].iloc[i] = self.get_max_power(df_structured[f"charging_point_{j}"].iloc[i],
+                                                                                            df_structured[f"initial_SoC_{j}"].iloc[i],
+                                                                                            df_structured[f"final_SoC_{j}"].iloc[i])
+                        df_structured[f"status_{j}"].iloc[i] = 'occupied'
+
+                        df_temp.drop(0, axis = 0, inplace = True)
+                        df_temp = df_temp.reset_index(drop = True)
+                    
+                    else:
+                        df_structured[f"charging_point_{j}"].iloc[i] = 0
+                        df_structured[f"SoC_{j}"].iloc[i] = 0
+                        df_structured[f"initial_SoC_{j}"].iloc[i] = 0
+                        df_structured[f"final_SoC_{j}"].iloc[i] = 0
+                        df_structured[f"max_charging_power_{j}"].iloc[i] = 0
+                        df_structured[f"actual_power_{j}"].iloc[i] = 0
+                        df_structured[f"status_{j}"].iloc[i] = 'free' 
+
+
+            # getting number of occupied charging points
+            occupied_charging_points = 0
+            for j in range(1, self.dict_parameters['charging_points'] + 1):
+                if df_structured[f"status_{j}"].iloc[i] == 'occupied':
+                    occupied_charging_points += 1
+
+            # getting max avaliable power for each charging point
+            if df_structured.loc[i].filter(like = 'max_charging_power_').sum() > self.dict_parameters['charging_station_max_power']:
+                max_power_per_charging_point = self.dict_parameters['charging_station_max_power'] / occupied_charging_points
+            else: 
+                max_power_per_charging_point = self.dict_parameters['charging_station_max_power']
+
+
+            # updating state of charge of occupied spots
+            for j in range(1, self.dict_parameters['charging_points'] + 1):
+
+                if df_structured[f"status_{j}"].iloc[i] != 'free':
+                    if df_structured[f"status_{j}"].iloc[i - 1] == 'occupied':
+                        [df_structured[f"SoC_{j}"].iloc[i],
+                         df_structured[f"actual_power_{j}"].iloc[i]] = self.update_SoC(max_power_per_charging_point,
+                                                                                    df_structured[f"max_charging_power_{j}"].iloc[i],
+                                                                                    df_structured[f"charging_point_{j}"].iloc[i],
+                                                                                    df_structured[f"SoC_{j}"].iloc[i - 1],
+                                                                                    df_structured[f"final_SoC_{j}"].iloc[i])
+                        
+                        if df_structured[f"SoC_{j}"].iloc[i] == df_structured[f"final_SoC_{j}"].iloc[i]:
+                            df_structured[f"status_{j}"].iloc[i] = 'leaving'
+
+                    else:
+                        [df_structured[f"SoC_{j}"].iloc[i],
+                         df_structured[f"actual_power_{j}"].iloc[i]] = self.update_SoC(max_power_per_charging_point,
+                                                                                    df_structured[f"max_charging_power_{j}"].iloc[i],
+                                                                                    df_structured[f"charging_point_{j}"].iloc[i],
+                                                                                    df_structured[f"initial_SoC_{j}"].iloc[i],
+                                                                                    df_structured[f"final_SoC_{j}"].iloc[i])
+                        
+                        if df_structured[f"SoC_{j}"].iloc[i] == df_structured[f"final_SoC_{j}"].iloc[i]:
+                            df_structured[f"status_{j}"].iloc[i] = 'leaving'
+
+                df_structured[f"total_power_demand"].iloc[i] += df_structured[f"actual_power_{j}"].iloc[i]
+
+        return df_structured
+
     def charging_demand_calculation(self,control):
         #creating list of car models with mix of EVs in germany
         list_models = []
@@ -1201,6 +1332,7 @@ class charging_station(Consumer):
         list_initial_SoC = []
         list_final_SoC = []
 
+        # generating list with cars and their respective time of arrrival at the station, based on inputs.
         for i in range(0,self.dict_parameters['number_days']):
             for j in self.df_data_distribution.index:
 
@@ -1208,6 +1340,7 @@ class charging_station(Consumer):
                 standard_deviation = self.df_data_distribution.loc[j,'std of each peak']
                 size = self.df_data_distribution.loc[j,'number of cars in each peak']
 
+                #getting timestamp that are going to be put together with a car model
                 timestamps = self.generate_normal_distribution(mean, standard_deviation, size)
 
                 for k in timestamps:
@@ -1239,55 +1372,18 @@ class charging_station(Consumer):
 
         df_schedule.to_excel(folder_path + 'df_schedule_' + self.name_of_instance + '.xlsx',index = False)
 
-        list_time = []
+        df_structured = self.managing_queue(df_schedule)
+        df_structured.to_excel(folder_path + 'test_' + self.name_of_instance + '.xlsx')
 
-        for i in range(0,self.dict_parameters['number_hours']):
-            delta = timedelta(hours = i + 1)
-            converted_time_stamp = self.dict_parameters['reference_date'] + delta
-            converted_time_stamp = converted_time_stamp.strftime('%Y-%m-%d %H:%M')
-            list_time.append(converted_time_stamp)
+        list_total_power = df_structured['total_power_demand'].tolist()
+        
+        list_total_power_final = []
+        x = int(60 / self.dict_parameters['charging_station_time_step'])
+        for i in range(0, len(list_total_power), x):
+            group = list_total_power[i:i + x]
+            list_total_power_final.append(sum(group) / len(group))
 
-        list_models = []
-        list_start_SoC = []
-        list_end_SoC = []
-
-        for i in range(1,len(list_time)):
-            df_temp = df_schedule[df_schedule['time stamp'].between(list_time[i-1],list_time[i])]
-            list_models.append(df_temp['car models'].to_list())
-            list_start_SoC.append(df_temp['initial SoC'].to_list())
-            list_end_SoC.append(df_temp['final SoC'].to_list())
-
-        list_time = list_time[:-1]
-        df_structured = pd.DataFrame({'timestamp':list_time,
-                                    'models':list_models,
-                                    'start SoC':list_start_SoC,
-                                    'end SoC':list_end_SoC})
-
-        list_power = []
-        list_total_power = []
-        for i in df_structured.index:
-            models  = df_structured['models'].iloc[i]
-            start_SoCs = df_structured['start SoC'].iloc[i]
-            end_SoCs = df_structured['end SoC'].iloc[i]
-            capacity = 0
-            list_power_partial = []
-            for j in range(0,len(models)):
-                model = models[j]
-                start_SoC = start_SoCs[j]
-                end_SoC = end_SoCs[j]
-                capacity = self.df_mix_capacity.loc[self.df_mix_capacity['Model'] == model,'Max Capacity'].values[0]
-                power = (end_SoC-start_SoC) * capacity
-                list_power_partial.append(power)
-            list_power.append(list_power_partial)
-            list_total_power.append(sum(list_power_partial))
-
-        df_structured['power'] = list_power
-        df_structured['total power'] = list_total_power
-        df_structured.to_excel(folder_path + 'df_structured_' + self.name_of_instance + '.xlsx', index = False)
-
-        lista = df_structured['total power'].tolist()
-
-        return [self.dict_parameters['charging_station_mult'] * i for i in lista]
+        return [self.dict_parameters['charging_station_mult'] * i for i in list_total_power_final]
         
     def constraint_operation_costs(model,t):
         return model.charging_station_op_cost[t] == - model.param_P_to_charging_station[t] * model.time_step * model.param_charging_station_selling_price

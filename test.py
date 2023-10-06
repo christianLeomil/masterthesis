@@ -1,9 +1,8 @@
-my_list = ["apple", "banana", "cherry", "date"]
-search_string = "ban"
+my_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+x = 3
 
-found = any(search_string in item for item in my_list)
-
-if found:
-    print(f"'{search_string}' found in the list.")
-else:
-    print(f"'{search_string}' not found in the list.")
+# Loop through every 'x' elements using a for loop
+for i in range(0, len(my_list), x):
+    group = my_list[i:i + x]  # Get a slice of 'x' elements
+    average = sum(group) / len(group)  # Calculate the average
+    print(f"Group: {group}, Average: {average:.2f}")
