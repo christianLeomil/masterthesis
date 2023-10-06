@@ -32,13 +32,14 @@ class Generator:
         self.list_text_altered_var = []
 
         #All parameters that are used in the methods of this class must be given am default value
-        self.param_gen_eff = 0.10 # unitless
+        self.param_gen_eff = 0.10 # efficency of generation device, usually unitless 
         self.param_gen_size = 50 # size of the generation device. Units can be m2, kW etc. 
         self.param_gen_spec_op_cost = 0.05 # specific operation costs, unit is defined by the rule of accounting costs
         self.param_gen_spec_em = 0.3 # specific emissions, unit is defined by the rule of accounting emissions
         self.param_gen_series = [10] * control.time_span # Units in kWh by default, can be altered if desired
         self.param_gen_spec_inv = 100 # specific emissions, unit is defined by the rule of accounting emissions
         self.param_gen_lifetime = 20 * 8760 # lifetime of the device in hours. After one lifetime, investment cost are repeated
+        self.param_gen_compensation = 0.09 # parameter for financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         self.write_gen_series(control) 
 
@@ -105,6 +106,7 @@ class pv(Generator):
         self.param_pv_inv_per_kWp = 1000 # invesment cost per kWp of generation [€/kWp] (IEP)
         self.param_pv_lifetime = 25 * 8760 # lifetime of panels in hours [hs]
         self.param_pv_spec_em = 0 # specifc emissions per kWh generated [kgCO2eq/kWh]
+        self.param_pv_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         self.param_E_pv_solar = [0.12] * control.time_span # [kWh/m^2] series for solar radiation input, in case no data is given in "series" sheet of input file
 
@@ -171,6 +173,7 @@ class solar_th(Generator):
         self.param_solar_th_spec_em = 0 # specifc emissions per kWh generated [kgCO2eq/kWh]
         self.param_solar_th_lifetime = 20 * 8760  # lifetime of panels in years [yrs]
         self.param_solar_th_inv_per_area = 700 # # invesment cost per m^2 of installed device [€/m^2] (IEP)
+        self.param_solar_th_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         #default series
         self.param_E_solar_th_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
@@ -228,20 +231,18 @@ class pvt(Generator):
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        #default values in case of no input
+        #default values for scalar parameters
         self.param_pvt_P_eff = 0.20 # approximate overall efficiency of pvt cells for electricity generation [-] https://www.solarserver.de/wissen/basiswissen/hocheffizientes-heizsystem-pvt-kollektor-und-waermepumpe/
         self.param_pvt_Q_eff = 0.40 # approximate overall efficiency of pvt cells for thermal energy generation [-] https://www.solarserver.de/wissen/basiswissen/hocheffizientes-heizsystem-pvt-kollektor-und-waermepumpe/
         self.param_pvt_area = 50 # m^2
-
         self.param_pvt_maintenace = 8.5 # maintenance costs per m^2 of installed device per year [€/m^2/yr] (IEP)
         self.param_pvt_repair = 4.25 # repair costs per m^2 of installed device per year [€/m^2/yr] (IEP)
-
         self.param_pvt_spec_em = 0 # specific emission values [kgCO2eq/kWh] 
         self.param_pvt_life_time = 20 * 8760 # lifetime of panels in years, same as PV [yr]
-
         self.param_pvt_inv_per_area = 850 # investments costs in relation to total area of installed device  [€/m^2] (IEP)
+        self.param_solar_th_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
-        #default series
+        #default values for series parameters
         self.param_E_pvt_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
 
         self.write_E_pvt_solar(control)
@@ -307,7 +308,7 @@ class CHP(Generator):
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        #default values in case of no input
+        #default values for scalar parameters
         self.param_P_CHP_max = 20 # max power of CHP device [kW]
         self.param_P_CHP_min = 5 # min operation power of CHP [kW]
         self.param_CHP_P_to_Q_ratio = 0.5 # In german, Stromkennzahl, relation Pel/Pth, [-] https://www.energieatlas.bayern.de/thema_energie/kwk/anlagentypen
@@ -318,8 +319,7 @@ class CHP(Generator):
         self.param_CHP_maintenance_costs = 0.04 # costs of maintenance per generated kWh [€/kWh] https://partner.mvv.de/blog/welche-bhkw-kosten-fallen-in-der-anschaffung-und-beim-betrieb-an-bhkw#:~:text=Wartung%20und%20Bedienung,75%20Cent%20pro%20kWh%20rechnen.
         self.param_CHP_bonus = 0.09 # KWK-Bonus, compensation for energy from CHP sold to net [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3     https://www.bhkw-infozentrum.de/wirtschaftlichkeit-bhkw-kwk/ueblicher_preis_bhkw.html
         self.param_CHP_not_used_energy_compensation = 0.01 #  compensaton for decentralised energy generation [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3
-        self.param_CHP_compensation = self.param_CHP_bonus + self.param_CHP_not_used_energy_compensation # total compensation for sold energy of this device [€/kWh]
-        #VERIFICAR SE ESSE DE CIMA REALMENTE EXISTE, OU SE EH PRA TODOS
+        self.param_CHP_compensation = self.param_CHP_bonus + self.param_CHP_not_used_energy_compensation # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
         self.param_CHP_lifetime = 20 * 8760 # total lifespan of device in hours [hs]
 
         self.param_CHP_M1 = 10000
@@ -413,7 +413,7 @@ class gas_boiler(Generator):
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        #default values in case of no input
+        #default values for scalar parameters
         self.param_Q_gas_boiler_max = 20 # max power that can be generated with this device [kW]
         self.param_Q_gas_boiler_min = 2 # min power limitation when this device is in operation [kW]
         self.param_gas_boiler_eff = 0.95 # efficency when converting fuel into thermal energy [-] 
@@ -424,6 +424,7 @@ class gas_boiler(Generator):
         self.param_gas_boiler_repair = 1875 #repair costs per kW of installed capacity per  year [€/kW/yr] (IEP)
         self.param_gas_boiler_inv_cost_per_power = 125 # investment costs per max kW of installed device [€/kW]
         self.param_gas_boiler_lifetime = 20 * 8760 # total life span of the device [hs]
+        self.param_gas_boiler_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
         
         self.param_gas_boiler_M1 = 10000
         self.param_gas_boiler_M2 = 10000
@@ -561,7 +562,7 @@ class heat_pump(Transformer):
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        #default values in case of no input
+        #default values for scalar parameters
         self.param_P_heat_pump_max = 20 # max possible electric power consumption [kW]
         self.param_P_heat_pump_min = 0.2 * self.param_P_heat_pump_max # minimum power consumption for device while in operation [kW] 
         self.param_heat_pump_COP = 4 # overall average coefficent of performance, Pth/Pel [-] https://www.heizungsfinder.de/waermepumpe/wirtschaftlichkeit/cop-wert
@@ -571,6 +572,7 @@ class heat_pump(Transformer):
         self.param_heat_pump_repair = 11 # repair costs per installed kW capacity and year [€/kW] (IEP)
         self.param_heat_pump_operation = 12 # operation costs per installed kW capacity and year [€/kW] (IEP)
         self.param_heat_pump_lifetime = 20 * 8760 # total lifespan of device [hs]
+        self.param_heat_pump_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         self.param_heat_pump_M1 = 10000
         self.param_heat_pump_M2 = 10000
@@ -665,7 +667,7 @@ class bat(Transformer):
         self.list_altered_var = []
         self.list_text_altered_var =[]
         
-        #default values in case of no input
+        #default values for scalar parameters
         self.param_bat_E_max_initial = 100 #max energy capacity of the battery [kWh]
         self.param_bat_starting_SOC = 0.5 # starting state of charge of the battery [-]
         self.param_bat_ch_eff = 0.95 # efficiency for charging the battery [-]
@@ -678,6 +680,7 @@ class bat(Transformer):
         self.param_bat_inv_per_capacity = 650 # investment costs per installed kWh of capacity. [€/kWh]
         self.param_bat_cycles = 9000 # max number of full cyces before battery is worn out beyond operation [# cycles]
         self.param_bat_lifetime = 10 * 8760 # total lifespan of the device in hours [hs]
+        self.param_bat_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         self.param_bat_energy_starting_index = 1 # parameter created to connect energy of the battery with previous optimization horizon when using receding horizon optimization
         self.param_bat_inv_cost_starting_index = 1 # parameter created to connect investment costs with previous optimization horizon when using receding horizon optimization
@@ -795,7 +798,7 @@ class bat_with_aging(Transformer):
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        #default values in case of no input
+        #default values for scalar parameters
         self.param_bat_with_aging_E_max_initial = 100 # max stored energy of device at the beginning of lifetime [kWh]
         self.param_bat_with_aging_starting_SOC = 0.5 # initial default state of charge of device [-]
         self.param_bat_with_aging_ch_eff = 0.95 # efficiency for charging device [-]
@@ -809,6 +812,7 @@ class bat_with_aging(Transformer):
         self.param_bat_with_aging_cycles = 9000 # full cycles before final SoH is reached and battery is replaced [# cycles]
         self.param_bat_with_aging_aging = (self.param_bat_with_aging_E_max_initial * (1 -self.param_bat_with_aging_final_SoH)) / (self.param_bat_with_aging_cycles * 2 * self.param_bat_with_aging_E_max_initial) / self.param_bat_with_aging_E_max_initial # state of charge lost for kWh going through the battery.
         self.param_bat_with_aging_inv_per_capacity = 650 # investment costs of battery per kWh of installed capacity [kWh]
+        self.param_bat_with_aging_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         self.param_bat_with_aging_SOC_starting_index = 1 # parameter created to connect state of charge of the battery with previous optimization horizon when using receding horizon optimization
         self.param_bat_with_aging_cumulated_aging_starting_index = 1 # parameter created to connect accumulated aging of the battery with previous optimization horizon when using receding horizon optimization
@@ -1597,6 +1601,4 @@ class net:
     
     def constraint_investment_costs(model,t):
         return model.net_inv_cost[t] == 0
-
-
 

@@ -31,9 +31,9 @@ df_elements.index.name = None
 # df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # writing dataframes on inputfile to input 
-utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
-utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
-input("\nPlease insert the connection between elements of energy system and press enter to continue...")
+# utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
+# utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
+# input("\nPlease insert the connection between elements of energy system and press enter to continue...")
 
 #reading inputs for the connections between elements of the energy system written in the input file
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
@@ -44,11 +44,16 @@ df_con_thermal.index.name = None
 #creating variables from connections exporting dataframes for check
 [df_con_thermal, df_con_electric, list_expressions, 
  list_con_variables, list_attr_classes] = utils.connection_creator(df_con_electric, df_con_thermal)
-# df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
-# df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
+df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
+df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
-# creating constriants that will turn into the objevtive functions
+# creating constriants that will turn into the objevtive functions ------------------------------VOU MUDAR AQUI
+
+
+#Antigo
 list_objective_constraints = utils.objective_constraint_creator(df_aux)
+
+
 
 
 # endregion

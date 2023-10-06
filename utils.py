@@ -169,6 +169,80 @@ def connection_creator(df_con_electric, df_con_thermal):
 
     return df_con_thermal, df_con_electric, list_expressions, list_con_variables, list_attr_classes
 
+
+def revenue_constraint_creator(df_con_electric, df_con_thermal):
+
+    df_con_electric = df_con_electric.filter(like = 'P_to_net', axis = 0)
+    df_con_electric.columns = [s.replace('P_from_','') for s in df_con_electric.columns]
+    df_con_electric.index = [s.replace('P_to_','') for s in df_con_electric.index]
+
+
+    df_con_thermal = df_con_thermal.filter(like = 'Q_to_net', axis = 0)
+    df_con_thermal.columns = [s.replace('Q_from_','') for s in df_con_thermal.columns]
+    df_con_thermal.index = [s.replace('Q_to_','') for s in df_con_thermal.index]
+
+    #looping through the connection matrices and checking which elements are connected to the grid
+    list_expressions = []
+    list_variables = []
+
+    #looping through electric matrix
+    for i in df_con_electric.index:
+        for j in df_con_electric.columns:
+            if df_con_electric.loc[i,j] != 0:
+                energy_flux = df_con_electric.loc[i,j]
+                #appending expressions and variables related to compensation values
+                list_expressions.append(f"model.P_comp_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
+                list_variables.append(f"P_comp_{j}")
+                #appending expressions and variables related to revenue values
+                list_expressions.append(f"model.P_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_cost_sell_electric")
+                list_variables.append(f"P_rev_{j}")
+
+    #looping through thermal matrix
+    for i in df_con_thermal.index:
+        for j in df_con_thermal.columns:
+            if df_con_thermal.loc[i,j] != 0:
+                energy_flux = df_con_thermal.loc[i,j]
+                #appending expressions and variables related to compensation values
+                list_expressions.append(f"model.Q_comp_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
+                list_variables.append(f"Q_comp_{j}")
+                #appending expressions and variables related to revenue values
+                list_expressions.append(f"model.Q_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_cost_sell_thermal")
+                list_variables.append(f"Q_rev_{j}")
+
+    df_expressions = pd.DataFrame({'expressions':list_expressions,
+                                   'variables':list_variables})
+
+    return df_expressions
+
+
+def objective_expression_creator(df_aux, df_expressions):
+
+    #cost and revenue objective expression
+    list_operation_costs_total = []
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        element_type = df_aux['type'].iloc[i]
+        method = getattr(classes,element_type)
+        if hasattr(method,'constraint_operation_costs'):
+            if list_operation_costs_total == [] :
+                list_operation_costs_total.append('model.total_operation_cost[t] == ' + ' model.' + element + '_op_cost[t]')
+            else:
+                list_operation_costs_total[-1] = list_operation_costs_total[-1] + '+ model.'+ element + '_op_cost[t]'
+
+    #emissions expressions
+    list_emissions_constraint = []
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        element_type = df_aux['type'].iloc[i]
+        method = getattr(classes,element_type)
+        if hasattr(method,'constraint_emissions'):
+            if list_emissions_constraint == [] :
+                list_emissions_constraint.append('model.total_emissions[t] == ' + 'model. ' + element +'_emissions[t]')
+            else:
+                list_emissions_constraint[-1] = list_emissions_constraint[-1] + ' + model. ' + element +'_emissions[t]'
+
+    return
+
 def objective_constraint_creator(df_aux): # this function creates the constraints for the objective function to work
 
     # creating constraints to calculate bouhgt and sold energy from the grid.
