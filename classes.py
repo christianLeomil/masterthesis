@@ -240,7 +240,7 @@ class pvt(Generator):
         self.param_pvt_spec_em = 0 # specific emission values [kgCO2eq/kWh] 
         self.param_pvt_life_time = 20 * 8760 # lifetime of panels in years, same as PV [yr]
         self.param_pvt_inv_per_area = 850 # investments costs in relation to total area of installed device  [€/m^2] (IEP)
-        self.param_solar_th_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
+        self.param_pvt_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         #default values for series parameters
         self.param_E_pvt_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
@@ -1012,9 +1012,11 @@ class charging_station(Consumer):
         #default values in case of no input
         self.list_var = ['charging_station_op_cost',
                          'charging_station_inv_cost',
-                         'charging_station_emissions']
+                         'charging_station_emissions',
+                         'charging_station_revenue']
         
-        self.list_text_var = ['within = pyo.NegativeReals',
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals',
                               'within = pyo.NonNegativeReals']
 
@@ -1024,6 +1026,7 @@ class charging_station(Consumer):
         self.param_charging_station_inv_specific_costs = 200000 # investment costs related to a full operational charging station [€]
         self.param_charging_station_selling_price = 0.60 # price of selling energy [€/kWh]
         self.param_charging_station_spec_emissions = 0.05 # specific emissions generated per sold kWh [kgCO2eq/kWh]
+        self.param_charging_station_spec_op_costs = 200 # specific operation costs per charging station [€/month]
 
         self.time_span = control.time_span
         self.reference_date = control.reference_date
@@ -1375,7 +1378,7 @@ class charging_station(Consumer):
         df_schedule.to_excel(folder_path + 'df_schedule_' + self.name_of_instance + '.xlsx',index = False)
 
         df_structured = self.managing_queue(df_schedule)
-        df_structured.to_excel(folder_path + 'test_' + self.name_of_instance + '.xlsx')
+        df_structured.to_excel(folder_path + 'df_traffic_' + self.name_of_instance + '.xlsx')
 
         list_total_power = df_structured['total_power_demand'].tolist()
         
@@ -1385,10 +1388,15 @@ class charging_station(Consumer):
             group = list_total_power[i:i + x]
             list_total_power_final.append(sum(group) / len(group))
 
+        list_total_power_final = list_total_power_final[:control.time_span]
+
         return [self.dict_parameters['charging_station_mult'] * i for i in list_total_power_final]
         
     def constraint_operation_costs(model,t):
-        return model.charging_station_op_cost[t] == - model.param_P_to_charging_station[t] * model.time_step * model.param_charging_station_selling_price
+        return model.charging_station_op_cost[t] == model.param_charging_station_spec_op_costs / (30 * 24 / model.time_step)
+    
+    def constraint_revenue(model,t):
+        return model.charging_station_revenue[t] == model.param_P_to_charging_station[t] * model.time_step * model.param_charging_station_selling_price
     
     def constraint_investment_costs(model,t):
         if t == 1:

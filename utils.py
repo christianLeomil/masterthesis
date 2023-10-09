@@ -209,15 +209,54 @@ def revenue_constraint_creator(df_con_electric, df_con_thermal):
                 list_expressions.append(f"model.Q_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_cost_sell_thermal")
                 list_variables.append(f"Q_rev_{j}")
 
-    df_expressions = pd.DataFrame({'expressions':list_expressions,
-                                   'variables':list_variables})
+    df_expressions_revenue = {'expressions':list_expressions,
+                              'variables':list_variables}
 
-    return df_expressions
+    return df_expressions_revenue
 
 
-def objective_expression_creator(df_aux, df_expressions):
+def objective_expression_creator(df_aux, df_expressions_revenue):
+    #total revenue expressions
+    #starting to see if any class has its own 
+    list_revenue_total = []
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        element_type = df_aux['type'].iloc[i]
+        method = getattr(classes,element_type)
+        if hasattr(method, 'constraint_revenue'):
+            if list_revenue_total == []:
+                list_revenue_total.append('model.total_revenue[t] == model.' + element + '_revenue[t]')
+            else:
+                list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + element + '_revenue[t]'
+    
+    print(f"List revenue total looks like this: {list_revenue_total}")
+    #now adding revenue and compensation variables created in "revenue_constraint_creator"
+    for i in df_expressions_revenue['variables']:
+        if list_revenue_total == []:
+            list_revenue_total.append('model.total_revenue[t] == model.' + i + '[t]')
+        else:
+            list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + i + '[t]'
 
-    #cost and revenue objective expression
+    print('\n======================================This is the total revenue equation')
+    print(list_revenue_total)
+
+    #total investment cost expression
+    list_investment_costs_total = []
+    for i in df_aux.index:
+        element = df_aux['element'].iloc[i]
+        element_type = df_aux['type'].iloc[i]
+        method = getattr(classes,element_type)
+        if hasattr(method,'constraint_investment_costs'):
+            if list_investment_costs_total == []:
+                list_investment_costs_total.append('model.total_investment_costs[t] == ' + ' model.' + element + '_inv_cost[t]')
+            else:
+                list_investment_costs_total[-1] = list_investment_costs_total[-1] + ' + model.'+ element + '_inv_cost[t]'
+
+    print('\n======================================This is the total investment costs')
+    print(list_investment_costs_total)
+
+
+    #total operation costs expression
     list_operation_costs_total = []
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
@@ -225,23 +264,30 @@ def objective_expression_creator(df_aux, df_expressions):
         method = getattr(classes,element_type)
         if hasattr(method,'constraint_operation_costs'):
             if list_operation_costs_total == [] :
-                list_operation_costs_total.append('model.total_operation_cost[t] == ' + ' model.' + element + '_op_cost[t]')
+                list_operation_costs_total.append('model.total_operation_costs[t] == ' + ' model.' + element + '_op_cost[t]')
             else:
-                list_operation_costs_total[-1] = list_operation_costs_total[-1] + '+ model.'+ element + '_op_cost[t]'
+                list_operation_costs_total[-1] = list_operation_costs_total[-1] + ' + model.'+ element + '_op_cost[t]'
 
-    #emissions expressions
-    list_emissions_constraint = []
+    print('\n======================================This is the total operation costs')
+    print(list_operation_costs_total)
+
+
+    #total emissions expressions
+    list_emissions_total = []
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
         element_type = df_aux['type'].iloc[i]
         method = getattr(classes,element_type)
         if hasattr(method,'constraint_emissions'):
-            if list_emissions_constraint == [] :
-                list_emissions_constraint.append('model.total_emissions[t] == ' + 'model. ' + element +'_emissions[t]')
+            if list_emissions_total == [] :
+                list_emissions_total.append('model.total_emissions[t] == ' + 'model.' + element +'_emissions[t]')
             else:
-                list_emissions_constraint[-1] = list_emissions_constraint[-1] + ' + model. ' + element +'_emissions[t]'
+                list_emissions_total[-1] = list_emissions_total[-1] + ' + model.' + element +'_emissions[t]'
 
-    return
+    print('\n======================================This is the total emission costs')
+    print(list_emissions_total)
+
+    return list_revenue_total, list_operation_costs_total, list_investment_costs_total, list_emissions_total
 
 def objective_constraint_creator(df_aux): # this function creates the constraints for the objective function to work
 
@@ -287,7 +333,7 @@ def objective_constraint_creator(df_aux): # this function creates the constraint
             else:
                 list_emissions_constraint[-1] = list_emissions_constraint[-1] + ' + model. ' + element +'_emissions[t]'
     
-    # print('\nEmission Constriants')
+    # print('\nEmission Constriants') 
     # print(list_emissions_constraint)
 
     list_objective_constraints = list_objective_constraints + list_emissions_constraint
