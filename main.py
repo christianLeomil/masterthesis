@@ -31,9 +31,9 @@ df_elements.index.name = None
 # df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # writing dataframes on inputfile to input 
-utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
-utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
-input("\nPlease insert the connection between elements of energy system and press enter to continue...")
+# utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
+# utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
+# input("\nPlease insert the connection between elements of energy system and press enter to continue...")
 
 #reading inputs for the connections between elements of the energy system written in the input file
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
@@ -277,7 +277,7 @@ for i in df_aux.index:
 
 model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals) # variable contained in objective constraints
 model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
-model.total_operation_cost = pyo.Var(model.HOURS, within = pyo.Reals) # variable contained in objective constraints
+model.total_operation_costs = pyo.Var(model.HOURS, within = pyo.Reals) # variable contained in objective constraints
 model.total_emissions = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
 
 # endregion
@@ -304,6 +304,15 @@ for i in df_aux.index:
 # ---------------------------------------------------------------------------------------------------------------------
 # region creating objective function and deactivating objectives
 
+
+
+
+
+
+
+
+
+# -------------------------------ANTIGO----------------------------------
 # adding total cost, total buy and total emissions to objective constraint
 constraint_num = 1
 objective_class = classes.objective('objective')
@@ -338,7 +347,7 @@ model.add_component('Constraint_objective_emissions',pyo.Constraint(model.HOURS,
 
 # creating cost objective of abstract model
 def cost_objective(model,t):
-    return sum(model.total_buy[t] + model.total_operation_cost[t] -  model.total_sell[t] for t in model.HOURS)
+    return sum(model.total_buy[t] + model.total_operation_costs[t] -  model.total_sell[t] for t in model.HOURS)
 if control.opt_objective == 'minimize':
     model.costObjective = pyo.Objective(rule = cost_objective, sense = pyo.minimize)
 else:

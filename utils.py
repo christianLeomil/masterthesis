@@ -194,7 +194,7 @@ def revenue_constraint_creator(df_con_electric, df_con_thermal):
                 list_expressions.append(f"model.P_comp_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
                 list_variables.append(f"P_comp_{j}")
                 #appending expressions and variables related to revenue values
-                list_expressions.append(f"model.P_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_cost_sell_electric")
+                list_expressions.append(f"model.P_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_electric")
                 list_variables.append(f"P_rev_{j}")
 
     #looping through thermal matrix
@@ -206,7 +206,7 @@ def revenue_constraint_creator(df_con_electric, df_con_thermal):
                 list_expressions.append(f"model.Q_comp_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
                 list_variables.append(f"Q_comp_{j}")
                 #appending expressions and variables related to revenue values
-                list_expressions.append(f"model.Q_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_cost_sell_thermal")
+                list_expressions.append(f"model.Q_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_thermal")
                 list_variables.append(f"Q_rev_{j}")
 
     df_expressions_revenue = {'expressions':list_expressions,
@@ -248,9 +248,9 @@ def objective_expression_creator(df_aux, df_expressions_revenue):
         method = getattr(classes,element_type)
         if hasattr(method,'constraint_investment_costs'):
             if list_investment_costs_total == []:
-                list_investment_costs_total.append('model.total_investment_costs[t] == ' + ' model.' + element + '_inv_cost[t]')
+                list_investment_costs_total.append('model.total_investment_costs[t] == ' + ' model.' + element + '_inv_costs[t]')
             else:
-                list_investment_costs_total[-1] = list_investment_costs_total[-1] + ' + model.'+ element + '_inv_cost[t]'
+                list_investment_costs_total[-1] = list_investment_costs_total[-1] + ' + model.'+ element + '_inv_costs[t]'
 
     print('\n======================================This is the total investment costs')
     print(list_investment_costs_total)
@@ -264,9 +264,9 @@ def objective_expression_creator(df_aux, df_expressions_revenue):
         method = getattr(classes,element_type)
         if hasattr(method,'constraint_operation_costs'):
             if list_operation_costs_total == [] :
-                list_operation_costs_total.append('model.total_operation_costs[t] == ' + ' model.' + element + '_op_cost[t]')
+                list_operation_costs_total.append('model.total_operation_costs[t] == ' + ' model.' + element + '_op_costs[t]')
             else:
-                list_operation_costs_total[-1] = list_operation_costs_total[-1] + ' + model.'+ element + '_op_cost[t]'
+                list_operation_costs_total[-1] = list_operation_costs_total[-1] + ' + model.'+ element + '_op_costs[t]'
 
     print('\n======================================This is the total operation costs')
     print(list_operation_costs_total)
@@ -316,9 +316,9 @@ def objective_constraint_creator(df_aux): # this function creates the constraint
         method = getattr(classes,element_type)
         if hasattr(method,'constraint_operation_costs'):
             if list_operation_costs_total == [] :
-                list_operation_costs_total.append('model.total_operation_cost[t] == ' + ' model.' + element + '_op_cost[t]')
+                list_operation_costs_total.append('model.total_operation_costs[t] == ' + ' model.' + element + '_op_costs[t]')
             else:
-                list_operation_costs_total[-1] = list_operation_costs_total[-1] + '+ model.'+ element + '_op_cost[t]'
+                list_operation_costs_total[-1] = list_operation_costs_total[-1] + '+ model.'+ element + '_op_costs[t]'
 
     list_objective_constraints = list_objective_constraints + list_operation_costs_total
 
@@ -494,7 +494,7 @@ def financial_analysis(control):
 
 
     # inserting and formatting ANNUAL DATA
-    list_columns = [s for s in annual_sum_df if 'op_cost' in s or "buy" in s or "sell" in s]
+    list_columns = [s for s in annual_sum_df if 'op_costs' in s or "buy" in s or "sell" in s]
     annual_costs_df = annual_sum_df[list_columns]
     annual_costs_df *= -1 
 
@@ -532,7 +532,7 @@ def financial_analysis(control):
 
 
     # inserting and formatting MONTHLY DATA
-    list_columns = [s for s in monthly_sum_df if 'op_cost' in s or "buy" in s or "sell" in s]
+    list_columns = [s for s in monthly_sum_df if 'op_costs' in s or "buy" in s or "sell" in s]
     monthly_costs_df = monthly_sum_df[list_columns]
     monthly_costs_df *= -1 
 
@@ -562,7 +562,7 @@ def financial_analysis(control):
 
 
     # inserting and formatting WEEKLY DATA
-    list_columns = [s for s in weekly_sum_df if 'op_cost' in s or "buy" in s or "sell" in s]
+    list_columns = [s for s in weekly_sum_df if 'op_costs' in s or "buy" in s or "sell" in s]
     weekly_costs_df = weekly_sum_df[list_columns]
     weekly_costs_df *= -1 
 
@@ -605,7 +605,7 @@ def financial_analysis(control):
                     boldOption = True, sizeOption = 10, fontOption = 'Arial', styleOption = normal_style)
 
     # inserting and formatting ANNUAL DATA
-    list_columns = [s for s in annual_sum_df if 'inv_cost' in s]
+    list_columns = [s for s in annual_sum_df if 'inv_costs' in s]
     annual_costs_df = annual_sum_df[list_columns]
     annual_costs_df *= -1 
 
@@ -640,7 +640,7 @@ def financial_analysis(control):
 
 
     # inserting and formatting MONTHLY DATA
-    list_columns = [s for s in monthly_sum_df if 'inv_cost' in s]
+    list_columns = [s for s in monthly_sum_df if 'inv_costs' in s]
     monthly_costs_df = monthly_sum_df[list_columns]
     monthly_costs_df *= -1 
 
@@ -667,7 +667,7 @@ def financial_analysis(control):
 
 
     # inserting and formatting WEEKLY DATA
-    list_columns = [s for s in weekly_sum_df if 'inv_cost' in s]
+    list_columns = [s for s in weekly_sum_df if 'inv_costs' in s]
     weekly_costs_df = weekly_sum_df[list_columns]
     weekly_costs_df *= -1 
 
