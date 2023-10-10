@@ -181,8 +181,8 @@ def revenue_constraint_creator(df_con_electric, df_con_thermal):
     df_con_thermal.index = [s.replace('Q_to_','') for s in df_con_thermal.index]
 
     #looping through the connection matrices and checking which elements are connected to the grid
-    list_expressions = []
-    list_variables = []
+    list_expressions_revenue = []
+    list_variables_expressions_revenue = []
 
     #looping through electric matrix
     for i in df_con_electric.index:
@@ -190,11 +190,11 @@ def revenue_constraint_creator(df_con_electric, df_con_thermal):
             if df_con_electric.loc[i,j] != 0:
                 energy_flux = df_con_electric.loc[i,j]
                 #appending expressions and variables related to compensation values
-                list_expressions.append(f"model.P_comp_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
-                list_variables.append(f"P_comp_{j}")
+                list_expressions_revenue.append(f"model.P_comp_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
+                list_variables_expressions_revenue.append(f"P_comp_{j}")
                 #appending expressions and variables related to revenue values
-                list_expressions.append(f"model.P_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_electric[t]")
-                list_variables.append(f"P_rev_{j}")
+                list_expressions_revenue.append(f"model.P_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_electric[t]")
+                list_variables_expressions_revenue.append(f"P_rev_{j}")
 
     #looping through thermal matrix
     for i in df_con_thermal.index:
@@ -202,25 +202,22 @@ def revenue_constraint_creator(df_con_electric, df_con_thermal):
             if df_con_thermal.loc[i,j] != 0:
                 energy_flux = df_con_thermal.loc[i,j]
                 #appending expressions and variables related to compensation values
-                list_expressions.append(f"model.Q_comp_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
-                list_variables.append(f"Q_comp_{j}")
+                list_expressions_revenue.append(f"model.Q_comp_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
+                list_variables_expressions_revenue.append(f"Q_comp_{j}")
                 #appending expressions and variables related to revenue values
-                list_expressions.append(f"model.Q_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_thermal[t]")
-                list_variables.append(f"Q_rev_{j}")
+                list_expressions_revenue.append(f"model.Q_rev_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_thermal[t]")
+                list_variables_expressions_revenue.append(f"Q_rev_{j}")
 
-    df_expressions_revenue = {'expressions':list_expressions,
-                              'variables':list_variables}
-    
-    df_expressions_revenue = pd.DataFrame(df_expressions_revenue)
+    df_expressions_revenue = pd.DataFrame({'expressions':list_expressions_revenue,
+                                           'variables':list_variables_expressions_revenue})
     df_expressions_revenue.to_excel('./output/' + 'df_expressions_revenue.xlsx',index = False)
 
-    df_expressions_revenue = {'expressions':list_expressions,
-                              'variables':list_variables}
+    list_variables_expressions_revenue = list(set(list_variables_expressions_revenue))
 
-    return df_expressions_revenue
+    return list_expressions_revenue, list_variables_expressions_revenue
 
 
-def objective_expression_creator(df_aux, df_expressions_revenue):
+def objective_expression_creator(df_aux, list_variables_expressions_revenue):
     #total revenue expressions
     #starting to see if any class has its own 
     list_revenue_total = []
@@ -235,7 +232,7 @@ def objective_expression_creator(df_aux, df_expressions_revenue):
                 list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + element + '_revenue[t]'
 
     #now adding revenue and compensation variables created in "revenue_constraint_creator"
-    for i in df_expressions_revenue['variables']:
+    for i in list_variables_expressions_revenue:
         if list_revenue_total == []:
             list_revenue_total.append('model.total_revenue[t] == model.' + i + '[t]')
         else:
