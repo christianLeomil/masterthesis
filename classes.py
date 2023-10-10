@@ -310,7 +310,7 @@ class CHP(Generator):
 
         #default values for scalar parameters
         self.param_P_CHP_max = 20 # max power of CHP device [kW]
-        self.param_P_CHP_min = 5 # min operation power of CHP [kW]
+        self.param_P_CHP_min = 0.2 * self.param_P_CHP_max # min operation power of CHP [kW]
         self.param_CHP_P_to_Q_ratio = 0.5 # In german, Stromkennzahl, relation Pel/Pth, [-] https://www.energieatlas.bayern.de/thema_energie/kwk/anlagentypen
         self.param_CHP_eff = 0.8 # Overall efficiency of CHP [-] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden.
         self.param_CHP_fuel_price = 0.09463 # cost per kWh of fuel consumed [€/kWh] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden
@@ -352,7 +352,7 @@ class CHP(Generator):
         return model.CHP_z2[t] <= model.param_CHP_M2 * model.CHP_K[t]
     
     def constraint_max_generation3(model,t):
-        return model.CHP_z2[t] <= model.param_P_CHP_max 
+        return model.CHP_z2[t] <= model.param_P_CHP_max
     
     def constraint_max_generation4(model,t):
         return model.CHP_z2[t] >= model.param_P_CHP_max - (1 - model.CHP_K[t]) * model.param_CHP_M2
@@ -415,7 +415,7 @@ class gas_boiler(Generator):
 
         #default values for scalar parameters
         self.param_Q_gas_boiler_max = 20 # max power that can be generated with this device [kW]
-        self.param_Q_gas_boiler_min = 2 # min power limitation when this device is in operation [kW]
+        self.param_Q_gas_boiler_min = 0.2 * self.param_Q_gas_boiler_max # min power limitation when this device is in operation [kW]
         self.param_gas_boiler_eff = 0.95 # efficency when converting fuel into thermal energy [-] 
         self.param_gas_boiler_fuel_cons_ratio = 0.105 #dm3 per kWh of P_from_CHP
         self.param_gas_boiler_fuel_price = 0.09463 # cost per kWh of fuel consumed [€/kWh] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden

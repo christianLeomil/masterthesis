@@ -14,7 +14,6 @@ warnings.filterwarnings("ignore", '.*')
 # ---------------------------------------------------------------------------------------------------------------------
 # region reading data, creating list with connection variables, list with string of connection constraint, and list with objective constraints
 
-
 # paths and name of input filexz
 path_input = './input/'
 path_output = './output/'
@@ -48,9 +47,8 @@ df_con_thermal.index.name = None
 df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
 df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
-# creating constriants that will turn into the objevtive functions ------------------------------VOU MUDAR AQUI
+# creating constriants that will turn into the objevtive functions
 
-#NOVO
 [list_expressions_revenue, 
  list_variables_expressions_revenue] = utils.revenue_constraint_creator(df_con_electric, df_con_thermal)
 
@@ -58,10 +56,6 @@ df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
  list_operation_costs_total, 
  list_investment_costs_total, 
  list_emissions_total] = utils.objective_expression_creator(df_aux, list_variables_expressions_revenue)
-
-
-#Antigo
-# list_objective_constraints = utils.objective_constraint_creator(df_aux)
 
 
 # endregion
@@ -248,8 +242,7 @@ for i in list_con_variables:
             exec(f"model.add_component('{i}',pyo.Var({text}))")
 
 
-# # ------------------------NOVO
-# # dynamically adding VARIABLES FROM REVENUE CONNECTIONS to asbtract model
+# dynamically adding VARIABLES FROM REVENUE CONNECTIONS to asbtract model
 print('\n------------------------variables from revenue connections')
 for i in list_variables_expressions_revenue:
     print(i)
@@ -287,18 +280,10 @@ for i in df_aux.index:
 # ---------------------------------------------------------------------------------------------------------------------
 # region creating extra series and variables
 
-#-----------------------NOVO
 model.total_revenue = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 model.total_operation_costs = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 model.total_emissions = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
 model.total_investment_costs = pyo.Var(model.HOURS, within = pyo.NonNegativeReals)
-
-#-----------------------ANTIGO
-
-# model.total_buy = pyo.Var(model.HOURS, within= pyo.NonNegativeReals) # variable contained in objective constraints
-# model.total_sell = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
-# model.total_operation_costs = pyo.Var(model.HOURS, within = pyo.Reals) # variable contained in objective constraints
-# model.total_emissions = pyo.Var(model.HOURS, within = pyo.NonNegativeReals) # variable contained in objective constraints
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -324,12 +309,11 @@ for i in df_aux.index:
 # ---------------------------------------------------------------------------------------------------------------------
 # region creating objective function and deactivating objectives
 
-# -------------------------------NOVO---------------------------------
-# adding total cost, total buy and total emissions to objective constraint
+# adding total operation and investment costs, total revenue, and total emissions constraints to objective class
 constraint_num = 1
 objective_class = classes.objective('objective')
 
-for i in list_revenue_total:
+for i in list_revenue_total: # adding total revenue constraint to objective class
     def dynamic_method(model,t,expr):
         return eval(expr, globals(), locals())
     method_name = 'constraint_objective_' + str(constraint_num) 
@@ -341,7 +325,7 @@ for i in list_revenue_total:
     constraint_num += 1
 
 
-for i in list_operation_costs_total:
+for i in list_operation_costs_total: # adding total operation costs constraint to objective class
     def dynamic_method(model,t,expr):
         return eval(expr, globals(), locals())
     method_name = 'constraint_objective_' + str(constraint_num) 
@@ -353,7 +337,7 @@ for i in list_operation_costs_total:
     constraint_num += 1
 
 
-for i in list_investment_costs_total:
+for i in list_investment_costs_total: # adding total investment constraint to objective class
     def dynamic_method(model,t,expr):
         return eval(expr, globals(), locals())
     method_name = 'constraint_objective_' + str(constraint_num) 
@@ -365,7 +349,7 @@ for i in list_investment_costs_total:
     constraint_num += 1
 
 
-for i in list_emissions_total:
+for i in list_emissions_total: # adding total emissions constraint to objective class
     def dynamic_method(model,t,expr):
         return eval(expr, globals(), locals())
     method_name = 'constraint_objective_' + str(constraint_num) 
@@ -377,7 +361,7 @@ for i in list_emissions_total:
     constraint_num += 1
 
 
-for i in list_expressions_revenue:
+for i in list_expressions_revenue: # adding connection revenue constraints to objective class (revenue and compensation constraints)
     def dynamic_method(model,t,expr):
         return eval(expr, globals(), locals())
     method_name = 'constraint_objective_' + str(constraint_num) 
@@ -399,31 +383,8 @@ for i in dir(objective_class):
             print(i)
 
 
-
 # creating constraints from class OBJECTIVE
-
-#-----------------ANITGO
-# method = getattr(objective_class,'constraint_objective_1')  # constraint for calculating bought energy
-# model.add_component('Constraint_objective_revenue',pyo.Constraint(model.HOURS, rule = method))
-
-# method = getattr(objective_class,'constraint_objective_2') # constraint for calculating sold energy
-# model.add_component('Constraint_objective_operation_costs',pyo.Constraint(model.HOURS, rule = method))
-
-# method = getattr(objective_class,'constraint_objective_3') #constraint for opreational costs
-# model.add_component('Constraint_objective_investment',pyo.Constraint(model.HOURS, rule = method))
-
-# method = getattr(objective_class,'constraint_objective_4') #constraint for calculating emissions
-# model.add_component('Constraint_objective_emissions',pyo.Constraint(model.HOURS, rule = method))
-
-# method = getattr(objective_class,'constraint_objective_5') #constraint for calculating extra1
-# model.add_component('Constraint_objective_5',pyo.Constraint(model.HOURS, rule = method))
-
-# method = getattr(objective_class,'constraint_objective_6') #constraint for calculating extra2
-# model.add_component('Constraint_objective_6',pyo.Constraint(model.HOURS, rule = method))
-
 print('\n=============Creating constraints from objecive class=============')
-
-#-----------------NOVO
 constraint_num = 1
 element = objective_class
 methods = inspect.getmembers(element, inspect.isfunction)
@@ -459,64 +420,6 @@ else:
     model.costObjective.deactivate()
     print('cost objective deactivated')
 
-
-# -------------------------------ANTIGO----------------------------------
-# adding total cost, total buy and total emissions to objective constraint
-
-# constraint_num = 1
-# objective_class = classes.objective('objective')
-# for i in list_objective_constraints:
-#     def dynamic_method(model,t,expr):
-#         return eval(expr, globals(), locals())
-#     method_name = 'constraint_objective_' + str(constraint_num) 
-
-#     def method_wrapper(model,t,expr = i):
-#         return dynamic_method(model,t,expr)
-#     setattr(objective_class , method_name, method_wrapper)
-#     constraint_num += 1
-
-# # checking content of class objective:
-# print('\n------------------objective')
-# for i in dir(objective_class):
-#     if not i.startswith('__'):
-#         original_method = getattr(objective_class,i)
-#         if callable(original_method):
-#             source_code = inspect.getsource(original_method)
-#             print(i)
-
-# # creating constraints from class objective
-# method = getattr(objective_class,'constraint_objective_1')  # constraint for calculating bought energy
-# model.add_component('Constraint_objective_buy',pyo.Constraint(model.HOURS, rule = method))
-# method = getattr(objective_class,'constraint_objective_2') # constraint for calculating sold energy
-# model.add_component('Constraint_objective_sell',pyo.Constraint(model.HOURS, rule = method))
-# method = getattr(objective_class,'constraint_objective_3') #constraint for opreational costs
-# model.add_component('Constraint_objective_operation',pyo.Constraint(model.HOURS, rule = method))
-# method = getattr(objective_class,'constraint_objective_4') #constraint for calculating emissions
-# model.add_component('Constraint_objective_emissions',pyo.Constraint(model.HOURS, rule = method))
-
-# # creating cost objective of abstract model
-# def cost_objective(model,t):
-#     return sum(model.total_buy[t] + model.total_operation_costs[t] -  model.total_sell[t] for t in model.HOURS)
-# if control.opt_objective == 'minimize':
-#     model.costObjective = pyo.Objective(rule = cost_objective, sense = pyo.minimize)
-# else:
-#     model.costObjective = pyo.Objective(rule = cost_objective, sense = pyo.maximize)
-
-# # creating emission objective of abstract model
-# def emission_objective(model,t):
-#     return sum(model.total_emissions[t] for t in model.HOURS)
-# if control.opt_objective == 'minimize':
-#     model.emissionObjective = pyo.Objective(rule = emission_objective, sense = pyo.minimize)
-# else:
-#     model.emissionObjective = pyo.Objective(rule = emission_objective, sense = pyo.maximize)
-
-
-# if control.opt_equation == 'cost_objective':
-#     model.emissionObjective.deactivate()
-#     print('emission objective deactivated')
-# else:
-#     model.costObjective.deactivate()
-#     print('cost objective deactivated')
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
