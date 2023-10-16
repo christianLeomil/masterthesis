@@ -44,11 +44,10 @@ df_con_thermal.index.name = None
 #creating variables from connections exporting dataframes for check
 [df_con_thermal, df_con_electric, list_expressions, 
  list_con_variables, list_attr_classes] = utils.connection_creator(df_con_electric, df_con_thermal)
-df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
-df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
+# df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
+# df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
 # creating constriants that will turn into the objevtive functions
-
 [list_expressions_revenue, 
  list_variables_expressions_revenue] = utils.revenue_constraint_creator(df_con_electric, df_con_thermal)
 
