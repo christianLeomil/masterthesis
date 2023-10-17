@@ -169,7 +169,6 @@ def connection_creator(df_con_electric, df_con_thermal):
 
     return df_con_thermal, df_con_electric, list_expressions, list_con_variables, list_attr_classes
 
-
 def revenue_constraint_creator(df_con_electric, df_con_thermal):
 
     df_con_electric = df_con_electric.filter(like = 'P_to_net', axis = 0)
@@ -215,7 +214,6 @@ def revenue_constraint_creator(df_con_electric, df_con_thermal):
     list_variables_expressions_revenue = list(set(list_variables_expressions_revenue))
 
     return list_expressions_revenue, list_variables_expressions_revenue
-
 
 def objective_expression_creator(df_aux, list_variables_expressions_revenue):
     #total revenue expressions

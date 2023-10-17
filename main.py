@@ -30,10 +30,10 @@ df_elements.index.name = None
 [df_con_electric, df_con_thermal, df_aux] = utils.aux_creator(df_elements)
 # df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
-# writing dataframes on inputfile to input 
-# utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
-# utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
-# input("\nPlease insert the connection between elements of energy system and press enter to continue...")
+# writing dataframes on inputfile to input
+utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
+utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
+input("\nPlease insert the connection between elements of energy system and press enter to continue...")
 
 #reading inputs for the connections between elements of the energy system written in the input file
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
