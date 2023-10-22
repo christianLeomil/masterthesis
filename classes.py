@@ -67,13 +67,13 @@ class Generator:
     #write_gen_series is a function that insert the time series for param_gen_series. This will be later used as input for the optimization
     #If input sheet "series" already contains data for param_gen_series, the default value is ignored.
     def write_gen_series(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_' + self.name_of_instance + '_series' in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_' + self.name_of_instance + '_series': self.param_gen_series})
             df_input_series = pd.concat([df_input_series, df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
 class pv(Generator):
@@ -114,13 +114,13 @@ class pv(Generator):
 
     # write_E_pv_solar writes default solar radiaton to input file in case none is given
     def write_E_pv_solar(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_E_' + self.name_of_instance + '_solar' in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_E_' + self.name_of_instance + '_solar': self.param_E_pv_solar})
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
     def constraint_generation_rule(model,t):
@@ -182,13 +182,13 @@ class solar_th(Generator):
 
     # write_E_solar_th_solar writes default solar radiaton to input file in case none is given
     def write_E_solar_th_solar(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_E_' + self.name_of_instance + '_solar' in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_E_' + self.name_of_instance + '_solar': self.param_E_solar_th_solar})
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
         
     def constraint_generation_rule(model,t):
@@ -248,13 +248,13 @@ class pvt(Generator):
         self.write_E_pvt_solar(control)
 
     def write_E_pvt_solar(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_E_' + self.name_of_instance + '_solar' in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_E_' + self.name_of_instance + '_solar': self.param_E_pvt_solar})
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
         
     def constraint_generation_rule(model,t):
@@ -417,7 +417,7 @@ class gas_boiler(Generator):
         self.param_Q_gas_boiler_max = 20 # max power that can be generated with this device [kW]
         self.param_Q_gas_boiler_min = 0.2 * self.param_Q_gas_boiler_max # min power limitation when this device is in operation [kW]
         self.param_gas_boiler_eff = 0.95 # efficency when converting fuel into thermal energy [-] 
-        self.param_gas_boiler_fuel_cons_ratio = 0.105 #dm3 per kWh of P_from_CHP
+        # self.param_gas_boiler_fuel_cons_ratio = 90.09 #dm3 per kWh of P_from_CHP * 1h  
         self.param_gas_boiler_fuel_price = 0.09463 # cost per kWh of fuel consumed [€/kWh] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden
         self.param_gas_boiler_spec_em = 0.200 # emissions due to burning of 1 kWh of the fuel [kgCO2eq/kWh] https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=20008075
         self.param_gas_boiler_maintenance = 1875 #maintenace costs per kW of installed capacity per  year [€/kW/yr] (IEP)
@@ -446,12 +446,11 @@ class gas_boiler(Generator):
     
     def constraint_min_generation5(model,t):
         return model.gas_boiler_z1[t] >= 0
-    
 
 
     # linearized equations to define max power limit. Original equation was: model.Q_from_gas_boiler[t] <= model.param_Q_gas_boiler_max https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
     
-    def constraint_mmax_generation1(model,t):
+    def constraint_max_generation1(model,t):
         return model.Q_from_gas_boiler[t] <= model.gas_boiler_z2[t]
     
     def constraint_max_generation2(model,t):
@@ -465,15 +464,11 @@ class gas_boiler(Generator):
     
     def constraint_max_generation5(model,t):
         return model.gas_boiler_z2[t] >= 0
-
-
-
-
-    def constraint_generation_rule(model,t):
-        return model.gas_boiler_fuel_cons[t] == model.Q_from_gas_boiler[t] * model.time_step * model.param_gas_boiler_fuel_cons_ratio
     
+
+
     def constraint_generation_rule(model,t):
-        return model.Q_from_gas_boiler[t] == model.gas_boiler_fuel_cons[t] * model.param_gas_boiler_eff
+        return model.Q_from_gas_boiler[t] == model.param_gas_boiler_eff *  model.gas_boiler_fuel_cons[t] / model.time_step
 
     def constraint_operation_costs(model,t):
         return model.gas_boiler_op_costs[t] == (model.gas_boiler_fuel_cons[t] * model.param_gas_boiler_fuel_price +
@@ -937,13 +932,13 @@ class Consumer:
         return model.cons_op_costs[t] == 0
     
     def write_P_to_cons(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_P_to_' + self.name_of_instance in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_P_to_' + self.name_of_instance: self.param_P_to_demand})
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
 class demand(Consumer):
@@ -981,23 +976,23 @@ class demand(Consumer):
         self.write_Q_to_demand(control)
 
     def write_P_to_demand(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_P_to_' + self.name_of_instance in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_P_to_' + self.name_of_instance: self.param_P_to_demand})
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
     def write_Q_to_demand(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_Q_to_' + self.name_of_instance in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_Q_to_' + self.name_of_instance: self.param_Q_to_demand})
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
     def constraint_investment_costs(model,t):
@@ -1048,7 +1043,7 @@ class charging_station(Consumer):
         self.time_span = control.time_span
         self.reference_date = control.reference_date
         self.path_charts = control.path_charts
-        self.name_file = 'df_input.xlsx'
+        self.name_file = 'input.xlsx'
 
         #defining paramenters for functions that are not constraints, includiing default values:
         self.dict_parameters  = {'list_sheets':['other','other','other','other','other','other','other'],
@@ -1542,43 +1537,43 @@ class net:
         self.param_net_spec_em_Q_extra = 1000 # emissions of energy that exceeds nominal thermal power extracted from the net. This value should be high so that otpimizer does not use it [kgCO2eq/kWh]
 
     def write_net_costs_buy_electric(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_' + self.name_of_instance + '_costs_buy_electric' in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_' + self.name_of_instance + '_costs_buy_electric': self.param_net_costs_buy_electric})
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
     def write_net_costs_sell_electric(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_' + self.name_of_instance + '_costs_sell_electric' in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_' + self.name_of_instance + '_costs_sell_electric': self.param_net_costs_sell_electric})
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
     def write_net_costs_buy_thermal(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_' + self.name_of_instance + '_costs_buy_thermal' in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_' + self.name_of_instance + '_costs_buy_thermal': self.param_net_costs_buy_thermal})
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
     def write_net_costs_sell_thermal(self,control):
-        df_input_series  = pd.read_excel(control.path_input + 'df_input.xlsx',sheet_name = 'series')
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'series')
         if 'param_' + self.name_of_instance + '_costs_sell_thermal' in df_input_series.columns:
             pass
         else:
             df_power = pd.DataFrame({'param_' + self.name_of_instance + '_costs_sell_thermal': self.param_net_costs_sell_thermal})
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
-            with pd.ExcelWriter(control.path_input + 'df_input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'series', index = False)
 
 

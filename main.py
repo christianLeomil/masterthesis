@@ -14,10 +14,10 @@ warnings.filterwarnings("ignore", '.*')
 # ---------------------------------------------------------------------------------------------------------------------
 # region reading data, creating list with connection variables, list with string of connection constraint, and list with objective constraints
 
-# paths and name of input filexz
+# paths and name of input file
 path_input = './input/'
 path_output = './output/'
-name_file = 'df_input.xlsx'
+name_file = 'input.xlsx'
 
 # creating instance of class that contains infos of how optimization is going to be
 control = classes.control(path_input,name_file)
@@ -31,8 +31,8 @@ df_elements.index.name = None
 # df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # writing dataframes on inputfile to input
-utils.write_excel(df_con_electric,path_input,'conect_electric','df_input.xlsx', True)
-utils.write_excel(df_con_thermal,path_input,'conect_thermal','df_input.xlsx', True)
+utils.write_excel(df_con_electric,path_input,'conect_electric','input.xlsx', True)
+utils.write_excel(df_con_thermal,path_input,'conect_thermal','input.xlsx', True)
 input("\nPlease insert the connection between elements of energy system and press enter to continue...")
 
 #reading inputs for the connections between elements of the energy system written in the input file
@@ -146,18 +146,17 @@ if control.df.loc['size_optimization','value'] == 'yes':
     df_size_optimization['upper bound'] = 0
 
     #writes to input file in order
-    with pd.ExcelWriter(path_input + 'df_input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
+    with pd.ExcelWriter(path_input + 'input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
         df_size_optimization.to_excel(writer,sheet_name = 'parameters to variables',index = False)
     input('Please select parameters that are going to be optimized and press enter...')
 
-    df_size_optimization = pd.read_excel(path_input + 'df_input.xlsx',sheet_name = 'parameters to variables', index_col = 0)
+    df_size_optimization = pd.read_excel(path_input + 'input.xlsx',sheet_name = 'parameters to variables', index_col = 0)
     df_size_optimization.index.title = None
     df_size_optimization = df_size_optimization[df_size_optimization['choice'] == 1]
 
     list_altered_variables = df_size_optimization.index.tolist()
     list_upper_value = df_size_optimization['upper bound'].tolist()
     list_lower_value = df_size_optimization['lower bound'].tolist()
-    
     
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
