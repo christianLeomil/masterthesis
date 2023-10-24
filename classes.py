@@ -148,8 +148,6 @@ class solar_th(Generator):
                    'electric_source':'no',
                    'thermal_load':'no',
                    'thermal_source':'yes'}
-    
-    super_class = 'generator'
 
     def __init__(self,name_of_instance,control):
         self.name_of_instance = name_of_instance
@@ -512,8 +510,10 @@ class Transformer:
 
         self.param_trans_eff = 4
         self.param_trans_spec_op_costs = 0.05
-        self.param_trans_inv_specific_costs = 10000
+        self.param_trans_inv_spec_inv_costs = 10000
         self.param_trans_spec_em = 0.1
+        self.param_trans_lifetime = 20 * 8760
+
 
     def constraint_function_rule(model,t):
         return model.Q_from_trans[t] == model.P_to_trans[t] * model.param_trans_eff
@@ -523,7 +523,7 @@ class Transformer:
 
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.trans_inv_costs[t] == model.param_trans_inv_specific_costs
+            return model.trans_inv_costs[t] == model.param_trans_inv_spec_inv_costs
         else:
             return model.trans_inv_costs[t] == 0
 
@@ -562,10 +562,10 @@ class heat_pump(Transformer):
         self.param_P_heat_pump_min = 0.2 * self.param_P_heat_pump_max # minimum power consumption for device while in operation [kW] 
         self.param_heat_pump_COP = 4 # overall average coefficent of performance, Pth/Pel [-] https://www.heizungsfinder.de/waermepumpe/wirtschaftlichkeit/cop-wert
         self.param_heat_pump_spec_em = 0 # specific emissions per consumed kWh of electricity [kgCO2eq/kWh] https://gshp.org.uk/gshps/what-are-gshps/#:~:text=element%20of%20a%20ground%20source,life%20of%20over%20100%20years.&text=Unlike%20burning%20oil%2C%20gas%2C%20LPG,is%20used%20to%20power%20them).
-        self.param_heat_pump_inv_specific_costs = 733 # investment costs per kW of installed capacity (IEP)
+        self.param_heat_pump_spec_inv_costs = 733 # investment costs per kW of installed capacity (IEP)
         self.param_heat_pump_maintenance = 11 # maintenance costs per installed kW capacity and year [€/kW] (IEP)
         self.param_heat_pump_repair = 11 # repair costs per installed kW capacity and year [€/kW] (IEP)
-        self.param_heat_pump_operation = 12 # operation costs per installed kW capacity and year [€/kW] (IEP)
+        self.param_heat_pump_spec_op_costs = 12 # operation costs per installed kW capacity and year [€/kW] (IEP)
         self.param_heat_pump_lifetime = 20 * 8760 # total lifespan of device [hs]
         self.param_heat_pump_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
@@ -616,14 +616,14 @@ class heat_pump(Transformer):
 
     
     def constraint_operation_costs(model,t):
-        return model.heat_pump_op_costs[t] == model.param_P_heat_pump_max * (model.param_heat_pump_maintenance + model.param_heat_pump_operation + model.param_heat_pump_repair) / (365 * 24 / model.time_step)
+        return model.heat_pump_op_costs[t] == model.param_P_heat_pump_max * (model.param_heat_pump_maintenance + model.param_heat_pump_spec_op_costs + model.param_heat_pump_repair) / (365 * 24 / model.time_step)
 
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.heat_pump_inv_costs[t] == model.param_heat_pump_inv_specific_costs * model.param_P_heat_pump_max
+            return model.heat_pump_inv_costs[t] == model.param_heat_pump_spec_inv_costs * model.param_P_heat_pump_max
         
         elif t % int(model.param_heat_pump_lifetime) == 0:
-            return model.heat_pump_inv_costs[t] == model.param_heat_pump_inv_specific_costs * model.param_P_heat_pump_max
+            return model.heat_pump_inv_costs[t] == model.param_heat_pump_spec_inv_costs * model.param_P_heat_pump_max
 
         else:
             return model.heat_pump_inv_costs[t] == 0
@@ -1472,9 +1472,6 @@ class objective:
 
         self.list_altered_var = []
         self.list_text_altered_var =[]
-
-        #defining energy type to build connections with other componets correctly
-        self.super_class = 'objective'
 
 class net:
     #defining energy type to build connections with other componets correctly
