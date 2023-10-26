@@ -61,6 +61,10 @@ class Generator:
     def constraint_investment_costs(model,t):
         if t == 1:
             return model.gen_inv_costs[t] == model.param_gen_size * model.param_gen_spec_inv
+        
+        if t % int(model.param_gen_lifetime) == 0:
+            return model.gen_inv_costs[t] == model.param_gen_size * model.param_gen_spec_inv
+        
         else:
             return model.gen_inv_costs[t] == 0
     
@@ -510,7 +514,7 @@ class Transformer:
 
         self.param_trans_eff = 4
         self.param_trans_spec_op_costs = 0.05
-        self.param_trans_inv_spec_inv_costs = 10000
+        self.param_trans_inv_costs = 10000
         self.param_trans_spec_em = 0.1
         self.param_trans_lifetime = 20 * 8760
 
@@ -523,7 +527,9 @@ class Transformer:
 
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.trans_inv_costs[t] == model.param_trans_inv_spec_inv_costs
+            return model.trans_inv_costs[t] == model.param_trans_inv_costs
+        if t % int (model.param_trans_lifetime) == 0:
+            return model.trans_inv_costs[t] == model.param_trans_inv_costs
         else:
             return model.trans_inv_costs[t] == 0
 
@@ -969,8 +975,10 @@ class demand(Consumer):
         #Setting up default values for series if none are given in input file:
         self.param_P_to_demand = [500] * control.time_span # default electric power of demand that needs to be covered [kW]
         self.param_Q_to_demand = [1000] * control.time_span # default thermal power of demand that needs to be covered  [kW]]
-        self.param_demand_price_sell_electric = 0.195 # price inhabitants of building pay for electric energy 
-        self.param_demand_price_sell_thermal = 0.065 # price inhabitants of building pay for thermal energy 
+        # self.param_demand_price_sell_electric = 0.195 # price inhabitants of building pay for electric energy
+        # self.param_demand_price_sell_thermal = 0.065 # price inhabitants of building pay for thermal energy
+        self.param_demand_price_sell_electric = 0.45
+        self.param_demand_price_sell_thermal = 0.13
 
         self.write_P_to_demand(control)
         self.write_Q_to_demand(control)
