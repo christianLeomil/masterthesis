@@ -2,7 +2,6 @@ import pandas as pd
 import classes
 import sys
 import pandas as pd
-from classes import control
 from openpyxl import Workbook, utils
 from openpyxl.styles import PatternFill, Font, NamedStyle, Alignment
 import warnings
@@ -168,77 +167,148 @@ def connection_creator(df_con_electric, df_con_thermal):
     list_con_variables = list(set(list_con_variables))
 
     return df_con_thermal, df_con_electric, list_expressions, list_con_variables, list_attr_classes
+    
+# def revenue_constraint_creator(df_con_electric, df_con_thermal):
 
-def revenue_constraint_creator(df_con_electric, df_con_thermal):
+#     df_con_electric = df_con_electric.filter(like = 'P_to_net', axis = 0)
+#     df_con_electric.columns = [s.replace('P_from_','') for s in df_con_electric.columns]
+#     df_con_electric.index = [s.replace('P_to_','') for s in df_con_electric.index]
 
-    df_con_electric = df_con_electric.filter(like = 'P_to_net', axis = 0)
+#     df_con_thermal = df_con_thermal.filter(like = 'Q_to_net', axis = 0)
+#     df_con_thermal.columns = [s.replace('Q_from_','') for s in df_con_thermal.columns]
+#     df_con_thermal.index = [s.replace('Q_to_','') for s in df_con_thermal.index]
+
+#     #looping through the connection matrices and checking which elements are connected to the grid
+#     list_expressions_revenue = []
+#     list_variables_expressions_revenue = []
+
+#     #looping through electric matrix
+#     for i in df_con_electric.index:
+#         for j in df_con_electric.columns:
+#             if df_con_electric.loc[i,j] != 0:
+#                 energy_flux = df_con_electric.loc[i,j]
+#                 #appending expressions and variables related to compensation values
+#                 list_expressions_revenue.append(f"model.comp_P_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
+#                 list_variables_expressions_revenue.append(f"comp_P_{j}")
+#                 #appending expressions and variables related to revenue values
+#                 list_expressions_revenue.append(f"model.rev_P_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_electric[t]")
+#                 list_variables_expressions_revenue.append(f"rev_P_{j}")
+
+#     #looping through thermal matrix
+#     for i in df_con_thermal.index:
+#         for j in df_con_thermal.columns:
+#             if df_con_thermal.loc[i,j] != 0:
+#                 energy_flux = df_con_thermal.loc[i,j]
+#                 #appending expressions and variables related to compensation values
+#                 list_expressions_revenue.append(f"model.comp_Q_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
+#                 list_variables_expressions_revenue.append(f"comp_Q_{j}")
+#                 #appending expressions and variables related to revenue values
+#                 list_expressions_revenue.append(f"model.rev_Q_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_thermal[t]")
+#                 list_variables_expressions_revenue.append(f"rev_Q_{j}")
+
+#     df_expressions_revenue = pd.DataFrame({'expressions':list_expressions_revenue,
+#                                            'variables':list_variables_expressions_revenue})
+#     df_expressions_revenue.to_excel('./output/' + 'df_expressions_revenue.xlsx',index = False)
+
+#     list_variables_expressions_revenue = list(set(list_variables_expressions_revenue))
+
+#     return list_expressions_revenue, list_variables_expressions_revenue
+
+def revenue_constraint_creator(df_con_electric,df_con_thermal,control,df_input_other):
+    list_expressions_rev = []
+    list_variables_rev = []
+    list_parameters_rev = []
+    list_parameters_rev_value = []
+    list_correl_elements = []
+
+    #adjusting columns and index
     df_con_electric.columns = [s.replace('P_from_','') for s in df_con_electric.columns]
+    df_con_electric.index = [s.replace('param_','') for s in df_con_electric.index]
     df_con_electric.index = [s.replace('P_to_','') for s in df_con_electric.index]
 
-    df_con_thermal = df_con_thermal.filter(like = 'Q_to_net', axis = 0)
     df_con_thermal.columns = [s.replace('Q_from_','') for s in df_con_thermal.columns]
+    df_con_thermal.index = [s.replace('param_','') for s in df_con_thermal.index]
     df_con_thermal.index = [s.replace('Q_to_','') for s in df_con_thermal.index]
 
-    #looping through the connection matrices and checking which elements are connected to the grid
-    list_expressions_revenue = []
-    list_variables_expressions_revenue = []
+    # print(df_con_electric)
+    # print(df_con_thermal)
 
-    #looping through electric matrix
-    for i in df_con_electric.index:
-        for j in df_con_electric.columns:
-            if df_con_electric.loc[i,j] != 0:
-                energy_flux = df_con_electric.loc[i,j]
-                #appending expressions and variables related to compensation values
-                list_expressions_revenue.append(f"model.comp_P_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
-                list_variables_expressions_revenue.append(f"comp_P_{j}")
-                #appending expressions and variables related to revenue values
-                list_expressions_revenue.append(f"model.rev_P_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_electric[t]")
-                list_variables_expressions_revenue.append(f"rev_P_{j}")
+    #starting with ELECTRIC PART
+    #revenues
+    df_rev = pd.read_excel(control.path_input + 'input.xlsx', sheet_name = 'revenue_electric',index_col = 0)
+    df_rev.index.name = None
+    for i in df_con_electric.columns:
+        for j in df_con_electric.index:
+            if df_con_electric.loc[j,i] != 0:
+                if df_rev.loc[j,i] != 0:
+                    list_correl_elements.append(i) 
+                    name_parameter = ('param_rev_P_' + i + '_' + j)
+                    name_variable = ('rev_P_' + i + '_' + j)
+                    name_energy_flow = df_con_electric.loc[j,i]
+                    list_parameters_rev.append(name_parameter)
+                    list_parameters_rev_value.append(df_rev.loc[j,i])
+                    list_variables_rev.append(name_variable)
+                    list_expressions_rev.append(F"model.{name_variable}[t] == model.{name_parameter} * model.{name_energy_flow}[t]")
 
-    #looping through thermal matrix
-    for i in df_con_thermal.index:
-        for j in df_con_thermal.columns:
-            if df_con_thermal.loc[i,j] != 0:
-                energy_flux = df_con_thermal.loc[i,j]
-                #appending expressions and variables related to compensation values
-                list_expressions_revenue.append(f"model.comp_Q_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
-                list_variables_expressions_revenue.append(f"comp_Q_{j}")
-                #appending expressions and variables related to revenue values
-                list_expressions_revenue.append(f"model.rev_Q_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_thermal[t]")
-                list_variables_expressions_revenue.append(f"rev_Q_{j}")
+    #energy stock exchange
+    df_stock = pd.read_excel(control.path_input + 'input.xlsx', sheet_name = 'stock_electric',index_col = 0)
+    df_stock.index.name = None
+    df_con_electric_stock = df_con_electric.filter(like = 'net', axis = 0)
+    for i in df_con_electric_stock.columns:
+        for j in df_con_electric_stock.index:
+            if df_con_electric_stock.loc[j,i] != 0:
+                if df_stock.loc[j,i] != 0:
+                    name_variable = ('stock_P_' + i + '_' + j)
+                    name_energy_flow = df_con_electric_stock.loc[j,i]
+                    list_variables_rev.append(name_variable)
+                    list_expressions_rev.append(F"model.{name_variable}[t] == model.param_{j}_stock_price_electric[t] * model.{name_energy_flow}[t]")
 
-    df_expressions_revenue = pd.DataFrame({'expressions':list_expressions_revenue,
-                                           'variables':list_variables_expressions_revenue})
-    df_expressions_revenue.to_excel('./output/' + 'df_expressions_revenue.xlsx',index = False)
+    #continuing THERMAL PART
+    #revenue
+    df_inc = pd.read_excel(control.path_input + 'input.xlsx', sheet_name = 'revenue_thermal',index_col = 0)
+    df_inc.index.name = None
+    for i in df_con_thermal.columns:
+        for j in df_con_thermal.index:
+            if df_con_thermal.loc[j,i] != 0:
+                if df_inc.loc[j,i] != 0:
+                    list_correl_elements.append(i)
+                    name_parameter = ('param_rev_Q_' + i + '_' + j)
+                    name_variable = ('rev_Q_' + i + '_' + j)
+                    name_energy_flow = df_con_thermal.loc[j,i]
+                    list_parameters_rev.append(name_parameter)
+                    list_parameters_rev_value.append(df_inc.loc[j,i])
+                    list_variables_rev.append(name_variable)
+                    list_expressions_rev.append(F"model.{name_variable}[t] == model.{name_parameter} * model.{name_energy_flow}[t]")
 
-    list_variables_expressions_revenue = list(set(list_variables_expressions_revenue))
+    #energy stock exchange
+    df_stock = pd.read_excel(control.path_input + 'input.xlsx', sheet_name = 'stock_thermal',index_col = 0)
+    df_stock.index.name = None
+    df_con_thermal_stock = df_con_thermal.filter(like = 'net', axis = 0)
+    for i in df_con_thermal_stock.columns:
+        for j in df_con_thermal_stock.index:
+            if df_con_thermal_stock.loc[j,i] != 0:
+                if df_stock.loc[j,i] != 0:
+                    name_variable = ('stock_Q_' + i + '_' + j)
+                    name_energy_flow = df_con_thermal_stock.loc[j,i]
+                    list_variables_rev.append(name_variable)
+                    list_expressions_rev.append(F"model.{name_variable}[t] == model.param_{j}_stock_price_thermal[t] * model.{name_energy_flow}[t]")
 
-    return list_expressions_revenue, list_variables_expressions_revenue
+    #saving values of parameters to df_input_other
+    df_parameters = pd.DataFrame({'Parameter':list_parameters_rev,
+                                 'Value':list_parameters_rev_value})
+    df_input_other = pd.concat([df_input_other, df_parameters], ignore_index = True)
 
-def objective_expression_creator(df_aux, list_variables_expressions_revenue):
-    #total revenue expressions
-    #starting to see if any class has its own 
-    list_revenue_total = []
-    for i in df_aux.index:
-        element = df_aux['element'].iloc[i]
-        element_type = df_aux['type'].iloc[i]
-        method = getattr(classes,element_type)
-        if hasattr(method, 'constraint_revenue'):
-            if list_revenue_total == []:
-                list_revenue_total.append('model.total_revenue[t] == model.' + element + '_revenue[t]')
-            else:
-                list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + element + '_revenue[t]'
-
-    #now adding revenue and compensation variables created in "revenue_constraint_creator"
-    for i in list_variables_expressions_revenue:
-        if list_revenue_total == []:
-            list_revenue_total.append('model.total_revenue[t] == model.' + i + '[t]')
-        else:
+    #list with expression of total revenues
+    list_revenue_total = ['model.total_revenue[t] ==']
+    if list_expressions_rev == []:
+        list_revenue_total = list_revenue_total  + '0'
+    else:
+        for i in list_variables_rev:
             list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + i + '[t]'
 
-    print('\n======================================This is the total revenue equation')
-    print(list_revenue_total)
+    return df_input_other, list_expressions_rev, list_variables_rev, list_parameters_rev, list_parameters_rev_value, list_revenue_total, list_correl_elements
 
+def objective_expression_creator(df_aux):
     #total investment cost expression
     list_investment_costs_total = []
     for i in df_aux.index:
@@ -286,7 +356,80 @@ def objective_expression_creator(df_aux, list_variables_expressions_revenue):
     print('\n======================================This is the total emission costs')
     print(list_emissions_total)
 
-    return list_revenue_total, list_operation_costs_total, list_investment_costs_total, list_emissions_total
+    return list_operation_costs_total, list_investment_costs_total, list_emissions_total
+
+# def objective_expression_creator(df_aux, list_variables_expressions_revenue):
+#     #total revenue expressions
+#     #starting to see if any class has its own 
+#     list_revenue_total = []
+#     for i in df_aux.index:
+#         element = df_aux['element'].iloc[i]
+#         element_type = df_aux['type'].iloc[i]
+#         method = getattr(classes,element_type)
+#         if hasattr(method, 'constraint_revenue'):
+#             if list_revenue_total == []:
+#                 list_revenue_total.append('model.total_revenue[t] == model.' + element + '_revenue[t]')
+#             else:
+#                 list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + element + '_revenue[t]'
+
+#     #now adding revenue and compensation variables created in "revenue_constraint_creator"
+#     for i in list_variables_expressions_revenue:
+#         if list_revenue_total == []:
+#             list_revenue_total.append('model.total_revenue[t] == model.' + i + '[t]')
+#         else:
+#             list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + i + '[t]'
+
+#     print('\n======================================This is the total revenue equation')
+#     print(list_revenue_total)
+
+#     #total investment cost expression
+#     list_investment_costs_total = []
+#     for i in df_aux.index:
+#         element = df_aux['element'].iloc[i]
+#         element_type = df_aux['type'].iloc[i]
+#         method = getattr(classes,element_type)
+#         if hasattr(method,'constraint_investment_costs'):
+#             if list_investment_costs_total == []:
+#                 list_investment_costs_total.append('model.total_investment_costs[t] == ' + ' model.' + element + '_inv_costs[t]')
+#             else:
+#                 list_investment_costs_total[-1] = list_investment_costs_total[-1] + ' + model.'+ element + '_inv_costs[t]'
+
+#     print('\n======================================This is the total investment costs')
+#     print(list_investment_costs_total)
+
+
+#     #total operation costs expression
+#     list_operation_costs_total = []
+#     for i in df_aux.index:
+#         element = df_aux['element'].iloc[i]
+#         element_type = df_aux['type'].iloc[i]
+#         method = getattr(classes,element_type)
+#         if hasattr(method,'constraint_operation_costs'):
+#             if list_operation_costs_total == [] :
+#                 list_operation_costs_total.append('model.total_operation_costs[t] == ' + ' model.' + element + '_op_costs[t]')
+#             else:
+#                 list_operation_costs_total[-1] = list_operation_costs_total[-1] + ' + model.'+ element + '_op_costs[t]'
+
+#     print('\n======================================This is the total operation costs')
+#     print(list_operation_costs_total)
+
+
+#     #total emissions expressions
+#     list_emissions_total = []
+#     for i in df_aux.index:
+#         element = df_aux['element'].iloc[i]
+#         element_type = df_aux['type'].iloc[i]
+#         method = getattr(classes,element_type)
+#         if hasattr(method,'constraint_emissions'):
+#             if list_emissions_total == [] :
+#                 list_emissions_total.append('model.total_emissions[t] == ' + 'model.' + element +'_emissions[t]')
+#             else:
+#                 list_emissions_total[-1] = list_emissions_total[-1] + ' + model.' + element +'_emissions[t]'
+
+#     print('\n======================================This is the total emission costs')
+#     print(list_emissions_total)
+
+#     return list_revenue_total, list_operation_costs_total, list_investment_costs_total, list_emissions_total
 
 def objective_constraint_creator(df_aux): # this function creates the constraints for the objective function to work
 
@@ -376,7 +519,7 @@ def breaking_dataframe(df,horizon,saved_position):
 def save_variables_last_time_step(df_input_others,df_variables_last_time_step):
     for j in df_variables_last_time_step.index:
         if df_variables_last_time_step['Parameter'].iloc[j] in df_input_others['Parameter'].tolist():
-            df_input_others.loc[df_input_others['Parameter']==df_variables_last_time_step['Parameter'].iloc[j], 'Value'] = df_variables_last_time_step['Value'].iloc[j]
+            df_input_others.loc[df_input_others['Parameter'] == df_variables_last_time_step['Parameter'].iloc[j], 'Value'] = df_variables_last_time_step['Value'].iloc[j]
         else:
             row_to_append = df_variables_last_time_step.loc[j]
             df_input_others = df_input_others.append(row_to_append, ignore_index = True)
@@ -680,8 +823,8 @@ def charts_generator(control,df_aux):
         element = df_aux['element'].iloc[i]
         element_type =  df_aux['type'].iloc[i]
 
-        list_connections_electric = [s for s in df_final.columns if '_' + element + '_' in s and 'P_' in s]
-        list_connections_thermal = [s for s in df_final.columns if '_' + element + '_' in s and 'Q_' in s]
+        list_connections_electric = [s for s in df_final.columns if '_' + element + '_' in s and 'P_' in s and 'rev' not in s and 'stock' not in s]
+        list_connections_thermal = [s for s in df_final.columns if '_' + element + '_' in s and 'Q_' in s and 'rev' not in s and 'stock' not in s]
 
         folder_path = path_charts + '/' + element + '/'
 
@@ -821,7 +964,7 @@ def financial_analysis(control):
         return
 
 
-    # Inserting values and formating cells from the top of the sheet to down
+    # Inserting values and formating cells from the top of the sheet to dowm
     # --------------------------------------------------------------------------
     # region top strips
 

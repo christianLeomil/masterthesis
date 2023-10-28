@@ -6,10 +6,9 @@ import inspect
 import textwrap
 import warnings
 import time
-from functools import partial
 
 start_time = time.time()
-warnings.filterwarnings("ignore", '.*') 
+warnings.filterwarnings("ignore", '.*')
 
 # ---------------------------------------------------------------------------------------------------------------------
 # region reading data, creating list with connection variables, list with string of connection constraint, and list with objective constraints
@@ -23,7 +22,7 @@ name_file = 'input.xlsx'
 control = classes.control(path_input,name_file)
 
 #getting list of elements of energy system
-df_elements = pd.read_excel(path_input + name_file, index_col=0, sheet_name = 'elements')
+df_elements = pd.read_excel(path_input + name_file, index_col=0, sheet_name = 'energy_elements')
 df_elements.index.name = None
 
 #preparing data on elements of the energy system for the rest of the file
@@ -31,9 +30,18 @@ df_elements.index.name = None
 # df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
 
 # writing dataframes on inputfile to input
-utils.write_excel(df_con_electric,path_input,'conect_electric','input.xlsx', True)
-utils.write_excel(df_con_thermal,path_input,'conect_thermal','input.xlsx', True)
-input("\nPlease insert the connection between elements of energy system and press enter to continue...")
+#CRAR FUNCAO DE EM UTILS PRA ESCREVER ESSAS COISAS NO ARQUIVO INPUT
+# utils.write_excel(df_con_electric, path_input,'conect_electric','input.xlsx', True)
+# utils.write_excel(df_con_thermal, path_input,'conect_thermal','input.xlsx', True)
+# utils.write_excel(df_con_electric, path_input,'revenue_electric','input.xlsx', True)
+# utils.write_excel(df_con_thermal, path_input, 'revenue_thermal', 'input.xlsx', True)
+
+# df_con_electric = df_con_electric.filter(like = 'net', axis = 0)
+# df_con_thermal = df_con_thermal.filter(like = 'net', axis = 0)
+
+# utils.write_excel(df_con_electric, path_input,'stock_electric', 'input.xlsx', True)
+# utils.write_excel(df_con_thermal, path_input, 'stock_thermal', 'input.xlsx', True)
+# input("\nPlease insert the connection between elements and revenue values, then press enter")
 
 #reading inputs for the connections between elements of the energy system written in the input file
 df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
@@ -47,14 +55,30 @@ df_con_thermal.index.name = None
 # df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
 # df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
 
-# creating constriants that will turn into the objevtive functions
-[list_expressions_revenue, 
- list_variables_expressions_revenue] = utils.revenue_constraint_creator(df_con_electric, df_con_thermal)
+df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'param_scalars')
 
-[list_revenue_total, 
- list_operation_costs_total, 
+# creating constriants that will turn into the objevtive functions
+# [list_expressions_revenue, 
+#  list_variables_expressions_revenue] = utils.revenue_constraint_creator(df_con_electric, df_con_thermal)
+
+[df_input_other,
+ list_expressions_rev, 
+ list_variables_rev, 
+ list_parameters_rev, 
+ list_parameters_rev_value, 
+ list_revenue_total,
+ list_correl_elements] = utils.revenue_constraint_creator(df_con_electric,df_con_thermal,control,df_input_other)
+
+df_input_other.to_excel(path_output + 'test.xlsx')
+
+# [list_revenue_total, 
+#  list_operation_costs_total, 
+#  list_investment_costs_total, 
+#  list_emissions_total] = utils.objective_expression_creator(df_aux, list_variables_expressions_revenue)
+
+[list_operation_costs_total,
  list_investment_costs_total, 
- list_emissions_total] = utils.objective_expression_creator(df_aux, list_variables_expressions_revenue)
+ list_emissions_total] = utils.objective_expression_creator(df_aux)
 
 
 # endregion
@@ -147,10 +171,10 @@ if control.df.loc['size_optimization','value'] == 'yes':
 
     #writes to input file in order
     with pd.ExcelWriter(path_input + 'input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
-        df_size_optimization.to_excel(writer,sheet_name = 'parameters to variables',index = False)
+        df_size_optimization.to_excel(writer,sheet_name = 'parameters_to_variables',index = False)
     input('Please select parameters that are going to be optimized and press enter...')
 
-    df_size_optimization = pd.read_excel(path_input + 'input.xlsx',sheet_name = 'parameters to variables', index_col = 0)
+    df_size_optimization = pd.read_excel(path_input + 'input.xlsx',sheet_name = 'parameters_to_variables', index_col = 0)
     df_size_optimization.index.title = None
     df_size_optimization = df_size_optimization[df_size_optimization['choice'] == 1]
 
@@ -165,7 +189,7 @@ if control.df.loc['size_optimization','value'] == 'yes':
         
         list_altered_var = []
         list_text_altered_var = []
-
+ 
         for ind,j in enumerate(list_altered_variables):
             if j in list_original_param:
                 list_altered_var.append(j)
@@ -176,6 +200,13 @@ if control.df.loc['size_optimization','value'] == 'yes':
         setattr(globals()[element],'list_altered_var', list_altered_var)
         setattr(globals()[element],'list_text_altered_var', list_text_altered_var)
 
+
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+# region addint parameters from revenue connections to abstract model
+
+for i,j,k in zip(list_correl_elements,list_parameters_rev,list_parameters_rev_value):
+    setattr(globals()[i],j,k)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -240,9 +271,16 @@ for i in list_con_variables:
             exec(f"model.add_component('{i}',pyo.Var({text}))")
 
 
-# dynamically adding VARIABLES FROM REVENUE CONNECTIONS to asbtract model
+# # dynamically adding PARAMETERS FROM REVENUE CONNECTIONS to asbtract model
+# print('\n------------------------paramaters from revenue connections')
+# for i in list_parameters_rev:
+#     print(i)
+#     exec(f"model.add_component('{i}',pyo.Param())")
+
+
+#dynamically adding VARIABLES FROM REVENUE CONNECTIONS to abstract model
 print('\n------------------------variables from revenue connections')
-for i in list_variables_expressions_revenue:
+for i in list_variables_rev:
     print(i)
     text = 'model.HOURS, within = pyo.NonNegativeReals'
     exec(f"model.add_component('{i}',pyo.Var({text}))")
@@ -250,7 +288,7 @@ for i in list_variables_expressions_revenue:
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region for loop for receiding horizon
+# region adding connection constraints to instances of classes
 
 # loopin throuhg list_of_expressions and giving each class the respective connection equation
 constraint_number = 1
@@ -273,6 +311,12 @@ for i in df_aux.index:
         if not j.startswith('__'):
             if callable(getattr(globals()[df_aux['element'].iloc[i]],j)):
                 print(j)
+
+# endregion
+# ---------------------------------------------------------------------------------------------------------------------
+#region loopin throuhg list_parameters and giving each class the respective revenue parameters
+
+
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -359,7 +403,7 @@ for i in list_emissions_total: # adding total emissions constraint to objective 
     constraint_num += 1
 
 
-for i in list_expressions_revenue: # adding connection revenue constraints to objective class (revenue and compensation constraints)
+for i in list_expressions_rev: # adding connection revenue constraints to objective class (revenue and compensation constraints)
     def dynamic_method(model,t,expr):
         return eval(expr, globals(), locals())
     method_name = 'constraint_objective_' + str(constraint_num) 
@@ -369,7 +413,7 @@ for i in list_expressions_revenue: # adding connection revenue constraints to ob
     setattr(objective_class , method_name, method_wrapper)
     print(f"\n----This is the constraint_objective_{constraint_num}: {i}")
     constraint_num += 1
-
+    
 
 # checking content of class objective:
 print('\n------------------objective')
@@ -381,7 +425,7 @@ for i in dir(objective_class):
             print(i)
 
 
-# creating constraints from class OBJECTIVE
+# adding constraints from class OBJECTIVE to abstract model
 print('\n=============Creating constraints from objecive class=============')
 constraint_num = 1
 element = objective_class
@@ -418,17 +462,11 @@ else:
     model.costObjective.deactivate()
     print('cost objective deactivated')
 
-
-# endregion
-# ---------------------------------------------------------------------------------------------------------------------
-# region reading series and parameters
-
-df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'series', nrows = control.time_span - 1)
-df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'other')
-
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
 # region checking if simulation will have receiding horizon and then splitting input_series if it does.
+
+df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'param_series', nrows = control.time_span - 1)
 
 if control.receding_horizon == 'yes':
     list_split = utils.breaking_dataframe(df_input_series, control.optimization_horizon, control.control_horizon)
@@ -495,7 +533,6 @@ for k,df in enumerate(list_split):
                 except Exception:
                     value = getattr(globals()[element],j)
                     data[j] = {None: value}
-
 
     # endregion
     # ---------------------------------------------------------------------------------------------------------------------
