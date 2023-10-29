@@ -167,52 +167,6 @@ def connection_creator(df_con_electric, df_con_thermal):
     list_con_variables = list(set(list_con_variables))
 
     return df_con_thermal, df_con_electric, list_expressions, list_con_variables, list_attr_classes
-    
-# def revenue_constraint_creator(df_con_electric, df_con_thermal):
-
-#     df_con_electric = df_con_electric.filter(like = 'P_to_net', axis = 0)
-#     df_con_electric.columns = [s.replace('P_from_','') for s in df_con_electric.columns]
-#     df_con_electric.index = [s.replace('P_to_','') for s in df_con_electric.index]
-
-#     df_con_thermal = df_con_thermal.filter(like = 'Q_to_net', axis = 0)
-#     df_con_thermal.columns = [s.replace('Q_from_','') for s in df_con_thermal.columns]
-#     df_con_thermal.index = [s.replace('Q_to_','') for s in df_con_thermal.index]
-
-#     #looping through the connection matrices and checking which elements are connected to the grid
-#     list_expressions_revenue = []
-#     list_variables_expressions_revenue = []
-
-#     #looping through electric matrix
-#     for i in df_con_electric.index:
-#         for j in df_con_electric.columns:
-#             if df_con_electric.loc[i,j] != 0:
-#                 energy_flux = df_con_electric.loc[i,j]
-#                 #appending expressions and variables related to compensation values
-#                 list_expressions_revenue.append(f"model.comp_P_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
-#                 list_variables_expressions_revenue.append(f"comp_P_{j}")
-#                 #appending expressions and variables related to revenue values
-#                 list_expressions_revenue.append(f"model.rev_P_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_electric[t]")
-#                 list_variables_expressions_revenue.append(f"rev_P_{j}")
-
-#     #looping through thermal matrix
-#     for i in df_con_thermal.index:
-#         for j in df_con_thermal.columns:
-#             if df_con_thermal.loc[i,j] != 0:
-#                 energy_flux = df_con_thermal.loc[i,j]
-#                 #appending expressions and variables related to compensation values
-#                 list_expressions_revenue.append(f"model.comp_Q_{j}[t] == model.{energy_flux}[t] * model.param_{j}_compensation",)
-#                 list_variables_expressions_revenue.append(f"comp_Q_{j}")
-#                 #appending expressions and variables related to revenue values
-#                 list_expressions_revenue.append(f"model.rev_Q_{j}[t] == model.{energy_flux}[t] * model.param_{i}_costs_sell_thermal[t]")
-#                 list_variables_expressions_revenue.append(f"rev_Q_{j}")
-
-#     df_expressions_revenue = pd.DataFrame({'expressions':list_expressions_revenue,
-#                                            'variables':list_variables_expressions_revenue})
-#     df_expressions_revenue.to_excel('./output/' + 'df_expressions_revenue.xlsx',index = False)
-
-#     list_variables_expressions_revenue = list(set(list_variables_expressions_revenue))
-
-#     return list_expressions_revenue, list_variables_expressions_revenue
 
 def revenue_constraint_creator(df_con_electric,df_con_thermal,control,df_input_other):
     list_expressions_rev = []
@@ -357,79 +311,6 @@ def objective_expression_creator(df_aux):
     print(list_emissions_total)
 
     return list_operation_costs_total, list_investment_costs_total, list_emissions_total
-
-# def objective_expression_creator(df_aux, list_variables_expressions_revenue):
-#     #total revenue expressions
-#     #starting to see if any class has its own 
-#     list_revenue_total = []
-#     for i in df_aux.index:
-#         element = df_aux['element'].iloc[i]
-#         element_type = df_aux['type'].iloc[i]
-#         method = getattr(classes,element_type)
-#         if hasattr(method, 'constraint_revenue'):
-#             if list_revenue_total == []:
-#                 list_revenue_total.append('model.total_revenue[t] == model.' + element + '_revenue[t]')
-#             else:
-#                 list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + element + '_revenue[t]'
-
-#     #now adding revenue and compensation variables created in "revenue_constraint_creator"
-#     for i in list_variables_expressions_revenue:
-#         if list_revenue_total == []:
-#             list_revenue_total.append('model.total_revenue[t] == model.' + i + '[t]')
-#         else:
-#             list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + i + '[t]'
-
-#     print('\n======================================This is the total revenue equation')
-#     print(list_revenue_total)
-
-#     #total investment cost expression
-#     list_investment_costs_total = []
-#     for i in df_aux.index:
-#         element = df_aux['element'].iloc[i]
-#         element_type = df_aux['type'].iloc[i]
-#         method = getattr(classes,element_type)
-#         if hasattr(method,'constraint_investment_costs'):
-#             if list_investment_costs_total == []:
-#                 list_investment_costs_total.append('model.total_investment_costs[t] == ' + ' model.' + element + '_inv_costs[t]')
-#             else:
-#                 list_investment_costs_total[-1] = list_investment_costs_total[-1] + ' + model.'+ element + '_inv_costs[t]'
-
-#     print('\n======================================This is the total investment costs')
-#     print(list_investment_costs_total)
-
-
-#     #total operation costs expression
-#     list_operation_costs_total = []
-#     for i in df_aux.index:
-#         element = df_aux['element'].iloc[i]
-#         element_type = df_aux['type'].iloc[i]
-#         method = getattr(classes,element_type)
-#         if hasattr(method,'constraint_operation_costs'):
-#             if list_operation_costs_total == [] :
-#                 list_operation_costs_total.append('model.total_operation_costs[t] == ' + ' model.' + element + '_op_costs[t]')
-#             else:
-#                 list_operation_costs_total[-1] = list_operation_costs_total[-1] + ' + model.'+ element + '_op_costs[t]'
-
-#     print('\n======================================This is the total operation costs')
-#     print(list_operation_costs_total)
-
-
-#     #total emissions expressions
-#     list_emissions_total = []
-#     for i in df_aux.index:
-#         element = df_aux['element'].iloc[i]
-#         element_type = df_aux['type'].iloc[i]
-#         method = getattr(classes,element_type)
-#         if hasattr(method,'constraint_emissions'):
-#             if list_emissions_total == [] :
-#                 list_emissions_total.append('model.total_emissions[t] == ' + 'model.' + element +'_emissions[t]')
-#             else:
-#                 list_emissions_total[-1] = list_emissions_total[-1] + ' + model.' + element +'_emissions[t]'
-
-#     print('\n======================================This is the total emission costs')
-#     print(list_emissions_total)
-
-#     return list_revenue_total, list_operation_costs_total, list_investment_costs_total, list_emissions_total
 
 def objective_constraint_creator(df_aux): # this function creates the constraints for the objective function to work
 
@@ -839,7 +720,7 @@ def charts_generator(control,df_aux):
         bottom = np.zeros(len(x_axis))
         if len(list_connections_electric) > 0:
             for j in list_connections_electric:
-                plt.bar(x_axis, df_final[j],bottom = bottom)
+                plt.bar(x_axis, df_final[j], bottom = bottom)
                 bottom += df_final[j]
             plt.xlabel('Time [hs]')
             plt.ylabel('Power [kW]')
@@ -1041,7 +922,7 @@ def financial_analysis(control):
 
 
     # inserting and formatting MONTHLY DATA
-    list_columns = [s for s in monthly_sum_df if '_rev' in s or 'rev_' in s]
+    list_columns = [s for s in monthly_sum_df if 'rev_' in s]
     list_columns = [s for s in list_columns if 'total' not in s]
     list_columns.sort()
     monthly_revenue_df = monthly_sum_df[list_columns]
@@ -1076,7 +957,7 @@ def financial_analysis(control):
 
 
     # inserting and formatting WEEKLY DATA
-    list_columns = [s for s in weekly_sum_df if '_rev' in s or 'rev_' in s]
+    list_columns = [s for s in weekly_sum_df if 'rev_' in s]
     list_columns = [s for s in list_columns if 'total' not in s]
     list_columns.sort()
     weekly_revenue_df = weekly_sum_df[list_columns]
@@ -1114,14 +995,14 @@ def financial_analysis(control):
     row_index_comp_data = 7 + 2 + len(annual_revenue_df.columns)
 
     # operation costs title
-    sheet.cell(row = row_index_comp_data, column = 3, value = '2 - Revenue (compensation)')
+    sheet.cell(row = row_index_comp_data, column = 3, value = '2 - Revenue (stock)')
 
     #formating row operation costs
     formatting_cells(minRow = row_index_comp_data, maxRow = row_index_comp_data, minCol = 1, maxCol = 3, colorCode = "93D3F7", 
                     boldOption = True, sizeOption = 10, fontOption = 'Arial', styleOption = normal_style)
 
     # inserting and formatting ANNUAL DATA
-    list_columns = [s for s in annual_sum_df if 'comp_' in s]
+    list_columns = [s for s in annual_sum_df if 'stock_' in s]
     list_columns = [s for s in list_columns if 'total' not in s]
     annual_comp_df = annual_sum_df[list_columns]
 
@@ -1158,7 +1039,7 @@ def financial_analysis(control):
 
 
     # inserting and formatting MONTHLY DATA
-    list_columns = [s for s in monthly_sum_df if 'comp_' in s]
+    list_columns = [s for s in monthly_sum_df if 'stock_' in s]
     list_columns = [s for s in list_columns if 'total' not in s]
     list_columns.sort()
     monthly_comp_df = monthly_sum_df[list_columns]
@@ -1188,7 +1069,7 @@ def financial_analysis(control):
 
 
     # inserting and formatting WEEKLY DATA
-    list_columns = [s for s in weekly_sum_df if 'comp_' in s]
+    list_columns = [s for s in weekly_sum_df if 'stock_' in s]
     list_columns = [s for s in list_columns if 'total' not in s]
     list_columns.sort()
     weekly_comp_df = weekly_sum_df[list_columns]

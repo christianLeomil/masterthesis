@@ -57,10 +57,6 @@ df_con_thermal.index.name = None
 
 df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'param_scalars')
 
-# creating constriants that will turn into the objevtive functions
-# [list_expressions_revenue, 
-#  list_variables_expressions_revenue] = utils.revenue_constraint_creator(df_con_electric, df_con_thermal)
-
 [df_input_other,
  list_expressions_rev, 
  list_variables_rev, 
@@ -71,15 +67,9 @@ df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'param_scala
 
 df_input_other.to_excel(path_output + 'test.xlsx')
 
-# [list_revenue_total, 
-#  list_operation_costs_total, 
-#  list_investment_costs_total, 
-#  list_emissions_total] = utils.objective_expression_creator(df_aux, list_variables_expressions_revenue)
-
 [list_operation_costs_total,
  list_investment_costs_total, 
  list_emissions_total] = utils.objective_expression_creator(df_aux)
-
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -203,7 +193,7 @@ if control.df.loc['size_optimization','value'] == 'yes':
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region addint parameters from revenue connections to abstract model
+# region adding parameters from revenue connections to abstract model
 
 for i,j,k in zip(list_correl_elements,list_parameters_rev,list_parameters_rev_value):
     setattr(globals()[i],j,k)
@@ -271,13 +261,6 @@ for i in list_con_variables:
             exec(f"model.add_component('{i}',pyo.Var({text}))")
 
 
-# # dynamically adding PARAMETERS FROM REVENUE CONNECTIONS to asbtract model
-# print('\n------------------------paramaters from revenue connections')
-# for i in list_parameters_rev:
-#     print(i)
-#     exec(f"model.add_component('{i}',pyo.Param())")
-
-
 #dynamically adding VARIABLES FROM REVENUE CONNECTIONS to abstract model
 print('\n------------------------variables from revenue connections')
 for i in list_variables_rev:
@@ -311,12 +294,6 @@ for i in df_aux.index:
         if not j.startswith('__'):
             if callable(getattr(globals()[df_aux['element'].iloc[i]],j)):
                 print(j)
-
-# endregion
-# ---------------------------------------------------------------------------------------------------------------------
-#region loopin throuhg list_parameters and giving each class the respective revenue parameters
-
-
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------

@@ -956,12 +956,6 @@ class demand(Consumer):
 
     def __init__(self, name_of_instance, control):
         self.name_of_instance = name_of_instance
-
-        # self.list_var = ['demand_inv_costs',
-        #                  'demand_op_costs',
-        #                  'demand_sell_electric',
-        #                  'demand_sell_thermal',
-        #                  'demand_revenue']
         
         self.list_var = ['demand_inv_costs',
                          'demand_op_costs']
@@ -978,10 +972,6 @@ class demand(Consumer):
         #Setting up default values for series if none are given in input file:
         self.param_P_to_demand = [2.5] * control.time_span # default electric power of demand that needs to be covered [kW]
         self.param_Q_to_demand = [7] * control.time_span # default thermal power of demand that needs to be covered  [kW]]
-        # self.param_demand_price_sell_electric = 0.195 # price inhabitants of building pay for electric energy
-        # self.param_demand_price_sell_thermal = 0.065 # price inhabitants of building pay for thermal energy
-        # self.param_demand_price_sell_electric = 0.45
-        # self.param_demand_price_sell_thermal = 0.13
 
         self.write_P_to_demand(control)
         self.write_Q_to_demand(control)
@@ -1011,15 +1001,6 @@ class demand(Consumer):
     
     def constraint_operation_costs(model,t):
         return model.demand_op_costs[t] == 0
-    
-    # def constraint_sell_electric(model,t):
-    #     return model.demand_sell_electric[t] == model.param_P_to_demand[t] * model.time_step * model.param_demand_price_sell_electric
-
-    # def constraint_sell_thermal(model,t):
-    #     return model.demand_sell_thermal[t] == model.param_Q_to_demand[t] * model.time_step * model.param_demand_price_sell_thermal
-
-    # def constraint_revenue(model,t):
-    #     return model.demand_revenue[t] == model.demand_sell_electric[t] + model.demand_sell_thermal[t]
 
 class charging_station(Consumer):
 
