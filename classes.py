@@ -489,54 +489,7 @@ class gas_boiler(Generator):
         else:
             return model.gas_boiler_inv_costs[t] == 0
 
-
-
-class Transformer:
-    #defining energy type to build connections with other componets correctly
-    component_type = {'electric_load':'yes',
-                      'electric_source':'no',
-                      'thermal_load':'no',
-                      'thermal_source':'yes'}
-    
-    def __init__(self, name_of_instance,control):
-        self.name_of_instance = name_of_instance
-    
-        self.list_var = ['trans_emissions',
-                         'trans_inv_costs',
-                         'trans_op_costs']
-        
-        self.list_text_var = ['within = pyo.NonNegativeReals',
-                              'within = pyo.NonNegativeReals',
-                              'within = pyo.NonNegativeReals']
-
-        self.list_altered_var = []
-        self.list_text_altered_var =[]
-
-        self.param_trans_eff = 4
-        self.param_trans_spec_op_costs = 0.05
-        self.param_trans_inv_costs = 10000
-        self.param_trans_spec_em = 0.1
-        self.param_trans_lifetime = 20 * 8760
-
-
-    def constraint_function_rule(model,t):
-        return model.Q_from_trans[t] == model.P_to_trans[t] * model.param_trans_eff
-    
-    def constraint_operation_costs(model,t):
-        return model.trans_op_costs[t] == model.param_trans_spec_op_costs * model.time_step
-
-    def constraint_investment_costs(model,t):
-        if t == 1:
-            return model.trans_inv_costs[t] == model.param_trans_inv_costs
-        if t % int (model.param_trans_lifetime) == 0:
-            return model.trans_inv_costs[t] == model.param_trans_inv_costs
-        else:
-            return model.trans_inv_costs[t] == 0
-
-    def constraint_emissions(model,t): 
-        return model.trans_emissions[t] == model.P_to_trans[t] * model.param_trans_spec_em
-    
-class heat_pump(Transformer):
+class heat_pump(Generator):
     #defining energy type to build connections with other componets correctly
     component_type = {'electric_load':'yes',
                       'electric_source':'no',
@@ -579,11 +532,10 @@ class heat_pump(Transformer):
         self.param_heat_pump_M2 = 10000
 
 
-    def constraint_function_rule(model,t):
+    def constraint_generation_rule(model,t):
         return model.Q_from_heat_pump[t] == model.P_to_heat_pump[t] * model.param_heat_pump_COP
     
     
-
     # linearized equations to define max power limit. Original equation was: model.Q_from_heat_pump[t] == model.P_to_heat_pump[t] * model.param_heat_pump_COP https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
 
     def constraint_max_power1(model,t):
@@ -637,7 +589,54 @@ class heat_pump(Transformer):
     def constraint_emissions(model,t): 
         return model.heat_pump_emissions[t] == model.P_to_heat_pump[t] * model.param_heat_pump_spec_em
 
-class bat(Transformer):
+
+
+class Storage:
+    #defining energy type to build connections with other componets correctly
+    component_type = {'electric_load':'yes',
+                      'electric_source':'no',
+                      'thermal_load':'no',
+                      'thermal_source':'yes'}
+    
+    def __init__(self, name_of_instance,control):
+        self.name_of_instance = name_of_instance
+    
+        self.list_var = ['storage_emissions',
+                         'storage_inv_costs',
+                         'storage_op_costs']
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
+
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
+
+        self.param_storage_eff = 4
+        self.param_storage_spec_op_costs = 0.05
+        self.param_storage_inv_costs = 10000
+        self.param_storage_spec_em = 0.1
+        self.param_storage_lifetime = 20 * 8760
+
+
+    def constraint_function_rule(model,t):
+        return model.Q_from_storage[t] == model.P_to_storage[t] * model.param_storage_eff
+    
+    def constraint_operation_costs(model,t):
+        return model.storage_op_costs[t] == model.param_storage_spec_op_costs * model.time_step
+
+    def constraint_investment_costs(model,t):
+        if t == 1:
+            return model.storage_inv_costs[t] == model.param_storage_inv_costs
+        if t % int (model.param_storage_lifetime) == 0:
+            return model.storage_inv_costs[t] == model.param_storage_inv_costs
+        else:
+            return model.storage_inv_costs[t] == 0
+
+    def constraint_emissions(model,t): 
+        return model.storage_emissions[t] == model.P_to_storage[t] * model.param_storage_spec_em
+    
+class bat(Storage):
     #defining energy type to build connections with other componets correctly
     component_type = {'electric_load':'yes',
                       'electric_source':'yes',
@@ -769,7 +768,7 @@ class bat(Transformer):
         else:
             return model.bat_inv_costs[t] == 0
 
-class bat_with_aging(Transformer):
+class bat_with_aging(Storage):
     #defining energy type to build connections with other componets correctly
     component_type = {'electric_load':'yes',
                       'electric_source':'yes',

@@ -202,7 +202,7 @@ def revenue_constraint_creator(df_con_electric,df_con_thermal,control,df_input_o
                     list_parameters_rev.append(name_parameter)
                     list_parameters_rev_value.append(df_rev.loc[j,i])
                     list_variables_rev.append(name_variable)
-                    list_expressions_rev.append(F"model.{name_variable}[t] == model.{name_parameter} * model.{name_energy_flow}[t]")
+                    list_expressions_rev.append(F"model.{name_variable}[t] == model.{name_parameter} * model.{name_energy_flow}[t] * model.time_step")
 
     #energy stock exchange
     df_stock = pd.read_excel(control.path_input + 'input.xlsx', sheet_name = 'stock_electric',index_col = 0)
@@ -215,7 +215,7 @@ def revenue_constraint_creator(df_con_electric,df_con_thermal,control,df_input_o
                     name_variable = ('stock_P_' + i + '_' + j)
                     name_energy_flow = df_con_electric_stock.loc[j,i]
                     list_variables_rev.append(name_variable)
-                    list_expressions_rev.append(F"model.{name_variable}[t] == model.param_{j}_stock_price_electric[t] * model.{name_energy_flow}[t]")
+                    list_expressions_rev.append(F"model.{name_variable}[t] == model.param_{j}_stock_price_electric[t] * model.{name_energy_flow}[t] * model.time_step")
 
     #continuing THERMAL PART
     #revenue
@@ -752,6 +752,21 @@ def charts_generator(control,df_aux):
             plt.savefig(folder_path + 'E - ' + element +'.png')
             plt.close()
 
+            list_charging_bat = [s for s in df_final.columns if s.endswith(element) and 'to' not in s and 'from' not in s]
+            plt.figure(figsize = figure_size)
+            bottom = np.zeros(len(x_axis))
+            if len(list_charging_bat) > 0:
+                for j in list_charging_bat:
+                    plt.bar(x_axis, df_final[j], bottom = bottom)
+                    bottom += df_final[j]
+                plt.xlabel('Time [hs]')
+                plt.ylabel('Power [kW]')
+                plt.title(f"Electric charging power distribution - {element}")
+                plt.legend(list_charging_bat)
+                plt.savefig(folder_path + 'Pin - ' + element + '.png')
+                plt.close()
+
+
         elif element_type == 'bat_with_aging':
             plt.figure(figsize = figure_size)
             plt.bar(x_axis, df_final[element + '_SOC'])
@@ -770,6 +785,20 @@ def charts_generator(control,df_aux):
             plt.legend(element)
             plt.savefig(folder_path + 'max SoC - ' + element +'.png')
             plt.close()
+
+            list_charging_bat = [s for s in df_final.columns if s.endswith(element) and 'to' not in s and 'from' not in s]
+            plt.figure(figsize = figure_size)
+            bottom = np.zeros(len(x_axis))
+            if len(list_charging_bat) > 0:
+                for j in list_charging_bat:
+                    plt.bar(x_axis, df_final[j], bottom = bottom)
+                    bottom += df_final[j]
+                plt.xlabel('Time [hs]')
+                plt.ylabel('Power [kW]')
+                plt.title(f"Electric charging power distribution - {element}")
+                plt.legend(list_charging_bat)
+                plt.savefig(folder_path + 'Pin - ' + element + '.png')
+                plt.close()
 
 def financial_analysis(control):
 

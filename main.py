@@ -65,8 +65,6 @@ df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'param_scala
  list_revenue_total,
  list_correl_elements] = utils.revenue_constraint_creator(df_con_electric,df_con_thermal,control,df_input_other)
 
-df_input_other.to_excel(path_output + 'test.xlsx')
-
 [list_operation_costs_total,
  list_investment_costs_total, 
  list_emissions_total] = utils.objective_expression_creator(df_aux)
