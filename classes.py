@@ -350,7 +350,7 @@ class CHP(Generator):
     def constraint_max_generation1(model,t):
         return model.P_from_CHP[t] <= model.CHP_z2[t]
     
-    def constraint_max_generation2(model,t):
+    def constraint_max_generation2(model,t):    
         return model.CHP_z2[t] <= model.param_CHP_M2 * model.CHP_K[t]
     
     def constraint_max_generation3(model,t):
@@ -668,7 +668,7 @@ class bat(Storage):
         self.list_text_altered_var =[]
         
         #default values for scalar parameters
-        self.param_bat_E_max_initial = 100 #max energy capacity of the battery [kWh]
+        self.param_bat_E_max = 100 #max energy capacity of the battery [kWh]
         self.param_bat_starting_SOC = 0.5 # starting state of charge of the battery [-]
         self.param_bat_ch_eff = 0.95 # efficiency for charging the battery [-]
         self.param_bat_dis_eff = 0.95 # efficiency for discharging the battery [-]
@@ -694,14 +694,14 @@ class bat(Storage):
             self.param_bat_receding_horizon = 0
 
     def constraint_depth_of_discharge(model,t):
-        return model.bat_energy[t] >= (1 - model.param_bat_DoD) * model.param_bat_E_max_initial
+        return model.bat_energy[t] >= (1 - model.param_bat_DoD) * model.param_bat_E_max
     
     def constraint_max_state_of_charge(model,t):
-        return model.bat_energy[t] <= model.param_bat_E_max_initial
+        return model.bat_energy[t] <= model.param_bat_E_max
         
     def constraint_function_rule(model,t):
         if t == 1:
-            return model.bat_energy[t] == model.param_bat_E_max_initial * model.param_bat_starting_SOC + (model.P_to_bat[t] * model.param_bat_ch_eff 
+            return model.bat_energy[t] == model.param_bat_E_max * model.param_bat_starting_SOC + (model.P_to_bat[t] * model.param_bat_ch_eff 
                                                                 - model.P_from_bat[t] / model.param_bat_dis_eff) * model.time_step
          
         elif t == model.starting_index and model.param_bat_receding_horizon == 1:
@@ -712,7 +712,7 @@ class bat(Storage):
                                                                 - model.P_from_bat[t] / model.param_bat_dis_eff) * model.time_step
         
 
-    # linearized equations to define charging power limit. Original equation was: model.P_to_bat[t] <= model.param_bat_E_max_initial * model.bat_K_ch[t] * model.param_bat_c_rate_ch https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
+    # linearized equations to define charging power limit. Original equation was: model.P_to_bat[t] <= model.param_bat_E_max * model.bat_K_ch[t] * model.param_bat_c_rate_ch https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
     def constraint_charge_limit1(model,t):
         return model.P_to_bat[t] <= model.param_bat_c_rate_ch * model.bat_z1[t]
 
@@ -720,16 +720,16 @@ class bat(Storage):
         return model.bat_z1[t] <= model.param_bat_M1 * model.bat_K_ch[t]
 
     def constraint_charge_limit3(model,t):
-        return model.bat_z1[t] <= model.param_bat_E_max_initial
+        return model.bat_z1[t] <= model.param_bat_E_max
 
     def constraint_charge_limit4(model,t):
-        return model.bat_z1[t] >= model.param_bat_E_max_initial - (1 - model.bat_K_ch[t]) * model.param_bat_M1
+        return model.bat_z1[t] >= model.param_bat_E_max - (1 - model.bat_K_ch[t]) * model.param_bat_M1
     
     def constraint_charge_limit5(model,t):
         return model.bat_z1[t] >= 0 
 
 
-    # linearized equations to define discharging power limit. Original equation was: model.P_from_bat[t] <= model.param_bat_E_max_initial *  model.bat_K_dis[t] * model.param_bat_c_rate_dis https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
+    # linearized equations to define discharging power limit. Original equation was: model.P_from_bat[t] <= model.param_bat_E_max *  model.bat_K_dis[t] * model.param_bat_c_rate_dis https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
 
     def constraint_discharge_limit1(model,t):
         return model.P_from_bat[t] <= model.param_bat_c_rate_dis * model.bat_z2[t] 
@@ -738,10 +738,10 @@ class bat(Storage):
         return model.bat_z2[t] <= model.param_bat_M2 * model.bat_K_dis[t]
 
     def constraint_discharge_limit3(model,t):
-        return model.bat_z2[t] <= model.param_bat_E_max_initial
+        return model.bat_z2[t] <= model.param_bat_E_max
 
     def constraint_discharge_limit4(model,t):
-        return model.bat_z2[t] >= model.param_bat_E_max_initial - (1 - model.bat_K_dis[t]) * model.param_bat_M2
+        return model.bat_z2[t] >= model.param_bat_E_max - (1 - model.bat_K_dis[t]) * model.param_bat_M2
     
     def constraint_discharge_limit5(model,t):
         return model.bat_z2[t] >= 0
@@ -760,10 +760,10 @@ class bat(Storage):
     
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.bat_inv_costs[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity
+            return model.bat_inv_costs[t] == model.param_bat_E_max * model.param_bat_inv_per_capacity
         
         elif t % int(model.param_bat_lifetime) == 0:
-            return model.bat_inv_costs[t] == model.param_bat_E_max_initial * model.param_bat_inv_per_capacity
+            return model.bat_inv_costs[t] == model.param_bat_E_max * model.param_bat_inv_per_capacity
         
         else:
             return model.bat_inv_costs[t] == 0
