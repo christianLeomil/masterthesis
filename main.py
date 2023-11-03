@@ -32,18 +32,22 @@ df_elements.index.name = None
 
 # writing dataframes on inputfile to input
 #CRAR FUNCAO DE EM UTILS PRA ESCREVER ESSAS COISAS NO ARQUIVO INPUT
-# utils.write_excel(df_con_electric, path_input,'conect_electric','input.xlsx', True)
-# utils.write_excel(df_con_thermal, path_input,'conect_thermal','input.xlsx', True)
-# utils.write_excel(df_con_electric, path_input,'revenue_electric','input.xlsx', True)
-# utils.write_excel(df_con_thermal, path_input, 'revenue_thermal', 'input.xlsx', True)
+utils.write_excel(df_con_electric, path_input,'conect_electric','input.xlsx', True)
+utils.write_excel(df_con_thermal, path_input,'conect_thermal','input.xlsx', True)
+utils.write_excel(df_con_electric, path_input,'revenue_electric','input.xlsx', True)
+utils.write_excel(df_con_thermal, path_input, 'revenue_thermal', 'input.xlsx', True)
 
-# df_con_electric = df_con_electric.filter(like = 'net', axis = 0)
-# df_con_thermal = df_con_thermal.filter(like = 'net', axis = 0)
+df_con_electric = df_con_electric.filter(like = 'net', axis = 0)
+df_con_thermal = df_con_thermal.filter(like = 'net', axis = 0)
 
-# utils.write_excel(df_con_electric, path_input,'stock_electric', 'input.xlsx', True)
-# utils.write_excel(df_con_thermal, path_input, 'stock_thermal', 'input.xlsx', True)
+utils.write_excel(df_con_electric, path_input,'stock_electric', 'input.xlsx', True)
+utils.write_excel(df_con_thermal, path_input, 'stock_thermal', 'input.xlsx', True)
 start_time_input = time.time()
-# input("\nPlease insert the connection between elements and revenue values, then press enter")
+print("\n======Please insert the connection between elements and revenue values======")
+print("Inputs should be made into input.xlsx")
+print("Connection of elements into sheets callled connect electric and connect thermal")
+print("Revenue for element into sheets called revenue_electric, revenue_thermal stock_electric and stock_thermal")
+input("After inserting values, please press enter\n")
 end_time_input = time.time()
 
 #reading inputs for the connections between elements of the energy system written in the input file
@@ -164,7 +168,7 @@ if control.df.loc['size_optimization','value'] == 'yes':
     with pd.ExcelWriter(path_input + 'input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
         df_size_optimization.to_excel(writer,sheet_name = 'parameters_to_variables',index = False)
     start_time_input_param = time.time()
-    input('Please select parameters that are going to be optimized and press enter...')
+    input('\nPlease select parameters that are going to be optimized and press enter...')
     end_time_input_param = time.time()
 
     df_size_optimization = pd.read_excel(path_input + 'input.xlsx',sheet_name = 'parameters_to_variables', index_col = 0)
