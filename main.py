@@ -19,10 +19,17 @@ path_output = './output/'
 name_file = 'input.xlsx'
 
 # creating instance of class that contains infos of how optimization is going to be
-control = classes.control(path_input,name_file)
+control = classes.control(path_input, name_file)
+
+# #write list of elements that can be chosen given the number of domains
+utils.write_avaliable_elements(control)
+start_time_input_elements = time.time()
+input('\nPlease insert the number of each avaliable element for the given number of domains and press enter...')
+end_time_input_elements = time.time()
+
 
 #getting list of elements of energy system
-df_elements = pd.read_excel(path_input + name_file, index_col=0, sheet_name = 'energy_elements')
+df_elements = pd.read_excel(path_input + name_file, index_col=0, sheet_name = 'microgrid_elements')
 df_elements.index.name = None
 
 #preparing data on elements of the energy system for the rest of the file
@@ -47,7 +54,7 @@ print("\n======Please insert the connection between elements and revenue values=
 print("Inputs should be made into input.xlsx")
 print("Connection of elements into sheets callled connect electric and connect thermal")
 print("Revenue for element into sheets called revenue_electric, revenue_thermal stock_electric and stock_thermal")
-input("After inserting values, please press enter\n")
+input("After inserting values, please press enter...\n")
 end_time_input = time.time()
 
 #reading inputs for the connections between elements of the energy system written in the input file

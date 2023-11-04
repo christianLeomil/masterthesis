@@ -8,6 +8,67 @@ import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import inspect
+
+
+def write_avaliable_elements(control):
+    class_names = [name for name, obj in inspect.getmembers(classes) if inspect.isclass(obj)]
+    list_elements = []
+    for i in class_names:
+        if hasattr(getattr(classes,i),'domain_type'):
+            if len(getattr(classes,i).domain_type['energy_domains']) <= control.number_energy_domains:
+                list_elements.append(i)
+            
+    df_elements = pd.DataFrame({'class_type': list_elements,
+                               '# components': [0]*len(list_elements)})
+    write_excel(df_elements,control.path_input,'microgrid_components', 'input.xlsx', False)
+
+    list_domains = []
+    for i in range(control.number_energy_domains):
+        list_domains.append('domain' + str(i + 1))
+    df_domain = pd.DataFrame(data = [[0] * len(list_domains)], columns = list_domains)
+    df_domain = df_domain.T
+    df_domain.columns = ['domain_names']
+    df_domain.index.name = None
+    write_excel(df_domain,control.path_input, 'energy_domains_names', 'input.xlsx', True)
+
+    return
+
+
+def aux_creator2(df_elements, control, boolean):
+    list_elements = []
+    list_type = []
+    for i in df_elements.index:
+        for j in range(0,df_elements['# components'].iloc[i]):
+            list_type.append(i)
+            name_element = i + str(j+1)
+            list_elements.append(name_element)
+
+    #checking if there is any demand in the inputs, otherwise, print error message
+    if not any('demand' in s for s in list_elements):
+        print('\n==========ERROR==========')
+        print('Model must have a demand in order to run optimization\n')
+        sys.exit()
+
+    df_aux = pd.DataFrame({'element': list_elements,
+                           'type':list_type})
+
+    return df_aux
+
+def define_energy_domains_of_components(df_elements, df_domains, control):
+    for i in df_aux
+
+
+    return
+
+
+
+
+
+
+
+
+
 
 
 def aux_creator(df_elements):
