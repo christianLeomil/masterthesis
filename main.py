@@ -21,66 +21,55 @@ name_file = 'input.xlsx'
 # creating instance of class that contains infos of how optimization is going to be
 control = classes.control(path_input, name_file)
 
-# #write list of elements that can be chosen given the number of domains
-utils.write_avaliable_elements(control)
+# utils.write_avaliable_elements_and_domain_names(control)
+# print("\nPlease insert the number of each avaliable element in sheet 'microgrid_components' of the 'input.xlsx' file.")
+# print("Please also input the name of the chosen domains in the sheet 'energy_domains_names' of the input.xlsx file.")
+# input_time_1 = time.time()
+# input("After inserting values please press enter...")
+# input_time_2 = time.time()
+# print('please wait...')
 
-start_time_input_elements = time.time()
-print("\nPlease insert the number of each avaliable element in sheet 'microgrid_components' of the 'input.xlsx' file.")
-print("Please also input the name of the chosen domains in the sheet 'energy_domains_names'")
-input("After inserting values please press enter...")
-end_time_input_elements = time.time()
-
-#getting list of elements of energy system and name of domains
 df_elements = pd.read_excel(path_input + name_file, index_col=0, sheet_name = 'microgrid_components')
 df_elements.index.name = None
+df_domains = pd.read_excel(path_input + name_file, index_col = 0, sheet_name = 'energy_domains_names')
+df_domains.index.name = None
 
-#preparing data on elements of the energy system for the rest of the file
-[df_con_electric, df_con_thermal, df_aux] = utils.aux_creator2(df_elements)
+df_aux = pd.read_excel(control.path_output + 'df_aux.xlsx')
 
-# df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
+# df_aux = utils.create_element_df_and_domain_selection_df(df_elements,df_domains,control)
+# print("\nPlease select the domain for each element in the sheet 'domain_selection' of the 'input.xlsx' file.")
+# print("In this table, fill the cells containing 'insert here' with desired value. Do not change cells containing 0.")
+# input_time_3 = time.time()
+# input("After inserting values please press enter...")
+# input_time_4 = time.time()
+# print('please wait...')
 
+df_domain_selection = pd.read_excel(path_input + name_file, index_col = 0, sheet_name = 'domain_selection')
+df_domain_selection.index.name = None
 
-# writing dataframes on inputfile to input
-#CRAR FUNCAO DE EM UTILS PRA ESCREVER ESSAS COISAS NO ARQUIVO INPUT
-utils.write_excel(df_con_electric, path_input,'conect_electric','input.xlsx', True)
-utils.write_excel(df_con_thermal, path_input,'conect_thermal','input.xlsx', True)
-utils.write_excel(df_con_electric, path_input,'revenue_electric','input.xlsx', True)
-utils.write_excel(df_con_thermal, path_input, 'revenue_thermal', 'input.xlsx', True)
+# utils.create_connection_revenue_and_stock_matrices(df_domains, df_domain_selection,control)
+# print("\nPlease insert the connection between elements for the selected domains in sheet 'connect_domain_' of the 'input.xlsx' file.")
+# print("Please also insert the revenue values for energy flows and energy flows that will be sold on the stock exchange in sheets 'revenue_domain and 'stock_domain_ in the 'input.xlsx' file")
+# print("In this table,define the connection between elements inserting an 'x' in the matrix where the connection exists.")
+# input_time_5 = time.time()
+# input("After inserting values please press enter...")
+# input_time_6 = time.time()
+# print('please wait...')
 
-df_con_electric = df_con_electric.filter(like = 'net', axis = 0)
-df_con_thermal = df_con_thermal.filter(like = 'net', axis = 0)
-
-utils.write_excel(df_con_electric, path_input,'stock_electric', 'input.xlsx', True)
-utils.write_excel(df_con_thermal, path_input, 'stock_thermal', 'input.xlsx', True)
-start_time_input = time.time()
-print("\n======Please insert the connection between elements and revenue values======")
-print("Inputs should be made into 'input.xlsx'")
-print("Connection of elements are set in sheets callled 'connect electric' and 'connect thermal'")
-print("Revenue for element into sheets called revenue_electric, revenue_thermal stock_electric and stock_thermal")
-input("After inserting values, please press enter...\n")
-end_time_input = time.time()
-
-#reading inputs for the connections between elements of the energy system written in the input file
-df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
-df_con_electric.index.name = None
-df_con_thermal = pd.read_excel(path_input + name_file, sheet_name = 'conect_thermal', index_col=0)
-df_con_thermal.index.name = None
-
-#creating variables from connections exporting dataframes for check
-[df_con_thermal, df_con_electric, list_expressions, 
- list_con_variables, list_attr_classes] = utils.connection_creator(df_con_electric, df_con_thermal)
-# df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
-# df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
+[list_connection_matrices,
+ list_expressions, 
+ list_con_variables, 
+ list_attr_classes] = utils.create_connection_equations(df_domains,control)
 
 df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'param_scalars')
 
-[df_input_other,
+[df_input_other, 
  list_expressions_rev, 
  list_variables_rev, 
  list_parameters_rev, 
  list_parameters_rev_value, 
- list_revenue_total,
- list_correl_elements] = utils.revenue_constraint_creator(df_con_electric,df_con_thermal,control,df_input_other)
+ list_revenue_total, 
+ list_correl_elements] = utils.create_revenue_and_stock_equations(df_domains,df_input_other,control)
 
 [list_operation_costs_total,
  list_investment_costs_total, 
@@ -121,7 +110,20 @@ for i,n in enumerate(list_elements):
                 original_method = getattr(globals()[element],method_name)
                 source_code = inspect.getsource(original_method)
                 source_code = textwrap.dedent(source_code)
+                #-----------replacing name of component in variables-----------#
                 modified_source_code = source_code.replace(element_type,element)
+
+                #-----------replacing name of connection variables-----------#
+                list_indexes = eval(df_domain_selection.loc[n,'component_domains'])
+                for i,k in enumerate(list_indexes):
+                    to_be_replaced = k + 'from_' + n
+                    replacement = df_domain_selection.loc[n, 'domain_choice' + str(i + 1)] +'_from_' + n
+                    modified_source_code = modified_source_code.replace(to_be_replaced, replacement)
+
+                    to_be_replaced = k + 'to_' + n
+                    replacement = df_domain_selection.loc[n, 'domain_choice' + str(i + 1)] +'_to_' + n
+                    modified_source_code = modified_source_code.replace(to_be_replaced, replacement)
+
                 # print(modified_source_code)
                 compiled_code = compile(modified_source_code, "<string>", "exec")
                 namespace = {}
@@ -146,7 +148,7 @@ for i in df_aux.index:
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
-# region RENAMING VARIABLES from list_var of elements selected for the energy system
+# region RENAMING VARIABLES from list_var of components selected for the energy system
 
 # print('========================Renaming list_var parameters')
 for i in df_aux.index:
@@ -160,7 +162,7 @@ for i in df_aux.index:
 # ---------------------------------------------------------------------------------------------------------------------
 # region if size optimization yes, then choose parameters that are going to be optimized
 
-if control.df.loc['size_optimization','value'] == 'yes':
+if control.size_optimization == 'yes':
     list_param_to_var = []
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
@@ -177,9 +179,10 @@ if control.df.loc['size_optimization','value'] == 'yes':
     #writes to input file in order
     with pd.ExcelWriter(path_input + 'input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
         df_size_optimization.to_excel(writer,sheet_name = 'parameters_to_variables',index = False)
-    start_time_input_param = time.time()
-    input('\nPlease select parameters that are going to be optimized and press enter...')
-    end_time_input_param = time.time()
+    input_time_7 = time.time()
+    input("\nPlease insert the parameters that are going to be optimized n the sheet 'param_to_variables' of the file 'input.xlsx'...")
+    input_time_8 = time.time()
+    print('please wait...')
 
     df_size_optimization = pd.read_excel(path_input + 'input.xlsx',sheet_name = 'parameters_to_variables', index_col = 0)
     df_size_optimization.index.title = None
@@ -618,17 +621,19 @@ df_scalar_param.to_excel(path_output + 'df_scalar_param.xlsx')
 df_final.to_excel(path_output + 'df_final.xlsx',index = False)
 utils.financial_analysis(control)
 utils.emissions_analysis(control)
-utils.charts_generator(control,df_aux)
+utils.charts_generator(control,df_aux,df_domains)
 
 #endregion 
 
 # Record the end time
 end_time = time.time()
 
-# Calculate and print the elapsed time
-if control.df.loc['size_optimization','value'] == 'yes':
-    elapsed_time = end_time - (end_time_input_param - start_time_input_param) - (end_time_input - start_time_input) - start_time
-else:
-    elapsed_time = end_time - (end_time_input - start_time_input) - start_time
-    
+# # Calculate and print the elapsed time
+# if control.size_optimization == 'yes':
+#     elapsed_time = end_time - (input_time_2 - input_time_1) - (input_time_4 - input_time_3) - (input_time_6 - input_time_5) - (input_time_8 - input_time_7) -start_time
+# else:
+#     elapsed_time = end_time - (input_time_2 - input_time_1) - (input_time_4 - input_time_3) - (input_time_6 - input_time_5) -start_time
+
+elapsed_time = end_time - start_time
+
 print(f"Elapsed time: {elapsed_time} seconds")
