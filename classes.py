@@ -1324,9 +1324,8 @@ class demand(Consumer):
 
         #Setting up default values for series if none are given in input file:
         self.param_P_to_demand = [2.5] * control.time_span # default electric power of demand that needs to be covered [kW]
-        self.param_P_extra_cost_penalty = 1000 # [€/kWh]
-        self.param_P_extra_emission_penalty = 1000 #[kgCO2eq/kWh]
-
+        self.param_P_demand_extra_cost_penalty = 1000 # [€/kWh]
+        self.param_P_demand_extra_emission_penalty = 1000 #[kgCO2eq/kWh]
 
         self.write_P_to_demand(control)
 
@@ -1344,10 +1343,10 @@ class demand(Consumer):
         return model.demand_inv_costs[t] == 0
     
     def constraint_operation_costs(model,t):
-        return model.demand_op_costs[t] == model.demand_P_extra[t] * model.param_P_extra_cost_penalty
+        return model.demand_op_costs[t] == model.demand_P_extra[t] * model.param_P_demand_extra_cost_penalty
     
     def contraits_emissions(model,t):
-        return model.demand_emissions[t] == model.demand_P_extra[t] * model.param_P_extra_emission_penalty
+        return model.demand_emissions[t] == model.demand_P_extra[t] * model.param_P_demand_extra_emission_penalty
 
 class charging_station(Consumer):
 
@@ -1781,6 +1780,7 @@ class control:
         self.reference_date = self.df.loc['reference_date','value']
         self.path_charts = self.df.loc['path_charts','value']
         self.number_energy_domains = self.df.loc['number_energy_domains','value']
+        self.name_file = self.df.loc['name_file','value']
 
         if self.df.loc['objective','value'] == 'emissions':
             self.opt_equation = 'emission_objective'

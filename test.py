@@ -151,6 +151,7 @@ def create_connection_revenue_and_stock_matrices(df_domain, df_domain_selection)
         name_sheet = 'connect_domain_' + df_domain['domain_names'].iloc[i]
         write_excel(df_temp, path_input, name_sheet,'input.xlsx',True)
 
+
     #creating and writing revenue tables for each domain
     for i in range(len(df_domain)):
         df_temp = pd.DataFrame(0,index = list_load_final[i], columns = list_source_final[i])
@@ -160,10 +161,9 @@ def create_connection_revenue_and_stock_matrices(df_domain, df_domain_selection)
     #creating and writing stock tables for each domain
     for i in range(len(df_domain)):
         df_temp = pd.DataFrame(0,index = list_load_final[i], columns = list_source_final[i])
-        if len(df_temp.filter(like = 'net', axis = 0)) > 0:
-            df_temp = df_temp.filter(like = 'net', axis = 0)
-            name_sheet = 'stock_domain_' + df_domain['domain_names'].iloc[i]
-            write_excel(df_temp, path_input, name_sheet,'input.xlsx',True)
+        df_temp = df_temp.filter(like = 'net', axis = 0)
+        name_sheet = 'stock_domain_' + df_domain['domain_names'].iloc[i]
+        write_excel(df_temp, path_input, name_sheet,'input.xlsx',True)
 
     return 
 
@@ -206,7 +206,12 @@ def create_connection_equations(df_domains):
 
         # creating equations in the 'to' direction of connection matrix
         for j in df_connect.index:
-            list_exp_partial = 'model.' + j + '[t] == 0'
+            if j.startswith('param_P_to_demand'): #doing adjustment to include penalty power if demand cannot be covered.
+                name_demand = j.replace('param_P_to_','')
+                list_exp_partial = 'model.' + j + '[t] == model.'+ name_demand + '_P_extra[t]'
+            else:
+                list_exp_partial = 'model.' + j + '[t] == 0'
+
             for k in df_connect.columns:
                 if df_connect.loc[j,k] != 0:
                     list_exp_partial = list_exp_partial + ' + model.' + df_connect.loc[j,k] + '[t]'
@@ -220,7 +225,7 @@ def create_connection_equations(df_domains):
                     list_exp_partial = list_exp_partial + ' + model.' + df_connect.loc[k,j] + '[t]'
             list_expressions.append(list_exp_partial)
 
-        # creating list with variables that need to be created in the abstract model ELECTRIC
+        # creating list with variables that need to be created in the abstract model
         list_con_variables = list_con_variables + df_connect.columns.to_list()
         list_con_variables = list_con_variables + df_connect.index.to_list()
         for j in df_connect.index:
@@ -240,45 +245,114 @@ def create_connection_equations(df_domains):
 
     return list_connection_matrices, list_expressions, list_con_variables, list_attr_classes
 
-def create_revenue_equations(df_domains):
-    list_attr_classes = []
-    list_expressions = []
-    list_con_variables = []
-    list_connection_matrices = []
+def create_revenue_and_stock_equations(df_domains,df_input_other):
+    list_expressions_rev = []
+    list_variables_rev = []
+    list_parameters_rev = []
+    list_parameters_rev_value = []
+    list_correl_elements = []
     for i in df_domains.index:
         domain_name = df_domains.loc[i,'domain_names']
-        sheet_name = 'revenue_domain_' + domain_name
-        df_connect = pd.read_excel(path_input + name_file, sheet_name = sheet_name,index_col=0)
-        df_connect.index.name = None
+        df_revenue = pd.read_excel(path_input + name_file, sheet_name = 'revenue_domain_' + domain_name ,index_col=0)
+        df_revenue.index.name = None
+        df_connect = pd.read_excel(path_input + name_file, sheet_name = 'connect_domain_' + domain_name ,index_col = 0)
+        df_revenue.index.name = None
+        df_stock = pd.read_excel(path_input + name_file, sheet_name = 'stock_domain_' + domain_name, index_col = 0)
 
-    return     
+        #updating df_connect again with respective energy flows
+        for j in df_connect.index:
+            for k in df_connect.columns:
+                df_connect.loc[j,k] = domain_name + '_' + k + '_' + j
 
-write_avaliable_elements_and_domain_names(control)
-print("\nPlease insert the number of each avaliable element in sheet 'microgrid_components' of the 'input.xlsx' file.")
-print("Please also input the name of the chosen domains in the sheet 'energy_domains_names' of the input.xlsx file.")
-input("After inserting values please press enter...")
+        #creating expressions for revenue from incentives
+        for j in df_connect.columns:
+            for k in df_connect.index:
+                if df_connect.loc[k,j] != 0:
+                    if df_revenue.loc[k,j] != 0:
+                        list_correl_elements.append(j) 
+                        name_parameter = ('param_rev_' + domain_name + '_' + j + '_' + k)
+                        name_variable = ('rev_'+ domain_name +'_' + j + '_' + k)
+                        name_energy_flow = df_connect.loc[k,j]
+                        list_parameters_rev.append(name_parameter)
+                        list_parameters_rev_value.append(df_revenue.loc[k,j])
+                        list_variables_rev.append(name_variable)
+                        list_expressions_rev.append(F"model.{name_variable}[t] == model.{name_parameter} * model.{name_energy_flow}[t] * model.time_step")
+
+        #creating expressions for revenue from selling energy to the energy stock exchange
+        df_connect_stock = df_connect.filter(like = 'net', axis = 0)
+        for j in df_connect_stock.columns:
+            for k in df_connect_stock.index:
+                if df_connect_stock.loc[k,j] != 0:
+                    if df_stock.loc[k,j] != 0:
+                        name_variable = ('stock_'+ domain_name +'_' + j + '_' + k)
+                        name_energy_flow = df_connect_stock.loc[k,j]
+                        list_variables_rev.append(name_variable)
+                        list_expressions_rev.append(F"model.{name_variable}[t] == model.param_{k}_stock_price_electric[t] * model.{name_energy_flow}[t] * model.time_step")
+
+        #list with expression of total revenues
+        list_revenue_total = ['model.total_revenue[t] ==']
+        if list_expressions_rev == []:
+            list_revenue_total = list_revenue_total  + '0'
+        else:
+            for j in list_variables_rev:
+                list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + j + '[t]'
+
+    #saving values of parameters to df_input_other
+    df_parameters = pd.DataFrame({'Parameter':list_parameters_rev,
+                                'Value':list_parameters_rev_value})
+    df_input_other = pd.concat([df_input_other, df_parameters], ignore_index = True)
+
+    df_input_other.to_excel(path_output + 'df_input_other_test.xlsx',index = False)
+
+    print('\n--------------------------This is list_expressions_rev--------------------------')
+    print(list_expressions_rev)
+
+    print('\n--------------------------This is list_variables_rev--------------------------')
+    print(list_variables_rev)
+
+    print('\n--------------------------This is list_revenue_total--------------------------')
+    print(list_revenue_total)
+
+    print('\n--------------------------This is list_correl_elements--------------------------')
+    print(list_correl_elements)
+
+    return df_input_other, list_expressions_rev, list_variables_rev, list_parameters_rev, list_parameters_rev_value, list_revenue_total, list_correl_elements
+
+# write_avaliable_elements_and_domain_names(control)
+# print("\nPlease insert the number of each avaliable element in sheet 'microgrid_components' of the 'input.xlsx' file.")
+# print("Please also input the name of the chosen domains in the sheet 'energy_domains_names' of the input.xlsx file.")
+# input("After inserting values please press enter...")
 
 df_elements = pd.read_excel(path_input + name_file, index_col=0, sheet_name = 'microgrid_components')
 df_elements.index.name = None
 df_domains = pd.read_excel(path_input + name_file, index_col = 0, sheet_name = 'energy_domains_names')
 df_domains.index.name = None
 
-df_aux = create_element_df_and_domain_selection_df(df_elements,df_domains)
-print("\nPlease select the domain for each element in the sheet 'domain_selection' of the 'input.xlsx' file.")
-print("In this table, fill the cells containing 'insert here' with desired value. Do not change cells containing 0.")
-input("After inserting values please press enter...")
+# df_aux = create_element_df_and_domain_selection_df(df_elements,df_domains)
+# print("\nPlease select the domain for each element in the sheet 'domain_selection' of the 'input.xlsx' file.")
+# print("In this table, fill the cells containing 'insert here' with desired value. Do not change cells containing 0.")
+# input("After inserting values please press enter...")
 
 df_domain_selection = pd.read_excel(path_input + name_file, index_col = 0, sheet_name = 'domain_selection')
 df_domain_selection.index.name = None
 
-create_connection_revenue_and_stock_matrices(df_domains, df_domain_selection)
-print("\nPlease insert the connection between elements for the selected domains in sheet 'connect_domain_' of the 'input.xlsx' file.")
-print("In this table,define the connection between elements inserting an 'x' in the matrix where the connection exists.")
-input("After inserting values please press enter...")
+# create_connection_revenue_and_stock_matrices(df_domains, df_domain_selection)
+# print("\nPlease insert the connection between elements for the selected domains in sheet 'connect_domain_' of the 'input.xlsx' file.")
+# print("Please also insert the revenue values for energy flows and energy flows that will be sold on the stock exchange in sheets 'revenue_domain and 'stock_domain_ in the 'input.xlsx' file")
+# print("In this table,define the connection between elements inserting an 'x' in the matrix where the connection exists.")
+# input("After inserting values please press enter...")
 
 [list_connection_matrices, 
  list_expressions, 
  list_con_variables, 
  list_attr_classes] = create_connection_equations(df_domains)
 
-create_revenue_equation(df_domains)
+df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'param_scalars')
+
+[df_input_other, 
+ list_expressions_rev, 
+ list_variables_rev, 
+ list_parameters_rev, 
+ list_parameters_rev_value, 
+ list_revenue_total, 
+ list_correl_elements] = create_revenue_and_stock_equations(df_domains,df_input_other)

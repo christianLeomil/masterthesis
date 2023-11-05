@@ -1,7 +1,7 @@
 import pyomo.environ as pyo
 import pandas as pd
 import classes
-import utils
+import utils2
 import inspect
 import textwrap
 import warnings
@@ -21,70 +21,60 @@ name_file = 'input.xlsx'
 # creating instance of class that contains infos of how optimization is going to be
 control = classes.control(path_input, name_file)
 
-# #write list of elements that can be chosen given the number of domains
-utils.write_avaliable_elements(control)
+# utils2.write_avaliable_elements_and_domain_names(control)
+# print("\nPlease insert the number of each avaliable element in sheet 'microgrid_components' of the 'input.xlsx' file.")
+# print("Please also input the name of the chosen domains in the sheet 'energy_domains_names' of the input.xlsx file.")
+# input("After inserting values please press enter...")
+# print('please wait...')
 
-start_time_input_elements = time.time()
-print("\nPlease insert the number of each avaliable element in sheet 'microgrid_components' of the 'input.xlsx' file.")
-print("Please also input the name of the chosen domains in the sheet 'energy_domains_names'")
-input("After inserting values please press enter...")
-end_time_input_elements = time.time()
-
-#getting list of elements of energy system and name of domains
 df_elements = pd.read_excel(path_input + name_file, index_col=0, sheet_name = 'microgrid_components')
 df_elements.index.name = None
+df_domains = pd.read_excel(path_input + name_file, index_col = 0, sheet_name = 'energy_domains_names')
+df_domains.index.name = None
 
-#preparing data on elements of the energy system for the rest of the file
-[df_con_electric, df_con_thermal, df_aux] = utils.aux_creator2(df_elements)
+df_aux = pd.read_excel(control.path_output + 'df_aux.xlsx')
 
-# df_aux.to_excel(path_output + 'df_aux.xlsx',index = False)
+# df_aux = utils2.create_element_df_and_domain_selection_df(df_elements,df_domains,control)
+# print("\nPlease select the domain for each element in the sheet 'domain_selection' of the 'input.xlsx' file.")
+# print("In this table, fill the cells containing 'insert here' with desired value. Do not change cells containing 0.")
+# input("After inserting values please press enter...")
+# print('please wait...')
 
+df_domain_selection = pd.read_excel(path_input + name_file, index_col = 0, sheet_name = 'domain_selection')
+df_domain_selection.index.name = None
 
-# writing dataframes on inputfile to input
-#CRAR FUNCAO DE EM UTILS PRA ESCREVER ESSAS COISAS NO ARQUIVO INPUT
-utils.write_excel(df_con_electric, path_input,'conect_electric','input.xlsx', True)
-utils.write_excel(df_con_thermal, path_input,'conect_thermal','input.xlsx', True)
-utils.write_excel(df_con_electric, path_input,'revenue_electric','input.xlsx', True)
-utils.write_excel(df_con_thermal, path_input, 'revenue_thermal', 'input.xlsx', True)
+# utils2.create_connection_revenue_and_stock_matrices(df_domains, df_domain_selection,control)
+# print("\nPlease insert the connection between elements for the selected domains in sheet 'connect_domain_' of the 'input.xlsx' file.")
+# print("Please also insert the revenue values for energy flows and energy flows that will be sold on the stock exchange in sheets 'revenue_domain and 'stock_domain_ in the 'input.xlsx' file")
+# print("In this table,define the connection between elements inserting an 'x' in the matrix where the connection exists.")
+# input("After inserting values please press enter...")
+# print('please wait...')
 
-df_con_electric = df_con_electric.filter(like = 'net', axis = 0)
-df_con_thermal = df_con_thermal.filter(like = 'net', axis = 0)
-
-utils.write_excel(df_con_electric, path_input,'stock_electric', 'input.xlsx', True)
-utils.write_excel(df_con_thermal, path_input, 'stock_thermal', 'input.xlsx', True)
-start_time_input = time.time()
-print("\n======Please insert the connection between elements and revenue values======")
-print("Inputs should be made into 'input.xlsx'")
-print("Connection of elements are set in sheets callled 'connect electric' and 'connect thermal'")
-print("Revenue for element into sheets called revenue_electric, revenue_thermal stock_electric and stock_thermal")
-input("After inserting values, please press enter...\n")
-end_time_input = time.time()
-
-#reading inputs for the connections between elements of the energy system written in the input file
-df_con_electric = pd.read_excel(path_input + name_file, sheet_name = 'conect_electric',index_col=0)
-df_con_electric.index.name = None
-df_con_thermal = pd.read_excel(path_input + name_file, sheet_name = 'conect_thermal', index_col=0)
-df_con_thermal.index.name = None
-
-#creating variables from connections exporting dataframes for check
-[df_con_thermal, df_con_electric, list_expressions, 
- list_con_variables, list_attr_classes] = utils.connection_creator(df_con_electric, df_con_thermal)
-# df_con_electric.to_excel(path_output + 'df_con_electric.xlsx')
-# df_con_thermal.to_excel(path_output + 'df_con_thermal.xlsx')
+[list_connection_matrices,
+ list_expressions, 
+ list_con_variables, 
+ list_attr_classes] = utils2.create_connection_equations(df_domains,control)
 
 df_input_other = pd.read_excel(path_input + name_file, sheet_name = 'param_scalars')
 
-[df_input_other,
+[df_input_other, 
  list_expressions_rev, 
  list_variables_rev, 
  list_parameters_rev, 
  list_parameters_rev_value, 
- list_revenue_total,
- list_correl_elements] = utils.revenue_constraint_creator(df_con_electric,df_con_thermal,control,df_input_other)
+ list_revenue_total, 
+ list_correl_elements] = utils2.create_revenue_and_stock_equations(df_domains,df_input_other,control)
+
+
+
+
+
+
+
 
 [list_operation_costs_total,
  list_investment_costs_total, 
- list_emissions_total] = utils.objective_expression_creator(df_aux)
+ list_emissions_total] = utils2.objective_expression_creator(df_aux)
 
 # endregion
 # ---------------------------------------------------------------------------------------------------------------------
@@ -121,7 +111,24 @@ for i,n in enumerate(list_elements):
                 original_method = getattr(globals()[element],method_name)
                 source_code = inspect.getsource(original_method)
                 source_code = textwrap.dedent(source_code)
+                #replacing name of component in variables
                 modified_source_code = source_code.replace(element_type,element)
+
+                #-----------replacing name of connection variables-----------#
+
+                list_indexes = eval(df_domain_selection.loc[n,'component_domains'])
+                for i,k in enumerate(list_indexes):
+                    to_be_replaced = k + 'from_' + n
+                    replacement = df_domain_selection.loc[n, 'domain_choice' + str(i + 1)] +'_from_' + n
+                    modified_source_code = modified_source_code.replace(to_be_replaced, replacement)
+
+                    to_be_replaced = k + 'to_' + n
+                    replacement = df_domain_selection.loc[n, 'domain_choice' + str(i + 1)] +'_to_' + n
+                    modified_source_code = modified_source_code.replace(to_be_replaced, replacement)
+
+
+                #-----------replacing name of connection variables-----------#
+
                 # print(modified_source_code)
                 compiled_code = compile(modified_source_code, "<string>", "exec")
                 namespace = {}
@@ -463,7 +470,7 @@ else:
 df_input_series = pd.read_excel(path_input + name_file, sheet_name = 'param_series', nrows = control.time_span - 1)
 
 if control.receding_horizon == 'yes':
-    list_split = utils.breaking_dataframe(df_input_series, control.optimization_horizon, control.control_horizon)
+    list_split = utils2.breaking_dataframe(df_input_series, control.optimization_horizon, control.control_horizon)
 else:
     list_split = []
     list_split.append(df_input_series)
@@ -494,7 +501,7 @@ for k,df in enumerate(list_split):
                                                     'Value': list_values})
         
         # df_variables_last_time_step.to_excel(path_output + '/teste/df_variables_last_time_step'+str(k)+'.xlsx',index = False) 
-        df_input_other = utils.save_variables_last_time_step(df_input_other,df_variables_last_time_step)
+        df_input_other = utils2.save_variables_last_time_step(df_input_other,df_variables_last_time_step)
 
     # endregion
     # ---------------------------------------------------------------------------------------------------------------------
@@ -587,7 +594,7 @@ for k,df in enumerate(list_split):
         df_time_dependent_variable_values = df_time_dependent_variable_values.append(row, ignore_index = True)
 
     # Organize and export the DataFrame with the variable values
-    df_time_dependent_variable_values = utils.organize_output_columns(df_time_dependent_variable_values,df_aux)
+    df_time_dependent_variable_values = utils2.organize_output_columns(df_time_dependent_variable_values,df_aux)
     # df_time_dependent_variable_values.to_excel(path_output +'/time dependant variables/'+ 'df_time_dependent_variable_values' + str(k) + '.xlsx',index = False)
 
     if control.receding_horizon == 'yes':
@@ -616,19 +623,22 @@ df_scalar_param.columns = ['value']
 df_scalar_param.to_excel(path_output + 'df_scalar_param.xlsx')
 
 df_final.to_excel(path_output + 'df_final.xlsx',index = False)
-utils.financial_analysis(control)
-utils.emissions_analysis(control)
-utils.charts_generator(control,df_aux)
+utils2.financial_analysis(control)
+utils2.emissions_analysis(control)
+utils2.charts_generator(control,df_aux,df_domains)
 
 #endregion 
 
 # Record the end time
 end_time = time.time()
 
-# Calculate and print the elapsed time
-if control.df.loc['size_optimization','value'] == 'yes':
-    elapsed_time = end_time - (end_time_input_param - start_time_input_param) - (end_time_input - start_time_input) - start_time
-else:
-    elapsed_time = end_time - (end_time_input - start_time_input) - start_time
+
+elapsed_time = end_time - start_time
+
+# # Calculate and print the elapsed time
+# if control.df.loc['size_optimization','value'] == 'yes':
+#     elapsed_time = end_time - (end_time_input_param - start_time_input_param) - (end_time_input - start_time_input) - start_time
+# else:
+#     elapsed_time = end_time - (end_time_input - start_time_input) - start_time
     
 print(f"Elapsed time: {elapsed_time} seconds")
