@@ -6,6 +6,9 @@ import inspect
 import textwrap
 import warnings
 import time
+import chime
+
+chime.theme('mario')
 
 start_time = time.time()
 warnings.filterwarnings("ignore", '.*')
@@ -21,13 +24,14 @@ name_file = 'input.xlsx'
 # creating instance of class that contains infos of how optimization is going to be
 control = classes.control(path_input, name_file)
 
-# utils.write_avaliable_elements_and_domain_names(control)
-# print("\nPlease insert the number of each avaliable element in sheet 'microgrid_components' of the 'input.xlsx' file.")
-# print("Please also input the name of the chosen domains in the sheet 'energy_domains_names' of the input.xlsx file.")
-# input_time_1 = time.time()
-# input("After inserting values please press enter...")
-# input_time_2 = time.time()
-# print('please wait...')
+utils.write_avaliable_elements_and_domain_names(control)
+print("\nPlease insert the number of each avaliable element in sheet 'microgrid_components' of the 'input.xlsx' file.")
+print("Please also input the name of the chosen domains in the sheet 'energy_domains_names' of the input.xlsx file.")
+input_time_1 = time.time()
+chime.info(sync = True)
+input("After inserting values please press enter...")
+input_time_2 = time.time()
+print('please wait...')
 
 df_elements = pd.read_excel(path_input + name_file, index_col=0, sheet_name = 'microgrid_components')
 df_elements.index.name = None
@@ -36,25 +40,27 @@ df_domains.index.name = None
 
 df_aux = pd.read_excel(control.path_output + 'df_aux.xlsx')
 
-# df_aux = utils.create_element_df_and_domain_selection_df(df_elements,df_domains,control)
-# print("\nPlease select the domain for each element in the sheet 'domain_selection' of the 'input.xlsx' file.")
-# print("In this table, fill the cells containing 'insert here' with desired value. Do not change cells containing 0.")
-# input_time_3 = time.time()
-# input("After inserting values please press enter...")
-# input_time_4 = time.time()
-# print('please wait...')
+df_aux = utils.create_element_df_and_domain_selection_df(df_elements,df_domains,control)
+print("\nPlease select the domain for each element in the sheet 'domain_selection' of the 'input.xlsx' file.")
+print("In this table, fill the cells containing 'insert here' with desired value. Do not change cells containing '0'.")
+input_time_3 = time.time()
+chime.info(sync = True)
+input("After inserting values please press enter...")
+input_time_4 = time.time()
+print('please wait...')
 
 df_domain_selection = pd.read_excel(path_input + name_file, index_col = 0, sheet_name = 'domain_selection')
 df_domain_selection.index.name = None
 
-# utils.create_connection_revenue_and_stock_matrices(df_domains, df_domain_selection,control)
-# print("\nPlease insert the connection between elements for the selected domains in sheet 'connect_domain_' of the 'input.xlsx' file.")
-# print("Please also insert the revenue values for energy flows and energy flows that will be sold on the stock exchange in sheets 'revenue_domain and 'stock_domain_ in the 'input.xlsx' file")
-# print("In this table,define the connection between elements inserting an 'x' in the matrix where the connection exists.")
-# input_time_5 = time.time()
-# input("After inserting values please press enter...")
-# input_time_6 = time.time()
-# print('please wait...')
+utils.create_connection_revenue_and_stock_matrices(df_domains, df_domain_selection,control)
+print("\nPlease insert the connection between elements for the selected domains in sheet 'connect_domain_' of the 'input.xlsx' file.")
+print("Please also insert the revenue values for energy flows and energy flows that will be sold on the stock exchange in sheets 'revenue_domain and 'stock_domain_ in the 'input.xlsx' file")
+print("In this table,define the connection between elements inserting an 'x' in the matrix where the connection exists.")
+input_time_5 = time.time()
+chime.info(sync = True)
+input("After inserting values please press enter...")
+input_time_6 = time.time()
+print('please wait...')
 
 [list_connection_matrices,
  list_expressions, 
@@ -113,7 +119,7 @@ for i,n in enumerate(list_elements):
                 #-----------replacing name of component in variables-----------#
                 modified_source_code = source_code.replace(element_type,element)
 
-                #-----------replacing name of connection variables-----------#
+                #-----------replacing name of connection variables with names of domain-----------#
                 list_indexes = eval(df_domain_selection.loc[n,'component_domains'])
                 for i,k in enumerate(list_indexes):
                     to_be_replaced = k + 'from_' + n
@@ -162,7 +168,7 @@ for i in df_aux.index:
 # ---------------------------------------------------------------------------------------------------------------------
 # region if size optimization yes, then choose parameters that are going to be optimized
 
-if control.size_optimization == 'yes':
+if control.design_optimization == 'yes':
     list_param_to_var = []
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
@@ -171,26 +177,27 @@ if control.size_optimization == 'yes':
         # method_value = getattr(globals()[element],'list_param')
         list_param_to_var = list_param_to_var + method_value
 
-    df_size_optimization = pd.DataFrame({'list_altered':list_param_to_var})
-    df_size_optimization['choice'] = 0
-    df_size_optimization['lower bound'] = 0
-    df_size_optimization['upper bound'] = 0
+    df_design_optimization = pd.DataFrame({'list_altered':list_param_to_var})
+    df_design_optimization['choice'] = 0
+    df_design_optimization['lower bound'] = 0
+    df_design_optimization['upper bound'] = 0
 
     #writes to input file in order
     with pd.ExcelWriter(path_input + 'input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
-        df_size_optimization.to_excel(writer,sheet_name = 'parameters_to_variables',index = False)
+        df_design_optimization.to_excel(writer,sheet_name = 'parameters_to_variables',index = False)
     input_time_7 = time.time()
+    chime.info(sync = True)
     input("\nPlease insert the parameters that are going to be optimized n the sheet 'param_to_variables' of the file 'input.xlsx'...")
     input_time_8 = time.time()
     print('please wait...')
 
-    df_size_optimization = pd.read_excel(path_input + 'input.xlsx',sheet_name = 'parameters_to_variables', index_col = 0)
-    df_size_optimization.index.title = None
-    df_size_optimization = df_size_optimization[df_size_optimization['choice'] == 1]
+    df_design_optimization = pd.read_excel(path_input + 'input.xlsx',sheet_name = 'parameters_to_variables', index_col = 0)
+    df_design_optimization.index.title = None
+    df_design_optimization = df_design_optimization[df_design_optimization['choice'] == 1]
 
-    list_altered_variables = df_size_optimization.index.tolist()
-    list_upper_value = df_size_optimization['upper bound'].tolist()
-    list_lower_value = df_size_optimization['lower bound'].tolist()
+    list_altered_variables = df_design_optimization.index.tolist()
+    list_upper_value = df_design_optimization['upper bound'].tolist()
+    list_lower_value = df_design_optimization['lower bound'].tolist()
     
     for i in df_aux.index:
         element = df_aux['element'].iloc[i]
@@ -591,7 +598,6 @@ for k,df in enumerate(list_split):
 
     # Organize and export the DataFrame with the variable values
     df_time_dependent_variable_values = utils.organize_output_columns(df_time_dependent_variable_values,df_aux)
-    # df_time_dependent_variable_values.to_excel(path_output +'/time dependant variables/'+ 'df_time_dependent_variable_values' + str(k) + '.xlsx',index = False)
 
     if control.receding_horizon == 'yes':
         if k == 0:
@@ -601,7 +607,7 @@ for k,df in enumerate(list_split):
     else:
         df_final = df_time_dependent_variable_values.copy()
 
-if control.size_optimization == 'yes':
+if control.design_optimization == 'yes':
     df_scalar_variable_values = pd.DataFrame([variable_values_scalar], columns = variable_names_scalar).T
     df_scalar_variable_values.columns = ['value']
     df_scalar_variable_values.to_excel(path_output + 'df_scalar_variables.xlsx')
@@ -628,8 +634,8 @@ utils.charts_generator(control,df_aux,df_domains)
 # Record the end time
 end_time = time.time()
 
-# # Calculate and print the elapsed time
-# if control.size_optimization == 'yes':
+# Calculate and print the elapsed time
+# if control.design_optimization == 'yes':
 #     elapsed_time = end_time - (input_time_2 - input_time_1) - (input_time_4 - input_time_3) - (input_time_6 - input_time_5) - (input_time_8 - input_time_7) -start_time
 # else:
 #     elapsed_time = end_time - (input_time_2 - input_time_1) - (input_time_4 - input_time_3) - (input_time_6 - input_time_5) -start_time
@@ -637,3 +643,4 @@ end_time = time.time()
 elapsed_time = end_time - start_time
 
 print(f"Elapsed time: {elapsed_time} seconds")
+chime.success(sync=True)

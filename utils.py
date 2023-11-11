@@ -11,7 +11,6 @@ import os
 import inspect
 
 
-
 def write_excel(df,path, name_sheet, name_file, boolean):
     with pd.ExcelWriter(path + name_file,mode = 'a',engine = 'openpyxl', if_sheet_exists='replace') as writer:
         df.to_excel(writer,sheet_name = name_sheet, index = boolean)
@@ -294,7 +293,7 @@ def create_revenue_and_stock_equations(df_domains,df_input_other,control):
         #list with expression of total revenues
         list_revenue_total = ['model.total_revenue[t] ==']
         if list_expressions_rev == []:
-            list_revenue_total = list_revenue_total  + '0'
+            list_revenue_total[-1] = list_revenue_total[-1] + '0'
         else:
             for j in list_variables_rev:
                 list_revenue_total[-1] = list_revenue_total[-1] + ' + model.' + j + '[t]'

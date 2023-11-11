@@ -23,7 +23,7 @@ class Generator:
                                'within = pyo.NonNegativeReals'] # this list contains the type of variable that has to be created.
                                                                 # 
 
-        #these lists are used when transforming parameters into variables, when selecting size_optimization This list should stay empty 
+        #these lists are used when transforming parameters into variables, when selecting design_optimization This list should stay empty 
         self.list_altered_var = []
         self.list_text_altered_var = []
 
@@ -35,7 +35,6 @@ class Generator:
         self.param_gen_series = [10] * control.time_span # Units in kWh by default, can be altered if desired
         self.param_gen_spec_inv = 100 # specific emissions, unit is defined by the rule of accounting emissions
         self.param_gen_lifetime = 20 * 8760 # lifetime of the device in hours. After one lifetime, investment cost are repeated
-        self.param_gen_compensation = 0.09 # parameter for financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         self.write_gen_series(control) 
 
@@ -101,13 +100,16 @@ class pv(Generator):
         self.param_pv_area = 100 # total size of pv device [m^2]
         self.param_pv_maintenance = 5 # maintenance costs per kWp and year [€/kWp/yr] (IEP)
         self.param_pv_repair = 10 # repair costs per kWp and year [€/kWp/yr] (IEP)
-        self.param_pv_kWp_per_area  = 0.12 # max power of pv device [kWP/m^2]
+        self.param_pv_kWp_per_area  = 0.12 # max power of pv device [kWp/m^2] https://www.sciencedirect.com/science/article/pii/S2214785321032946#:~:text=The%20three%20systems%20are%20based,(1.55%20kWp)%20PV%20modules.
         self.param_pv_inv_per_kWp = 1000 # invesment cost per kWp of generation [€/kWp] (IEP)
         self.param_pv_lifetime = 25 * 8760 # lifetime of panels in hours [hs]
         self.param_pv_spec_em = 0 # specifc emissions per kWh generated [kgCO2eq/kWh]
-        self.param_pv_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
-
         self.param_E_pv_solar = [0.12] * control.time_span # [kWh/m^2] series for solar radiation input, in case no data is given in "series" sheet of input file
+
+        self.param_pv_number_of_periods = control.number_of_periods
+        self.param_pv_interest_rate = control.interest_rate
+        self.param_pv_period_interest_rate = self.param_pv_interest_rate / 12 # aproximating annual interest rate do monthly interest rate
+        self.param_pv_financial_coeficient = ((self.param_pv_period_interest_rate)*(1+self.param_pv_period_interest_rate)**(self.param_pv_number_of_periods))/((1+self.param_pv_period_interest_rate)**(self.param_pv_number_of_periods)-1)
 
         self.write_E_pv_solar(control)
 
@@ -131,13 +133,21 @@ class pv(Generator):
     def constraint_emissions(model,t):
         return model.pv_emissions[t] == model.P_from_pv[t] * model.param_pv_spec_em
     
+    # def constraint_investment_costs(model,t):
+    #     if t == 1:
+    #         return model.pv_inv_costs[t] == model.param_pv_area * model.param_pv_kWp_per_area * model.param_pv_inv_per_kWp
+        
+    #     elif t % int(model.param_pv_lifetime) == 0:
+    #         return model.pv_inv_costs[t] == model.param_pv_area * model.param_pv_kWp_per_area * model.param_pv_inv_per_kWp
+        
+    #     else:
+    #         return model.pv_inv_costs[t] == 0
+
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.pv_inv_costs[t] == model.param_pv_area * model.param_pv_kWp_per_area * model.param_pv_inv_per_kWp
-        
-        elif t % int(model.param_pv_lifetime) == 0:
-            return model.pv_inv_costs[t] == model.param_pv_area * model.param_pv_kWp_per_area * model.param_pv_inv_per_kWp
-        
+            return model.pv_inv_costs[t] == (model.param_pv_area * model.param_pv_kWp_per_area * model.param_pv_inv_per_kWp)* model.param_pv_financial_coeficient
+        elif t % int(30*24) == 0 and t < model.param_pv_number_of_periods * 30 * 24:
+            return model.pv_inv_costs[t] == (model.param_pv_area * model.param_pv_kWp_per_area * model.param_pv_inv_per_kWp)* model.param_pv_financial_coeficient
         else:
             return model.pv_inv_costs[t] == 0
 
@@ -169,10 +179,14 @@ class solar_th(Generator):
         self.param_solar_th_spec_em = 0 # specifc emissions per kWh generated [kgCO2eq/kWh]
         self.param_solar_th_lifetime = 20 * 8760  # lifetime of panels in years [yrs]
         self.param_solar_th_inv_per_area = 700 # # invesment cost per m^2 of installed device [€/m^2] (IEP)
-        self.param_solar_th_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         #default series
         self.param_E_solar_th_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
+
+        self.param_solar_th_number_of_periods = control.number_of_periods
+        self.param_solar_th_interest_rate = control.interest_rate
+        self.param_solar_th_period_interest_rate = self.param_solar_th_interest_rate / 12 # aproximating annual interest rate do monthly interest rate
+        self.param_solar_th_financial_coeficient = ((self.param_solar_th_period_interest_rate)*(1+self.param_solar_th_period_interest_rate)**(self.param_solar_th_number_of_periods))/((1+self.param_solar_th_period_interest_rate)**(self.param_solar_th_number_of_periods)-1)
 
         self.write_E_solar_th_solar(control)
 
@@ -196,13 +210,21 @@ class solar_th(Generator):
     def constraint_emissions(model,t):
         return model.solar_th_emissions[t] == model.Q_from_solar_th[t] * model.param_solar_th_spec_em
     
+    # def constraint_investment_costs(model,t):
+    #     if t == 1:
+    #         return model.solar_th_inv_costs[t] == model.param_solar_th_area * model.param_solar_th_inv_per_area
+        
+    #     elif t % int(model.param_solar_th_lifetime) == 0:
+    #         return model.solar_th_inv_costs[t] == model.param_solar_th_area * model.param_solar_th_inv_per_area
+        
+    #     else:
+    #         return model.solar_th_inv_costs[t] == 0
+        
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.solar_th_inv_costs[t] == model.param_solar_th_area * model.param_solar_th_inv_per_area
-        
-        elif t % int(model.param_solar_th_lifetime) == 0:
-            return model.solar_th_inv_costs[t] == model.param_solar_th_area * model.param_solar_th_inv_per_area
-        
+            return model.solar_th_inv_costs[t] == (model.param_solar_th_area * model.param_solar_th_inv_per_area)* model.param_solar_th_financial_coeficient
+        elif t % int(30*24) == 0 and t < model.param_solar_th_number_of_periods * 30 * 24:
+            return model.solar_th_inv_costs[t] == (model.param_solar_th_area * model.param_solar_th_inv_per_area)* model.param_solar_th_financial_coeficient
         else:
             return model.solar_th_inv_costs[t] == 0
 
@@ -234,10 +256,14 @@ class pvt(Generator):
         self.param_pvt_spec_em = 0 # specific emission values [kgCO2eq/kWh] 
         self.param_pvt_life_time = 20 * 8760 # lifetime of panels in years, same as PV [yr]
         self.param_pvt_inv_per_area = 850 # investments costs in relation to total area of installed device  [€/m^2] (IEP)
-        self.param_pvt_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         #default values for series parameters
         self.param_E_pvt_solar = [0.12] * control.time_span # kWh/m^2 series for solar irradiation input, in case none is given
+
+        self.param_pvt_number_of_periods = control.number_of_periods
+        self.param_pvt_interest_rate = control.interest_rate
+        self.param_pvt_period_interest_rate = self.param_pvt_interest_rate / 12 # aproximating annual interest rate do monthly interest rate
+        self.param_pvt_financial_coeficient = ((self.param_pvt_period_interest_rate)*(1+self.param_pvt_period_interest_rate)**(self.param_pvt_number_of_periods))/((1+self.param_pvt_period_interest_rate)**(self.param_pvt_number_of_periods)-1)
 
         self.write_E_pvt_solar(control)
 
@@ -263,13 +289,21 @@ class pvt(Generator):
     def constraint_emissions(model,t):
         return model.pvt_emissions[t] == (model.Q_from_pvt[t] + model.P_from_pvt[t]) * model.param_pvt_spec_em
 
+    # def constraint_investment_costs(model,t):
+    #     if t == 1:
+    #         return model.pvt_inv_costs[t] == model.param_pvt_area * model.param_pvt_inv_per_area
+        
+    #     elif t % int(model.param_pvt_life_time) == 0:
+    #         return model.pvt_inv_costs[t] == model.param_pvt_area * model.param_pvt_inv_per_area
+        
+    #     else:
+    #         return model.pvt_inv_costs[t] == 0
+
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.pvt_inv_costs[t] == model.param_pvt_area * model.param_pvt_inv_per_area
-        
-        elif t % int(model.param_pvt_life_time) == 0:
-            return model.pvt_inv_costs[t] == model.param_pvt_area * model.param_pvt_inv_per_area
-        
+            return model.pvt_inv_costs[t] == (model.param_pvt_area * model.param_pvt_inv_per_area)* model.param_pvt_financial_coeficient
+        elif t % int(30*24) == 0 and t < model.param_pvt_number_of_periods * 30 * 24:
+            return model.pvt_inv_costs[t] == (model.param_pvt_area * model.param_pvt_inv_per_area)* model.param_pvt_financial_coeficient
         else:
             return model.pvt_inv_costs[t] == 0
         
@@ -306,17 +340,20 @@ class CHP(Generator):
         self.param_P_CHP_min = 0.2 * self.param_P_CHP_max # min operation power of CHP [kW]
         self.param_CHP_P_to_Q_ratio = 0.5 # In german, Stromkennzahl, relation Pel/Pth, [-] https://www.energieatlas.bayern.de/thema_energie/kwk/anlagentypen
         self.param_CHP_eff = 0.8 # Overall efficiency of CHP [-] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden.
-        self.param_CHP_fuel_price = 0.09463 # cost per kWh of fuel consumed [€/kWh] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden
+        self.param_CHP_fuel_price = 0.10 # cost per kWh of fuel consumed [€/kWh] netto preis https://www.destatis.de/DE/Themen/Wirtschaft/Preise/Erdgas-Strom-DurchschnittsPreise/_inhalt.html  https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden 
         self.param_CHP_spec_em = 0.200 # emissions due to burning of 1 kWh of the fuel [kgCO2eq/kWh] https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=20008075
         self.param_CHP_inv_costs_per_power = 1700 # investments costs per electric power https://www.heizungsfinder.de/bhkw/kosten-preise/anschaffungskosten
         self.param_CHP_maintenance_costs = 0.04 # costs of maintenance per generated kWh [€/kWh] https://partner.mvv.de/blog/welche-bhkw-kosten-fallen-in-der-anschaffung-und-beim-betrieb-an-bhkw#:~:text=Wartung%20und%20Bedienung,75%20Cent%20pro%20kWh%20rechnen.
         self.param_CHP_bonus = 0.09 # KWK-Bonus, compensation for energy from CHP sold to net [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3     https://www.bhkw-infozentrum.de/wirtschaftlichkeit-bhkw-kwk/ueblicher_preis_bhkw.html
-        self.param_CHP_not_used_energy_compensation = 0.01 #  compensaton for decentralised energy generation [€/kWh] https://www.heizungsfinder.de/bhkw/wirtschaftlichkeit/einspeiseverguetung#3
-        self.param_CHP_compensation = self.param_CHP_bonus + self.param_CHP_not_used_energy_compensation # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
         self.param_CHP_lifetime = 20 * 8760 # total lifespan of device in hours [hs]
 
         self.param_CHP_M1 = 10000
         self.param_CHP_M2 = 10000
+
+        self.param_CHP_number_of_periods = control.number_of_periods
+        self.param_CHP_interest_rate = control.interest_rate
+        self.param_CHP_period_interest_rate = self.param_CHP_interest_rate / 12 # aproximating annual interest rate do monthly interest rate
+        self.param_CHP_financial_coeficient = ((self.param_CHP_period_interest_rate)*(1+self.param_CHP_period_interest_rate)**(self.param_CHP_number_of_periods))/((1+self.param_CHP_period_interest_rate)**(self.param_CHP_number_of_periods)-1)
 
 
     # linearized equations to define min power limit. Original equation was: model.P_from_CHP[t] >= model.param_P_CHP_min * model.CHP_K[t] https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
@@ -367,13 +404,21 @@ class CHP(Generator):
     def constraint_emissions(model,t):
         return model.CHP_emissions[t] == model.CHP_fuel_cons[t] * model.param_CHP_spec_em
     
+    # def constraint_investment_costs(model,t):
+    #     if t == 1:
+    #         return model.CHP_inv_costs[t] == model.param_P_CHP_max * model.param_CHP_inv_costs_per_power
+        
+    #     elif t % int(model.param_CHP_lifetime) == 0:
+    #         return model.CHP_inv_costs[t] == model.param_P_CHP_max * model.param_CHP_inv_costs_per_power
+        
+    #     else:
+    #         return model.CHP_inv_costs[t] == 0
+        
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.CHP_inv_costs[t] == model.param_P_CHP_max * model.param_CHP_inv_costs_per_power
-        
-        elif t % int(model.param_CHP_lifetime) == 0:
-            return model.CHP_inv_costs[t] == model.param_P_CHP_max * model.param_CHP_inv_costs_per_power
-        
+            return model.CHP_inv_costs[t] == (model.param_P_CHP_max * model.param_CHP_inv_costs_per_power) * model.param_CHP_financial_coeficient
+        elif t % int(30*24) == 0 and t < model.param_CHP_number_of_periods * 30 * 24:
+            return model.CHP_inv_costs[t] == (model.param_P_CHP_max * model.param_CHP_inv_costs_per_power) * model.param_CHP_financial_coeficient
         else:
             return model.CHP_inv_costs[t] == 0
 
@@ -409,17 +454,21 @@ class gas_boiler(Generator):
         self.param_Q_gas_boiler_max = 20 # max power that can be generated with this device [kW]
         self.param_Q_gas_boiler_min = 0.2 * self.param_Q_gas_boiler_max # min power limitation when this device is in operation [kW]
         self.param_gas_boiler_eff = 0.95 # efficency when converting fuel into thermal energy [-] 
-        # self.param_gas_boiler_fuel_cons_ratio = 90.09 #dm3 per kWh of P_from_CHP * 1h  
-        self.param_gas_boiler_fuel_price = 0.09463 # cost per kWh of fuel consumed [€/kWh] https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden
+        self.param_gas_boiler_fuel_price = 0.10 # cost per kWh of fuel consumed [€/kWh] netto preis https://www.destatis.de/DE/Themen/Wirtschaft/Preise/Erdgas-Strom-DurchschnittsPreise/_inhalt.html  https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden 
         self.param_gas_boiler_spec_em = 0.200 # emissions due to burning of 1 kWh of the fuel [kgCO2eq/kWh] https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=20008075
-        self.param_gas_boiler_maintenance = 1875 #maintenace costs per kW of installed capacity per  year [€/kW/yr] (IEP)
-        self.param_gas_boiler_repair = 1875 #repair costs per kW of installed capacity per  year [€/kW/yr] (IEP)
+        self.param_gas_boiler_maintenance = 1875 # maintenace costs per kW of installed capacity per  year [€/kW/yr] (IEP)
+        self.param_gas_boiler_repair = 1875 # repair costs per kW of installed capacity per  year [€/kW/yr] (IEP)
         self.param_gas_boiler_inv_costs_per_power = 125 # investment costs per max kW of installed device [€/kW]
         self.param_gas_boiler_lifetime = 20 * 8760 # total life span of the device [hs]
-        self.param_gas_boiler_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
         
         self.param_gas_boiler_M1 = 10000
         self.param_gas_boiler_M2 = 10000
+
+        self.param_gas_boiler_number_of_periods = control.number_of_periods
+        self.param_gas_boiler_interest_rate = control.interest_rate
+        self.param_gas_boiler_period_interest_rate = self.param_gas_boiler_interest_rate / 12 # aproximating annual interest rate do monthly interest rate
+        self.param_gas_boiler_financial_coeficient = ((self.param_gas_boiler_period_interest_rate)*(1+self.param_gas_boiler_period_interest_rate)**(self.param_gas_boiler_number_of_periods))/((1+self.param_gas_boiler_period_interest_rate)**(self.param_gas_boiler_number_of_periods)-1)
+
     
 
     # linearized equations to define min power limit. Original equation was: model.Q_from_gas_boiler[t] >= model.param_Q_gas_boiler_min https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
@@ -469,13 +518,21 @@ class gas_boiler(Generator):
     def constraint_emissions(model,t):
         return model.gas_boiler_emissions[t] == model.gas_boiler_fuel_cons[t] * model.param_gas_boiler_spec_em
     
+    # def constraint_investment_costs(model,t):
+    #     if t == 1:
+    #         return model.gas_boiler_inv_costs[t] == model.param_Q_gas_boiler_max * model.param_gas_boiler_inv_costs_per_power
+        
+    #     elif t % int(model.param_gas_boiler_lifetime) == 0:
+    #         return model.gas_boiler_inv_costs[t] == model.param_Q_gas_boiler_max * model.param_gas_boiler_inv_costs_per_power
+        
+    #     else:
+    #         return model.gas_boiler_inv_costs[t] == 0
+        
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.gas_boiler_inv_costs[t] == model.param_Q_gas_boiler_max * model.param_gas_boiler_inv_costs_per_power
-        
-        elif t % int(model.param_gas_boiler_lifetime) == 0:
-            return model.gas_boiler_inv_costs[t] == model.param_Q_gas_boiler_max * model.param_gas_boiler_inv_costs_per_power
-        
+            return model.gas_boiler_inv_costs[t] == (model.param_Q_gas_boiler_max * model.param_gas_boiler_inv_costs_per_power) * model.param_gas_boiler_financial_coeficient
+        elif t % int(30*24) == 0 and t < model.param_gas_boiler_number_of_periods * 30 * 24:
+            return model.gas_boiler_inv_costs[t] == (model.param_Q_gas_boiler_max * model.param_gas_boiler_inv_costs_per_power) * model.param_gas_boiler_financial_coeficient
         else:
             return model.gas_boiler_inv_costs[t] == 0
 
@@ -515,10 +572,14 @@ class heat_pump(Generator):
         self.param_heat_pump_repair = 11 # repair costs per installed kW capacity and year [€/kW] (IEP)
         self.param_heat_pump_spec_op_costs = 12 # operation costs per installed kW capacity and year [€/kW] (IEP)
         self.param_heat_pump_lifetime = 20 * 8760 # total lifespan of device [hs]
-        self.param_heat_pump_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         self.param_heat_pump_M1 = 10000
         self.param_heat_pump_M2 = 10000
+
+        self.param_heat_pump_number_of_periods = control.number_of_periods
+        self.param_heat_pump_interest_rate = control.interest_rate
+        self.param_heat_pump_period_interest_rate = self.param_heat_pump_interest_rate / 12 # aproximating annual interest rate do monthly interest rate
+        self.param_heat_pump_financial_coeficient = ((self.param_heat_pump_period_interest_rate)*(1+self.param_heat_pump_period_interest_rate)**(self.param_heat_pump_number_of_periods))/((1+self.param_heat_pump_period_interest_rate)**(self.param_heat_pump_number_of_periods)-1)
 
 
     def constraint_generation_rule(model,t):
@@ -565,19 +626,26 @@ class heat_pump(Generator):
     def constraint_operation_costs(model,t):
         return model.heat_pump_op_costs[t] == model.param_P_heat_pump_max * (model.param_heat_pump_maintenance + model.param_heat_pump_spec_op_costs + model.param_heat_pump_repair) / (365 * 24 / model.time_step)
 
+    # def constraint_investment_costs(model,t):
+    #     if t == 1:
+    #         return model.heat_pump_inv_costs[t] == model.param_heat_pump_spec_inv_costs * model.param_P_heat_pump_max
+        
+    #     elif t % int(model.param_heat_pump_lifetime) == 0:
+    #         return model.heat_pump_inv_costs[t] == model.param_heat_pump_spec_inv_costs * model.param_P_heat_pump_max
+
+    #     else:
+    #         return model.heat_pump_inv_costs[t] == 0
+        
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.heat_pump_inv_costs[t] == model.param_heat_pump_spec_inv_costs * model.param_P_heat_pump_max
-        
-        elif t % int(model.param_heat_pump_lifetime) == 0:
-            return model.heat_pump_inv_costs[t] == model.param_heat_pump_spec_inv_costs * model.param_P_heat_pump_max
-
+            return model.heat_pump_inv_costs[t] == (model.param_heat_pump_spec_inv_costs * model.param_P_heat_pump_max) * model.param_heat_pump_financial_coeficient
+        elif t % int(30*24) == 0 and t < model.param_heat_pump_number_of_periods * 30 * 24:
+            return model.heat_pump_inv_costs[t] == (model.param_heat_pump_spec_inv_costs * model.param_P_heat_pump_max) * model.param_heat_pump_financial_coeficient
         else:
             return model.heat_pump_inv_costs[t] == 0
 
     def constraint_emissions(model,t): 
         return model.heat_pump_emissions[t] == model.P_to_heat_pump[t] * model.param_heat_pump_spec_em
-
 
 
 
@@ -659,18 +727,22 @@ class bat(Storage):
         self.param_bat_c_rate_ch = 1 # c-rate of the battery for charging. Specifices the max power of charging in relation to its capacity [1/hr]
         self.param_bat_c_rate_dis = 1 # c-rate of the battery for discharging. Specifices the max power of discharging in relation to its capacity [1/hr]
         self.param_bat_spec_op_costs = 0 # specifies the operation cost of the battery per kWh flow in the battery [€/kWh]
-        self.param_bat_spec_em = 50 # embodied emission per kWh capacity of the battery in EU. file: 1-s2.0-S0921344922004402-main [kgCO2eq/kWh]
+        self.param_bat_spec_em = 50 # value for this paper is 50 embodied emission per kWh capacity of the battery in EU. file: 1-s2.0-S0921344922004402-main [kgCO2eq/kWh]
         self.param_bat_DoD = 0.7 # maximum depth of discharge of the battery [-]
         self.param_bat_inv_per_capacity = 650 # investment costs per installed kWh of capacity. [€/kWh]
         self.param_bat_cycles = 9000 # max number of full cyces before battery is worn out beyond operation [# cycles]
         self.param_bat_lifetime = 10 * 8760 # total lifespan of the device in hours [hs]
-        self.param_bat_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         self.param_bat_energy_starting_index = 1 # parameter created to connect energy of the battery with previous optimization horizon when using receding horizon optimization
         self.param_bat_inv_costs_starting_index = 1 # parameter created to connect investment costs with previous optimization horizon when using receding horizon optimization
 
         self.param_bat_M1 = 10000 # parameter created for linearization using Big M method.
         self.param_bat_M2 = 10000 # parameter created for linearization using Big M method.
+
+        self.param_bat_number_of_periods = control.number_of_periods
+        self.param_bat_interest_rate = control.interest_rate
+        self.param_bat_period_interest_rate = self.param_bat_interest_rate /12 # aproximating annual interest rate do monthly interest rate
+        self.param_bat_financial_coeficient = ((self.param_bat_period_interest_rate)*(1+self.param_bat_period_interest_rate)**(self.param_bat_number_of_periods))/((1+self.param_bat_period_interest_rate)**(self.param_bat_number_of_periods)-1)
 
         if control.receding_horizon == 'yes':
             self.param_bat_receding_horizon = 1
@@ -740,15 +812,23 @@ class bat(Storage):
     
     #emissions equation accounts for battery embodied CO2 emissions 
     def constraint_emissions(model,t):
-        return model.bat_emissions[t] == (model.P_from_bat[t] + model.P_to_bat[t]) * model.param_bat_spec_em / (model.param_bat_cycles*2)
+        return model.bat_emissions[t] == (model.P_from_bat[t] + model.P_to_bat[t]) * (model.param_bat_spec_em /((1-model.param_bat_DoD) * 2 * model.param_bat_cycles))
     
+    # def constraint_investment_costs(model,t):
+    #     if t == 1:
+    #         return model.bat_inv_costs[t] == model.param_bat_E_max * model.param_bat_inv_per_capacity
+        
+    #     elif t % int(model.param_bat_lifetime) == 0:
+    #         return model.bat_inv_costs[t] == model.param_bat_E_max * model.param_bat_inv_per_capacity
+        
+    #     else:
+    #         return model.bat_inv_costs[t] == 0
+        
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.bat_inv_costs[t] == model.param_bat_E_max * model.param_bat_inv_per_capacity
-        
-        elif t % int(model.param_bat_lifetime) == 0:
-            return model.bat_inv_costs[t] == model.param_bat_E_max * model.param_bat_inv_per_capacity
-        
+            return model.bat_inv_costs[t] == (model.param_bat_E_max * model.param_bat_inv_per_capacity) * model.param_bat_financial_coeficient
+        elif t % int(30*24) == 0 and t < model.param_bat_number_of_periods * 30 * 24:
+            return model.bat_inv_costs[t] == (model.param_bat_E_max * model.param_bat_inv_per_capacity) * model.param_bat_financial_coeficient
         else:
             return model.bat_inv_costs[t] == 0
 
@@ -789,19 +869,24 @@ class bat_with_aging(Storage):
         self.param_bat_with_aging_c_rate_ch = 1 # c-rate of the battery for charging. Specifices the max power of charging in relation to its capacity [1/hr]
         self.param_bat_with_aging_c_rate_dis = 1 # c-rate of the battery for discharging. Specifices the max power of discharging in relation to its capacity [1/hr]
         self.param_bat_with_aging_spec_op_costs = 0.01 # specifies the operation cost of the battery per kWh flow in the battery [€/kWh]
-        self.param_bat_with_aging_spec_em = 50 # embodied emission per kWh capacity of the battery in EU. file: 1-s2.0-S0921344922004402-main [kgCO2eq/kWh]
+        self.param_bat_with_aging_spec_em = 50 # This paper has the value of 50 for embodied emission per kWh capacity of the battery in EU. file: 1-s2.0-S0921344922004402-main [kgCO2eq/kWh]
         self.param_bat_with_aging_DoD = 0.7 # max depth of discharge of energy without damaging battery [-]
         self.param_bat_with_aging_final_SoH = 0.7 # max state of charge of battery at the end of lifetime, state of heatlh [-]
         self.param_bat_with_aging_cycles = 9000 # full cycles before final SoH is reached and battery is replaced [# cycles]
         self.param_bat_with_aging_aging = (self.param_bat_with_aging_E_max_initial * (1 -self.param_bat_with_aging_final_SoH)) / (self.param_bat_with_aging_cycles * 2 * self.param_bat_with_aging_E_max_initial) / self.param_bat_with_aging_E_max_initial # state of charge lost for kWh going through the battery.
         self.param_bat_with_aging_inv_per_capacity = 650 # investment costs of battery per kWh of installed capacity [kWh]
-        self.param_bat_with_aging_compensation = 0.01 # financial compensation for each kWh sold to the net. This value is accounted additionally to the market's spot price [€/kWh]
 
         self.param_bat_with_aging_SOC_starting_index = 1 # parameter created to connect state of charge of the battery with previous optimization horizon when using receding horizon optimization
         self.param_bat_with_aging_cumulated_aging_starting_index = 1 # parameter created to connect accumulated aging of the battery with previous optimization horizon when using receding horizon optimization
         self.param_bat_with_aging_inv_costs_starting_index = 1 # parameter created to connect investment costs of the battery with previous optimization horizon when using receding horizon optimization
         self.param_bat_with_aging_integer_starting_index = 1 # parameter created to connect logical variable of the battery with previous optimization horizon when using receding horizon optimization
         
+        self.param_bat_with_aging_number_of_periods = control.number_of_periods
+        self.param_bat_with_aging_interest_rate = control.interest_rate
+        self.param_bat_with_aging_period_interest_rate = self.param_bat_with_aging_interest_rate / 12 # aproximating annual interest rate do monthly interest rate
+        self.param_bat_with_aging_financial_coeficient = ((self.param_bat_with_aging_period_interest_rate)*(1+self.param_bat_with_aging_period_interest_rate)**(self.param_bat_with_aging_number_of_periods))/((1+self.param_bat_with_aging_period_interest_rate)**(self.param_bat_with_aging_number_of_periods)-1)
+
+
         if control.receding_horizon == 'yes':
             self.param_bat_with_aging_receding_horizon = 1
         else:
@@ -876,17 +961,27 @@ class bat_with_aging(Storage):
         return model.bat_with_aging_op_costs[t] == model.param_bat_with_aging_E_max_initial * model.param_bat_with_aging_spec_op_costs
     
     def constraint_emissions(model,t):
-        return model.bat_with_aging_emissions[t] == (model.P_from_bat_with_aging[t] + model.P_to_bat_with_aging[t]) * model.param_bat_with_aging_spec_em/(model.param_bat_with_aging_cycles*2)
+        return model.bat_with_aging_emissions[t] == (model.P_from_bat_with_aging[t] + model.P_to_bat_with_aging[t]) * (model.param_bat_with_aging_spec_em /
+                                                                                                                       ((1-model.param_bat_with_aging_DoD) * 2 *
+                                                                                                                        model.param_bat_with_aging_cycles))
     
+    # def constraint_investment_costs(model,t):
+    #     if t == 1:
+    #         return model.bat_with_aging_inv_costs[t] == model.param_bat_with_aging_E_max_initial * model.param_bat_with_aging_inv_per_capacity
+        
+    #     elif t == model.starting_index and model.param_bat_with_aging_receding_horizon == 1:
+    #         return model.bat_with_aging_inv_costs[t] == model.param_bat_with_aging_inv_costs_starting_index
+        
+    #     else:
+    #         return model.bat_with_aging_inv_costs[t] == model.param_bat_with_aging_E_max_initial * model.param_bat_with_aging_inv_per_capacity * (model.bat_with_aging_integer[t] - model.bat_with_aging_integer[t-1])
+
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.bat_with_aging_inv_costs[t] == model.param_bat_with_aging_E_max_initial * model.param_bat_with_aging_inv_per_capacity
-        
-        elif t == model.starting_index and model.param_bat_with_aging_receding_horizon == 1:
-            return model.bat_with_aging_inv_costs[t] == model.param_bat_with_aging_inv_costs_starting_index
-        
+            return model.bat_with_aging_inv_costs[t] == (model.param_bat_with_aging_E_max_initial * model.param_bat_with_aging_inv_per_capacity) * model.param_bat_with_aging_financial_coeficient
+        elif t % int(30*24) == 0 and t < model.param_bat_with_aging_number_of_periods * 30 * 24:
+            return model.bat_with_aging_inv_costs[t] == (model.param_bat_with_aging_E_max_initial * model.param_bat_with_aging_inv_per_capacity) * model.param_bat_with_aging_financial_coeficient
         else:
-            return model.bat_with_aging_inv_costs[t] == model.param_bat_with_aging_E_max_initial * model.param_bat_with_aging_inv_per_capacity * (model.bat_with_aging_integer[t] - model.bat_with_aging_integer[t-1])
+            return model.bat_with_aging_inv_costs[t] == 0
 
 
 
@@ -1081,6 +1176,11 @@ class charging_station(Consumer):
                                      'Porsche Taycan' : [250 ,250 ,250 ,250 ,250 ,200 ,200 ,150 ,150 ,150 ,150 ,150 ,150 ,150 ,125 ,125 ,50 ,40 ,50 ,50 ,50],
                                      'Others' : [42.5 ,42.5 ,42.83 ,43.17 ,43.5 ,43.83 ,44.17 ,44.5 ,44.83 ,45.17 ,45.5 ,45.83 ,46.17 ,46.5 ,46.83 ,47.17 ,47.5 ,42.5 ,32.5 ,22.5 ,12.5]}
         
+        self.param_charging_station_number_of_periods = control.number_of_periods
+        self.param_charging_station_interest_rate = control.interest_rate
+        self.param_charging_station_period_interest_rate = self.param_charging_station_interest_rate /12 # aproximating annual interest rate do monthly interest rate
+        self.param_charging_station_financial_coeficient = ((self.param_charging_station_period_interest_rate)*(1+self.param_charging_station_period_interest_rate)**(self.param_charging_station_number_of_periods))/((1+self.param_charging_station_period_interest_rate)**(self.param_charging_station_number_of_periods)-1)
+
         # calling functions to try and read parameter values as soon as class is created
         self.read_parameters(self.dict_parameters,control)
         self.read_series(self.dict_series,control)
@@ -1373,16 +1473,24 @@ class charging_station(Consumer):
     def constraint_operation_costs(model,t):
         return model.charging_station_op_costs[t] == model.param_charging_station_spec_op_costs / (30 * 24 / model.time_step)
     
+    # def constraint_investment_costs(model,t):
+    #     if t == 1:
+    #         return model.charging_station_inv_costs[t] == model.param_charging_station_inv_specific_costs
+    #     else:
+    #         return model.charging_station_inv_costs[t] == 0
+
     def constraint_investment_costs(model,t):
         if t == 1:
-            return model.charging_station_inv_costs[t] == model.param_charging_station_inv_specific_costs
+            return model.charging_station_inv_costs[t] == (model.param_charging_station_inv_specific_costs) * model.param_charging_station_financial_coeficient
+        elif t % int(30*24) == 0 and t < model.param_charging_station_number_of_periods * 30 * 24:
+            return model.charging_station_inv_costs[t] == (model.param_charging_station_inv_specific_costs) * model.param_charging_station_financial_coeficient
         else:
             return model.charging_station_inv_costs[t] == 0
         
     def constraint_emissions(model,t):
         return model.charging_station_emissions[t] == model.param_demand_charging_station[t] * model.param_charging_station_spec_emissions
         # return model.charging_station_emissions[t] == model.param_P_to_charging_station[t] * model.param_charging_station_spec_emissions
-    
+
 
 
 # other classes 
@@ -1398,25 +1506,28 @@ class control:
         self.control_horizon = self.df.loc['control_horizon','value']
         self.path_input = self.df.loc['path_input','value']
         self.path_output = self.df.loc['path_output','value']
-        self.size_optimization = self.df.loc['size_optimization','value']
+        self.design_optimization = self.df.loc['design_optimization','value']
         self.reference_date = self.df.loc['reference_date','value']
         self.path_charts = self.df.loc['path_charts','value']
         self.number_energy_domains = self.df.loc['number_energy_domains','value']
         self.name_file = self.df.loc['name_file','value']
+        self.objective = self.df.loc['objective','value']
+        self.interest_rate = self.df.loc['interest_rate','value']
+        self.number_of_periods = self.df.loc['number_of_periods','value']
 
-        if self.df.loc['objective','value'] == 'emissions':
+        if self.objective == 'emissions':
             self.opt_equation = 'emission_objective'
-        elif self.df.loc['objective','value'] == 'costs':
+        elif self.objective == 'costs':
             self.opt_equation = 'cost_objective'
         else:
             print('\n==========ERROR==========')
             print('Please insert a valid objective for the optimization\n')
             sys.exit()
 
-        if self.df.loc['receding_horizon','value'] == 'yes':
-            if self.df.loc['size_optimization','value'] == 'yes':
+        if self.receding_horizon == 'yes':
+            if self.design_optimization == 'yes':
                 print('\n==========ERROR==========')
-                print('It is not possible to do a size optimization and receiding horizon simultaneously, Please choose one of the two.\n')
+                print('It is not possible to do a design optimization and receiding horizon simultaneously, Please choose one of the two.\n')
                 sys.exit()
             elif self.optimization_horizon > self.time_span:
                 print('\n==========ERROR==========')
@@ -1460,14 +1571,26 @@ class net:
         self.list_text_altered_var =[]
 
         #Setting up default values for series if none are given in input file:
-        self.param_net_stock_price = [0.3] * control.time_span # default price of electric energy sold from network [€/kWh]
-        self.param_net_spec_em = 0.56 # kg of CO2 per kWh
-        # self.param_net_spec_em_Q = 0.24 # kg of CO2 per kWh
+        self.param_net_stock_price = [0.1] * control.time_span # default price of electric energy sold to network [€/kWh]
+        self.param_net_energy_cost = [0.2] * control.time_span # default price of electric energy bought from network [€/kWh]
+
+        self.param_net_spec_em = 0.498 # kg of CO2 per kWh quelle: https://www.umweltbundesamt.de/themen/co2-emissionen-pro-kilowattstunde-strom-stiegen-in
         self.param_net_max_P = 1000 # nominal limit of electric power of the network connection [kW]
 
-        self.write_net_stock_price_electric(control)
+        self.write_net_stock_price(control)
+        self.write_net_energy_cost(control)
 
-    def write_net_stock_price_electric(self,control):
+    def write_net_energy_cost(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'param_series')
+        if 'param_' + self.name_of_instance + '_energy_cost' in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_' + self.name_of_instance + '_energy_cost': self.param_net_energy_cost})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'param_series', index = False)
+    
+    def write_net_stock_price(self,control):
         df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'param_series')
         if 'param_' + self.name_of_instance + '_stock_price' in df_input_series.columns:
             pass
@@ -1476,6 +1599,7 @@ class net:
             df_input_series = pd.concat([df_input_series,df_power], axis =1)
             with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
                 df_input_series.to_excel(writer,sheet_name = 'param_series', index = False)
+
 
     def constraint_max_P(model,t):
         return model.P_from_net[t] <= model.param_net_max_P
@@ -1487,4 +1611,4 @@ class net:
         return model.net_inv_costs[t] == 0
     
     def constraint_operation_costs(model,t):
-        return model.net_op_costs[t] == model.P_from_net[t] * model.param_net_stock_price[t]
+        return model.net_op_costs[t] == model.P_from_net[t] * model.param_net_energy_cost[t]
