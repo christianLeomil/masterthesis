@@ -24,14 +24,14 @@ name_file = 'input.xlsx'
 # creating instance of class that contains infos of how optimization is going to be
 control = classes.control(path_input, name_file)
 
-utils.write_avaliable_elements_and_domain_names(control)
-print("\nPlease insert the number of each avaliable element in sheet 'microgrid_components' of the 'input.xlsx' file.")
-print("Please also input the name of the chosen domains in the sheet 'energy_domains_names' of the input.xlsx file.")
-input_time_1 = time.time()
-chime.info(sync = True)
-input("After inserting values please press enter...")
-input_time_2 = time.time()
-print('please wait...')
+# utils.write_avaliable_elements_and_domain_names(control)
+# print("\nPlease insert the number of each avaliable element in sheet 'microgrid_components' of the 'input.xlsx' file.")
+# print("Please also input the name of the chosen domains in the sheet 'energy_domains_names' of the input.xlsx file.")
+# input_time_1 = time.time()
+# chime.info(sync = True)
+# input("After inserting values please press enter...")
+# input_time_2 = time.time()
+# print('please wait...')
 
 df_elements = pd.read_excel(path_input + name_file, index_col=0, sheet_name = 'microgrid_components')
 df_elements.index.name = None
@@ -40,27 +40,27 @@ df_domains.index.name = None
 
 df_aux = pd.read_excel(control.path_output + 'df_aux.xlsx')
 
-df_aux = utils.create_element_df_and_domain_selection_df(df_elements,df_domains,control)
-print("\nPlease select the domain for each element in the sheet 'domain_selection' of the 'input.xlsx' file.")
-print("In this table, fill the cells containing 'insert here' with desired value. Do not change cells containing '0'.")
-input_time_3 = time.time()
-chime.info(sync = True)
-input("After inserting values please press enter...")
-input_time_4 = time.time()
-print('please wait...')
+# df_aux = utils.create_element_df_and_domain_selection_df(df_elements,df_domains,control)
+# print("\nPlease select the domain for each element in the sheet 'domain_selection' of the 'input.xlsx' file.")
+# print("In this table, fill the cells containing 'insert here' with desired value. Do not change cells containing '0'.")
+# input_time_3 = time.time()
+# chime.info(sync = True)
+# input("After inserting values please press enter...")
+# input_time_4 = time.time()
+# print('please wait...')
 
 df_domain_selection = pd.read_excel(path_input + name_file, index_col = 0, sheet_name = 'domain_selection')
 df_domain_selection.index.name = None
 
-utils.create_connection_revenue_and_stock_matrices(df_domains, df_domain_selection,control)
-print("\nPlease insert the connection between elements for the selected domains in sheet 'connect_domain_' of the 'input.xlsx' file.")
-print("Please also insert the revenue values for energy flows and energy flows that will be sold on the stock exchange in sheets 'revenue_domain and 'stock_domain_ in the 'input.xlsx' file")
-print("In this table,define the connection between elements inserting an 'x' in the matrix where the connection exists.")
-input_time_5 = time.time()
-chime.info(sync = True)
-input("After inserting values please press enter...")
-input_time_6 = time.time()
-print('please wait...')
+# utils.create_connection_revenue_and_stock_matrices(df_domains, df_domain_selection,control)
+# print("\nPlease insert the connection between elements for the selected domains in sheet 'connect_domain_' of the 'input.xlsx' file.")
+# print("Please also insert the revenue values for energy flows and energy flows that will be sold on the stock exchange in sheets 'revenue_domain and 'stock_domain_ in the 'input.xlsx' file")
+# print("In this table,define the connection between elements inserting an 'x' in the matrix where the connection exists.")
+# input_time_5 = time.time()
+# chime.info(sync = True)
+# input("After inserting values please press enter...")
+# input_time_6 = time.time()
+# print('please wait...')
 
 [list_connection_matrices,
  list_expressions, 
@@ -183,13 +183,13 @@ if control.design_optimization == 'yes':
     df_design_optimization['upper bound'] = 0
 
     #writes to input file in order
-    with pd.ExcelWriter(path_input + 'input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
-        df_design_optimization.to_excel(writer,sheet_name = 'parameters_to_variables',index = False)
-    input_time_7 = time.time()
-    chime.info(sync = True)
-    input("\nPlease insert the parameters that are going to be optimized n the sheet 'param_to_variables' of the file 'input.xlsx'...")
-    input_time_8 = time.time()
-    print('please wait...')
+    # with pd.ExcelWriter(path_input + 'input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
+    #     df_design_optimization.to_excel(writer,sheet_name = 'parameters_to_variables',index = False)
+    # input_time_7 = time.time()
+    # chime.info(sync = True)
+    # input("\nPlease insert the parameters that are going to be optimized n the sheet 'param_to_variables' of the file 'input.xlsx'...")
+    # input_time_8 = time.time()
+    # print('please wait...')
 
     df_design_optimization = pd.read_excel(path_input + 'input.xlsx',sheet_name = 'parameters_to_variables', index_col = 0)
     df_design_optimization.index.title = None
