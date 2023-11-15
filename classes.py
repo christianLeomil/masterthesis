@@ -453,11 +453,11 @@ class gas_boiler(Generator):
         #default values for scalar parameters
         self.param_Q_gas_boiler_max = 20 # max power that can be generated with this device [kW]
         self.param_Q_gas_boiler_min = 0.2 * self.param_Q_gas_boiler_max # min power limitation when this device is in operation [kW]
-        self.param_gas_boiler_eff = 0.95 # efficency when converting fuel into thermal energy [-] 
+        self.param_gas_boiler_eff = 0.98 # efficency when converting fuel into thermal energy [-] 
         self.param_gas_boiler_fuel_price = 0.10 # cost per kWh of fuel consumed [€/kWh] netto preis https://www.destatis.de/DE/Themen/Wirtschaft/Preise/Erdgas-Strom-DurchschnittsPreise/_inhalt.html  https://www.energieheld.de/heizung/bhkw#:~:text=Der%20Gasverbrauch%20bei%20einem%20BHKW,also%20etwa%20bei%20114.000%20Kilowattstunden 
         self.param_gas_boiler_spec_em = 0.200 # emissions due to burning of 1 kWh of the fuel [kgCO2eq/kWh] https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=20008075
-        self.param_gas_boiler_maintenance = 1875 # maintenace costs per kW of installed capacity per  year [€/kW/yr] (IEP)
-        self.param_gas_boiler_repair = 1875 # repair costs per kW of installed capacity per  year [€/kW/yr] (IEP)
+        self.param_gas_boiler_maintenance = 1.875 # maintenace costs per kW of installed capacity per  year [€/kW/yr] (IEP)
+        self.param_gas_boiler_repair = 1.875 # repair costs per kW of installed capacity per  year [€/kW/yr] (IEP)
         self.param_gas_boiler_inv_costs_per_power = 125 # investment costs per max kW of installed device [€/kW]
         self.param_gas_boiler_lifetime = 20 * 8760 # total life span of the device [hs]
         
@@ -470,7 +470,7 @@ class gas_boiler(Generator):
         self.param_gas_boiler_financial_coeficient = ((self.param_gas_boiler_period_interest_rate)*(1+self.param_gas_boiler_period_interest_rate)**(self.param_gas_boiler_number_of_periods))/((1+self.param_gas_boiler_period_interest_rate)**(self.param_gas_boiler_number_of_periods)-1)
 
     
-
+    
     # linearized equations to define min power limit. Original equation was: model.Q_from_gas_boiler[t] >= model.param_Q_gas_boiler_min https://or.stackexchange.com/questions/39/how-to-linearize-the-product-of-a-binary-and-a-non-negative-continuous-variable
     
     def constraint_min_generation1(model,t):
@@ -512,8 +512,8 @@ class gas_boiler(Generator):
         return model.Q_from_gas_boiler[t] == model.param_gas_boiler_eff *  model.gas_boiler_fuel_cons[t] / model.time_step
 
     def constraint_operation_costs(model,t):
-        return model.gas_boiler_op_costs[t] == (model.gas_boiler_fuel_cons[t] * model.param_gas_boiler_fuel_price +
-                                               model.param_Q_gas_boiler_max * (model.param_gas_boiler_maintenance + model.param_gas_boiler_repair) / (365 * 24 / model.time_step))
+        return model.gas_boiler_op_costs[t] == (model.gas_boiler_fuel_cons[t] * model.param_gas_boiler_fuel_price) +\
+            model.param_Q_gas_boiler_max * (model.param_gas_boiler_maintenance + model.param_gas_boiler_repair) / (365 * 24 / model.time_step)
     
     def constraint_emissions(model,t):
         return model.gas_boiler_emissions[t] == model.gas_boiler_fuel_cons[t] * model.param_gas_boiler_spec_em
@@ -646,6 +646,7 @@ class heat_pump(Generator):
 
     def constraint_emissions(model,t): 
         return model.heat_pump_emissions[t] == model.P_to_heat_pump[t] * model.param_heat_pump_spec_em
+
 
 
 
@@ -1612,3 +1613,64 @@ class net:
     
     def constraint_operation_costs(model,t):
         return model.net_op_costs[t] == model.P_from_net[t] * model.param_net_energy_cost[t]
+
+class generation_input:
+    domain_type = {'energy_domains':['P_'],
+                   'source_domains':['P_'],
+                   'load_domains':['']}
+    
+    def __init__(self,name_of_instance,control):
+        self.name_of_instance = name_of_instance
+        
+        self.list_var = ['generation_input_emissions',
+                         'generation_input_inv_costs',
+                         'generation_input_op_costs']
+        
+        self.list_text_var = ['within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals',
+                              'within = pyo.NonNegativeReals']
+        
+        self.list_altered_var = []
+        self.list_text_altered_var =[]
+
+        #Setting up default values for series if none are given in input file:
+        self.param_source_from_generation_input = [30] * control.time_span # default price of electric energy sold to network [€/kWh]
+        self.param_generation_input_spec_em = 0 #assumed operating emissions for
+        self.param_generation_input_kWp = 234 # information for SWIVT project option Neubau.
+        self.param_generation_input_inv_per_kWp = 1000
+        
+        self.param_generation_input_number_of_periods = control.number_of_periods
+        self.param_generation_input_interest_rate = control.interest_rate
+        self.param_generation_input_period_interest_rate = self.param_generation_input_interest_rate / 12 # aproximating annual interest rate do monthly interest rate
+        self.param_generation_input_financial_coeficient = ((self.param_generation_input_period_interest_rate)*(1+self.param_generation_input_period_interest_rate)**(self.param_generation_input_number_of_periods))/((1+self.param_generation_input_period_interest_rate)**(self.param_generation_input_number_of_periods)-1)
+
+        self.param_generation_input_maintenance = 5 #values taken from default values of pv class
+        self.param_generation_input_repair = 10 #values taken from default values of pv class
+
+        self.write_source_from_generation_input(control)
+
+    def write_source_from_generation_input(self,control):
+        df_input_series  = pd.read_excel(control.path_input + 'input.xlsx',sheet_name = 'param_series')
+        if 'param_source_from_' + self.name_of_instance in df_input_series.columns:
+            pass
+        else:
+            df_power = pd.DataFrame({'param_source_from_' + self.name_of_instance: self.param_source_from_generation_input})
+            df_input_series = pd.concat([df_input_series,df_power], axis =1)
+            with pd.ExcelWriter(control.path_input + 'input.xlsx', mode = 'a', engine = 'openpyxl', if_sheet_exists= 'replace') as writer:
+                df_input_series.to_excel(writer,sheet_name = 'param_series', index = False)
+
+    def constraint_emissions(model,t):
+        return model.generation_input_emissions[t] == model.param_source_from_generation_input[t] * model.param_generation_input_spec_em
+    
+    def constraint_investment_costs(model,t):
+        if t == 1:
+            return model.generation_input_inv_costs[t] == (model.param_generation_input_kWp * model.param_generation_input_inv_per_kWp)* model.param_generation_input_financial_coeficient
+        elif t % int(30*24) == 0 and t < model.param_generation_input_number_of_periods * 30 * 24:
+            return model.generation_input_inv_costs[t] == (model.param_generation_input_kWp * model.param_generation_input_inv_per_kWp)* model.param_generation_input_financial_coeficient
+        else:
+            return model.generation_input_inv_costs[t] == 0
+    
+    def constraint_operation_costs(model,t):
+        return model.generation_input_op_costs[t] == model.param_generation_input_kWp * (model.param_generation_input_maintenance + model.param_generation_input_repair) / (365 * 24 / model.time_step)
+
+

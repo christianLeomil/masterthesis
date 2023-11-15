@@ -119,7 +119,7 @@ for i,n in enumerate(list_elements):
                 #-----------replacing name of component in variables-----------#
                 modified_source_code = source_code.replace(element_type,element)
 
-                #-----------replacing name of connection variables with names of domain-----------#
+                #-----------replacing name of connection variables with names of domains-----------#
                 list_indexes = eval(df_domain_selection.loc[n,'component_domains'])
                 for i,k in enumerate(list_indexes):
                     to_be_replaced = k + 'from_' + n
@@ -129,6 +129,7 @@ for i,n in enumerate(list_elements):
                     to_be_replaced = k + 'to_' + n
                     replacement = df_domain_selection.loc[n, 'domain_choice' + str(i + 1)] +'_to_' + n
                     modified_source_code = modified_source_code.replace(to_be_replaced, replacement)
+                #-----------replacing name of connection variables with names of domains-----------#
 
                 # print(modified_source_code)
                 compiled_code = compile(modified_source_code, "<string>", "exec")
@@ -183,13 +184,13 @@ if control.design_optimization == 'yes':
     df_design_optimization['upper bound'] = 0
 
     #writes to input file in order
-    # with pd.ExcelWriter(path_input + 'input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
-    #     df_design_optimization.to_excel(writer,sheet_name = 'parameters_to_variables',index = False)
-    # input_time_7 = time.time()
-    # chime.info(sync = True)
-    # input("\nPlease insert the parameters that are going to be optimized n the sheet 'param_to_variables' of the file 'input.xlsx'...")
-    # input_time_8 = time.time()
-    # print('please wait...')
+    with pd.ExcelWriter(path_input + 'input.xlsx',mode = 'a', engine = 'openpyxl',if_sheet_exists= 'replace') as writer:
+        df_design_optimization.to_excel(writer,sheet_name = 'parameters_to_variables',index = False)
+    input_time_7 = time.time()
+    chime.info(sync = True)
+    input("\nPlease insert the parameters that are going to be optimized n the sheet 'param_to_variables' of the file 'input.xlsx'...")
+    input_time_8 = time.time()
+    print('please wait...')
 
     df_design_optimization = pd.read_excel(path_input + 'input.xlsx',sheet_name = 'parameters_to_variables', index_col = 0)
     df_design_optimization.index.title = None

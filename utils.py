@@ -193,8 +193,9 @@ def create_connection_equations(df_domains,control):
                     else:
                         df_connect.loc[j,k] = domain_name + '_' + k + '_' + j
 
-        #creating variable names derived from columns of conection matrix
+        #creating variable names derived from columns of conection matrixs
         list_sub = [domain_name + '_from_' + s for s in df_connect.columns]
+        list_sub = [s.replace(domain_name + '_from_generation_input','param_source_from_generation_input') for s in list_sub]
         df_connect.columns = list_sub
 
         #creating variable names derived from index of conection matrix
