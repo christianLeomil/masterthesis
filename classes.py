@@ -869,8 +869,8 @@ class bat_with_aging(Storage):
         self.param_bat_with_aging_dis_eff = 0.95 # efficiency for discharging device [-]
         self.param_bat_with_aging_c_rate_ch = 1 # c-rate of the battery for charging. Specifices the max power of charging in relation to its capacity [1/hr]
         self.param_bat_with_aging_c_rate_dis = 1 # c-rate of the battery for discharging. Specifices the max power of discharging in relation to its capacity [1/hr]
-        self.param_bat_with_aging_spec_op_costs = 0.01 # specifies the operation cost of the battery per kWh flow in the battery [€/kWh]
-        self.param_bat_with_aging_spec_em = 50 # This paper has the value of 50 for embodied emission per kWh capacity of the battery in EU. file: 1-s2.0-S0921344922004402-main [kgCO2eq/kWh]
+        self.param_bat_with_aging_spec_op_costs = 0 # specifies the operation cost of the battery per kWh flow in the battery [€/kWh]
+        self.param_bat_with_aging_spec_em = 0 # This paper has the value of 50 for embodied emission per kWh capacity of the battery in EU. file: 1-s2.0-S0921344922004402-main [kgCO2eq/kWh]
         self.param_bat_with_aging_DoD = 0.7 # max depth of discharge of energy without damaging battery [-]
         self.param_bat_with_aging_final_SoH = 0.7 # max state of charge of battery at the end of lifetime, state of heatlh [-]
         self.param_bat_with_aging_cycles = 9000 # full cycles before final SoH is reached and battery is replaced [# cycles]
@@ -1089,8 +1089,7 @@ class charging_station(Consumer):
         self.list_altered_var = []
         self.list_text_altered_var =[]
 
-        self.param_charging_station_inv_specific_costs = 200000 # investment costs related to a full operational charging station [€]
-        self.param_charging_station_selling_price = 0.60 # price of selling energy [€/kWh]
+        self.param_charging_station_inv_specific_costs = 100000 # investment costs related to a full operational charging station [€]
         self.param_charging_station_spec_emissions = 0.05 # specific emissions generated per sold kWh [kgCO2eq/kWh]
         self.param_charging_station_spec_op_costs = 200 # specific operation costs per charging station [€/month]
 
@@ -1105,9 +1104,9 @@ class charging_station(Consumer):
                                  'reference_date': self.reference_date,
                                  'number_hours': self.time_span + 1,
                                  'number_days': math.ceil((self.time_span + 1)/24),
-                                 'charging_points' : 2, # number of charging points in the charging station model [# number charging points]
-                                 'charging_station_time_step' : 15,
-                                 'charging_station_max_power': 100} # timesteps used for building the power demand per charging station [min]
+                                 'charging_points' : 4, # number of charging points in the charging station model [# number charging points]
+                                 'charging_station_time_step' : 15, # timesteps used for building the power demand per charging station [min]
+                                 'charging_station_max_power': 100} # max charging power for all the charging station [kW]
         
         self.dict_series = {'list_sheets':['c_staton_mix_capacity','c_staton_mix_capacity','c_staton_mix_capacity','c_station_SoC','c_station_SoC','c_station_SoC',
                                            'c_station_schedule','c_station_schedule','c_station_schedule'],
@@ -1136,7 +1135,7 @@ class charging_station(Consumer):
                         'list_mix_end_SoC':[0,0,0,0,0,0,0,0,0,0,0,0,0.03,0.07,0.1,0.11,0.13,0.17,0.15,0.13,0.11],
 
                         f"{self.name_of_instance}_list_means": [8, 12, 16],
-                        f"{self.name_of_instance}_list_std": [0.5, 0.5, 0.5],
+                        f"{self.name_of_instance}_list_std": [1, 1, 1],
                         f"{self.name_of_instance}_list_size": [5, 5, 5] }
         
         self.dict_charging_curves = {'Tesla MODEL 3' : [125 ,140 ,250 ,240 ,225 ,210 ,200 ,180 ,175 ,155 ,125 ,100 ,90 ,75 ,65 ,60 ,45 ,40 ,30 ,20 ,20],
@@ -1515,6 +1514,9 @@ class control:
         self.objective = self.df.loc['objective','value']
         self.interest_rate = self.df.loc['interest_rate','value']
         self.number_of_periods = self.df.loc['number_of_periods','value']
+        self.optimality_gap = self.df.loc['optimality_gap','value']
+        self.time_limit = self.df.loc['time_limit','value']
+        self.print_optimality_gap = self.df.loc['print_optimality_gap','value']
 
         if self.objective == 'emissions':
             self.opt_equation = 'emission_objective'
