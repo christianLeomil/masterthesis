@@ -38,7 +38,7 @@ df_elements.index.name = None
 df_domains = pd.read_excel(path_input + name_file, index_col = 0, sheet_name = 'energy_domains_names')
 df_domains.index.name = None
 
-df_aux = pd.read_excel(control.path_output + 'df_aux.xlsx')
+# df_aux = pd.read_excel(control.path_output + 'df_aux.xlsx')
 
 df_aux = utils.create_element_df_and_domain_selection_df(df_elements,df_domains,control)
 print("\nPlease select the domain for each element in the sheet 'domain_selection' of the 'input.xlsx' file.")
